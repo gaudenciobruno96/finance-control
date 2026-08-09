@@ -10,6 +10,7 @@ import type { ResumoBackup } from '../../data/backup-validator.js'
 import type { DocumentoBackup } from '../../data/backup-serializer.js'
 import { MoneyInput } from '../components/MoneyInput.js'
 import { ConfirmSheet } from '../components/ConfirmSheet.js'
+import { SyncSettings } from '../components/SyncSettings.js'
 import { useAgora } from '../hooks/useAgora.js'
 import { useApp } from '../hooks/useApp.js'
 import { useAcao, useErro } from '../hooks/useErro.js'
@@ -217,12 +218,16 @@ export function SettingsScreen() {
         )}
       </section>
 
+      <SyncSettings />
+
       <StorageDiagnostics />
 
       <section className={estilos.secao}>
         <h2 className={estilos.titulo}>Sobre</h2>
         <p className={estilos.nota}>
-          Nenhum dado sai deste aparelho. Não há conta, servidor nem sincronização.
+          Sem o backup no GitHub ligado, nenhum dado sai deste aparelho: não há
+          conta nem servidor. Com ele ligado, o app fala com um único endereço —
+          o seu repositório privado — e com nenhum outro.
         </p>
       </section>
 

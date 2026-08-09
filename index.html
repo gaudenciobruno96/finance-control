@@ -10,9 +10,13 @@
       customizados. `frame-ancestors` e HSTS nao funcionam nesta forma; as
       mitigacoes estao documentadas em infrastructure-design.md.
 
-      `connect-src 'none'` e a diretiva mais importante: o app NAO faz nenhuma
-      requisicao de rede em tempo de uso, e declarar isso transforma qualquer
-      tentativa acidental de exfiltracao em erro de console.
+      `connect-src` e a diretiva mais importante. Era `none`, e voltaria a ser
+      se a sincronizacao saisse: a lista tem exatamente um host, e nenhuma
+      outra requisicao de rede e possivel a partir desta pagina. Qualquer
+      tentativa de mandar dado para outro lugar vira erro de console.
+
+      api.github.com existe para o backup no repositorio privado do usuario,
+      ligado por ele nos Ajustes e desligado por padrao.
 
       Nao ha `unsafe-inline` em script-src nem em style-src. A escolha de CSS
       Modules e o que torna isso possivel.
@@ -25,7 +29,7 @@
         style-src 'self';
         img-src 'self' data:;
         font-src 'self';
-        connect-src 'none';
+        connect-src https://api.github.com;
         object-src 'none';
         base-uri 'self';
         form-action 'none';

@@ -1,5 +1,5 @@
 /**
- * Contexto da aplicacao: banco, repositorios e os quatro servicos.
+ * Contexto da aplicacao: banco, repositorios e os servicos.
  *
  * Existe para que as telas nao instanciem nada e para que os testes possam
  * injetar um banco isolado. A alternativa -- cada tela importar `obterBanco()`
@@ -16,6 +16,7 @@ import {
 import { criarPaymentService, type PaymentService } from '../../services/payment-service.js'
 import { criarRuleService, type RuleService } from '../../services/rule-service.js'
 import { criarBackupService, type BackupService } from '../../services/backup-service.js'
+import { criarSyncService, type SyncService } from '../../services/sync-service.js'
 
 export interface App {
   readonly db: BancoFinanceiro
@@ -24,6 +25,7 @@ export interface App {
   readonly pagamento: PaymentService
   readonly regras: RuleService
   readonly backup: BackupService
+  readonly sync: SyncService
 }
 
 export function montarApp(db: BancoFinanceiro): App {
@@ -35,6 +37,7 @@ export function montarApp(db: BancoFinanceiro): App {
     pagamento: criarPaymentService(repos),
     regras: criarRuleService(db, repos),
     backup: criarBackupService(db, repos),
+    sync: criarSyncService(),
   }
 }
 

@@ -1,0 +1,91 @@
+.secao {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-3);
+  padding: var(--espaco-4);
+  border-top: 1px solid var(--cor-borda);
+}
+
+.titulo { font-size: 1.125rem; font-weight: var(--peso-forte); }
+.nota { font-size: 0.8125rem; line-height: 1.5; color: var(--cor-texto-suave); }
+.rotulo { font-size: 0.875rem; color: var(--cor-texto-suave); }
+
+.entrada {
+  min-height: var(--toque-minimo);
+  padding: var(--espaco-2) var(--espaco-3);
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio);
+  background: var(--cor-superficie-alta);
+}
+
+.passos {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-2);
+  padding-left: var(--espaco-4);
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--cor-texto-suave);
+}
+
+.passos code {
+  font-family: ui-monospace, monospace;
+  font-size: 0.8125rem;
+}
+
+.estado {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-2);
+  font-size: 0.875rem;
+}
+
+.estado li {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--espaco-3);
+  border-bottom: 1px solid var(--cor-borda);
+  padding-bottom: var(--espaco-2);
+}
+
+.estado span { color: var(--cor-texto-suave); }
+
+.estado strong {
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.acoes { display: flex; flex-direction: column; gap: var(--espaco-2); }
+
+.acoes button {
+  min-height: var(--toque-minimo);
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio);
+}
+
+.principal {
+  min-height: var(--toque-minimo);
+  border-radius: var(--raio);
+  background: var(--cor-acento);
+  color: #fff;
+  font-weight: var(--peso-forte);
+}
+
+.principal:disabled { opacity: 0.5; }
+.desligar { color: var(--cor-saida); }
+
+.aviso {
+  font-size: 0.875rem;
+  padding: var(--espaco-2) var(--espaco-3);
+  border-radius: var(--raio);
+  background: var(--cor-superficie);
+}
+
+.alerta {
+  font-size: 0.875rem;
+  line-height: 1.5;
+  padding: var(--espaco-3);
+  border-radius: var(--raio);
+  border: 1px solid var(--cor-saida);
+}
