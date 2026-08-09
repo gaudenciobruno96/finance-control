@@ -28,6 +28,7 @@ import type {
   Competencia,
   CurvaSaldo,
   DataISO,
+  MovimentoDoDia,
   OcorrenciaResolvida,
   PontoCurva,
 } from './types.js'
@@ -94,11 +95,12 @@ export function projetarCurva(
   )
 
   // Acumula os movimentos por dia antes de percorrer o mes.
-  const movimentosPorDia = new Map<DataISO, Centavos[]>()
-  const acumular = (data: DataISO, valor: Centavos): void => {
-    const existente = movimentosPorDia.get(data)
-    if (existente === undefined) movimentosPorDia.set(data, [valor])
-    else existente.push(valor)
+  const movimentosPorDia = new Map<DataISO, { entrada: Centavos; saida: Centavos }>()
+  const acumular = (data: DataISO, o: OcorrenciaResolvida, bruto: Centavos): void => {
+    const atual = movimentosPorDia.get(data) ?? { entrada: 0, saida: 0 }
+    if (o.tipo === 'entrada') atual.entrada += bruto
+    else atual.saida += bruto
+    movimentosPorDia.set(data, atual)
   }
 
   // Data a partir da qual um movimento ainda nao esta refletido no saldo
@@ -114,7 +116,8 @@ export function projetarCurva(
     if (!movimenta(o)) continue
 
     const data = dataEfetiva(o)
-    const valor = delta(o, valorEfetivo(o))
+    const bruto = valorEfetivo(o)
+    const valor = delta(o, bruto)
 
     if (comparar(data, ultimoDia) > 0) {
       // Cai em mes posterior: pertence a curva daquele mes, nao a deste.
@@ -122,7 +125,7 @@ export function projetarCurva(
     }
 
     if (comparar(data, inicio) >= 0) {
-      acumular(data, valor)
+      acumular(data, o, bruto)
       continue
     }
 
@@ -152,22 +155,35 @@ export function projetarCurva(
     // para o inicio da curva. A divida existe e precisa afundar o saldo de
     // hoje.
     if (comparar(data, limiteDeAtraso) >= 0 && comparar(data, hoje) < 0) {
-      acumular(inicio, valor)
+      acumular(inicio, o, bruto)
     }
   }
 
+  const saldoDePartida = somar(saldoInicial, ...antesDoMes)
+
   const pontos: PontoCurva[] = []
-  let saldo = somar(saldoInicial, ...antesDoMes)
+  const movimentos: MovimentoDoDia[] = []
+  let saldo = saldoDePartida
 
   for (const dia of dias) {
     if (comparar(dia, inicio) < 0) continue
-    saldo = somar(saldo, ...(movimentosPorDia.get(dia) ?? []))
+
+    const doDia = movimentosPorDia.get(dia) ?? { entrada: 0, saida: 0 }
+    saldo = somar(saldo, doDia.entrada, -doDia.saida)
+
     pontos.push({ data: dia, saldoCentavos: saldo })
+    movimentos.push({
+      data: dia,
+      entradaCentavos: doDia.entrada,
+      saidaCentavos: doDia.saida,
+    })
   }
 
   return {
     pontos,
-    diaMinimo: encontrarMinimo(pontos, inicio, somar(saldoInicial, ...antesDoMes)),
+    movimentos,
+    saldoInicialCentavos: saldoDePartida,
+    diaMinimo: encontrarMinimo(pontos, inicio, saldoDePartida),
     saldoRelativo,
   }
 }

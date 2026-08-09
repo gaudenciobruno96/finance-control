@@ -6,7 +6,12 @@
  */
 
 import { expandirFaturas } from '../domain/card-invoice-expander.js'
-import { intervaloDeCompetencias, somarMeses } from '../domain/calendar.js'
+import {
+  comparar,
+  compararCompetencias,
+  intervaloDeCompetencias,
+  somarMeses,
+} from '../domain/calendar.js'
 import { expandirParcelamentos } from '../domain/installment-expander.js'
 import { expandirRegras } from '../domain/rule-expander.js'
 import { resolver } from '../domain/occurrence-resolver.js'
@@ -70,6 +75,61 @@ export interface MesProjetado {
   readonly totalFaltaPagarCentavos: number
   readonly totalAindaEntraCentavos: number
   readonly totalJaResolvidoCentavos: number
+
+  // A conta exibida no topo. Vale a identidade, por construcao:
+  //   saldoNaReferencia + entraApos - saiApos === sobra
+  readonly saldoNaReferenciaCentavos: number
+  readonly dataDaReferencia: DataISO
+  /** Falso quando o mes exibido nao contem a data corrente. */
+  readonly referenciaEhHoje: boolean
+  readonly entraAposReferenciaCentavos: number
+  readonly saiAposReferenciaCentavos: number
+  readonly sobraCentavos: number
+
+  /**
+   * Verdadeiro quando o nivel da curva e arbitrario -- sem ancora, ou com a
+   * ancora posterior ao mes exibido.
+   *
+   * A interface precisa disto para nao apresentar como absoluto um numero que
+   * e relativo. Antes o aviso dependia apenas da ausencia de ancora, e abrir um
+   * mes anterior a ela mostrava valores relativos sem qualquer indicacao.
+   */
+  readonly saldoRelativo: boolean
+}
+
+/**
+ * Ponto da curva que serve de referencia para a conta exibida.
+ *
+ * E o dia de hoje quando ele esta dentro do mes; caso contrario, o primeiro
+ * ponto da curva -- para um mes futuro, tudo ainda esta por acontecer.
+ */
+function posicaoNaCurva(
+  curva: CurvaSaldo,
+  agora: DataISO,
+): { data: DataISO; saldoCentavos: number; ehHoje: boolean } {
+  const primeiro = curva.pontos[0]
+  const ultimo = curva.pontos[curva.pontos.length - 1]
+
+  if (primeiro === undefined || ultimo === undefined) {
+    return { data: agora, saldoCentavos: curva.saldoInicialCentavos, ehHoje: false }
+  }
+
+  if (comparar(agora, primeiro.data) < 0) {
+    // Mes inteiramente no futuro: a referencia e o saldo de partida.
+    return {
+      data: primeiro.data,
+      saldoCentavos: curva.saldoInicialCentavos,
+      ehHoje: false,
+    }
+  }
+
+  if (comparar(agora, ultimo.data) > 0) {
+    // Mes inteiramente no passado: nao ha nada "apos hoje" dentro dele.
+    return { data: ultimo.data, saldoCentavos: ultimo.saldoCentavos, ehHoje: false }
+  }
+
+  const doDia = curva.pontos.find((p) => p.data === agora) ?? ultimo
+  return { data: doDia.data, saldoCentavos: doDia.saldoCentavos, ehHoje: true }
 }
 
 /**
@@ -117,15 +177,25 @@ export function criarProjectionService(repos: Repositorios) {
 
       // Componentes de fatura sao exibidos aninhados sob a fatura, nunca como
       // linha propria: seu valor ja esta somado nela (RN-18, RN-71).
-      const componentesDeFatura = doMes.filter((o) => o.ehComponenteDeFatura)
+      // Inclui os componentes de TODO o intervalo, nao so os do mes: uma
+      // fatura atrasada de mes anterior aparece na lista e precisa do seu
+      // detalhamento, senao renderiza sem nenhuma parcela enquanto as demais
+      // mostram as suas.
+      const componentesDeFatura = resolvidas.filter((o) => o.ehComponenteDeFatura)
       const proprios = doMes.filter((o) => !o.ehComponenteDeFatura)
 
       // Saidas atrasadas de meses ANTERIORES continuam sendo divida e
       // aparecem junto com as do mes. Entradas de meses anteriores nao: sao
       // presumidas recebidas (RN-90) e ja estao no saldo declarado.
+      //
+      // A comparacao precisa ser ESTRITAMENTE ANTERIOR, nao apenas "diferente".
+      // A janela de carga agora se estende um mes para frente, e um filtro por
+      // desigualdade trazia as contas do mes SEGUINTE para dentro da tela como
+      // se fossem divida vencida -- dobrando o total a pagar de todo mes
+      // passado que o usuario abrisse.
       const atrasadasDeAntes = resolvidas.filter(
         (o) =>
-          o.competencia !== competencia &&
+          compararCompetencias(o.competencia, competencia) < 0 &&
           o.situacao === 'atrasado' &&
           !o.ehComponenteDeFatura,
       )
@@ -148,6 +218,26 @@ export function criarProjectionService(repos: Repositorios) {
       const somar = (lista: readonly OcorrenciaResolvida[]): number =>
         lista.reduce((t, o) => t + (o.valorPagoCentavos ?? o.valorPrevistoCentavos), 0)
 
+      // A CONTA exibida na tela vem da propria curva, nao de uma soma paralela
+      // das listas.
+      //
+      // As listas excluem o que ja foi resolvido; a curva inclui tudo. Somar as
+      // listas produzia uma conta que nao chegava ao numero grande exibido
+      // acima dela -- justamente na tela cujo proposito e explicar de onde o
+      // numero vem.
+      //
+      // Derivando dos mesmos movimentos que formaram a curva, a identidade
+      // `saldoHoje + entra - sai = sobra` fecha por construcao.
+      const referencia = posicaoNaCurva(curva, agora)
+
+      let entraDepois = 0
+      let saiDepois = 0
+      for (const m of curva.movimentos) {
+        if (comparar(m.data, referencia.data) <= 0) continue
+        entraDepois += m.entradaCentavos
+        saiDepois += m.saidaCentavos
+      }
+
       return {
         competencia,
         resumo,
@@ -160,6 +250,14 @@ export function criarProjectionService(repos: Repositorios) {
         totalFaltaPagarCentavos: somar(faltaPagar),
         totalAindaEntraCentavos: somar(aindaEntra),
         totalJaResolvidoCentavos: somar(jaResolvido),
+
+        saldoNaReferenciaCentavos: referencia.saldoCentavos,
+        dataDaReferencia: referencia.data,
+        referenciaEhHoje: referencia.ehHoje,
+        entraAposReferenciaCentavos: entraDepois,
+        saiAposReferenciaCentavos: saiDepois,
+        sobraCentavos: curva.pontos[curva.pontos.length - 1]?.saldoCentavos ?? 0,
+        saldoRelativo: curva.saldoRelativo,
       }
     },
 

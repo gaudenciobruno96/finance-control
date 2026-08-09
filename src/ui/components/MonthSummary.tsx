@@ -9,16 +9,18 @@
  */
 
 import { formatarBRL } from '../../domain/money.js'
-import type { Centavos, DataISO } from '../../domain/types.js'
+import type { Centavos } from '../../domain/types.js'
 import { MoneyInput } from './MoneyInput.js'
 import estilos from './MonthSummary.module.css'
 
 export interface MonthSummaryProps {
   readonly sobraCentavos: Centavos
-  readonly saldoAtualCentavos: Centavos | null
+  readonly saldoNaReferenciaCentavos: Centavos
+  readonly referenciaEhHoje: boolean
+  readonly temAncora: boolean
+  readonly saldoRelativo: boolean
   readonly aindaEntraCentavos: Centavos
   readonly faltaPagarCentavos: Centavos
-  readonly dataDoSaldo: DataISO | null
   readonly editandoSaldo: boolean
   readonly saldoEmEdicao: Centavos
   readonly onAbrirEdicao: () => void
@@ -29,10 +31,12 @@ export interface MonthSummaryProps {
 
 export function MonthSummary({
   sobraCentavos,
-  saldoAtualCentavos,
+  saldoNaReferenciaCentavos,
+  referenciaEhHoje,
+  temAncora,
+  saldoRelativo,
   aindaEntraCentavos,
   faltaPagarCentavos,
-  dataDoSaldo,
   editandoSaldo,
   saldoEmEdicao,
   onAbrirEdicao,
@@ -40,7 +44,7 @@ export function MonthSummary({
   onSalvarSaldo,
   onCancelarEdicao,
 }: MonthSummaryProps) {
-  const semSaldo = saldoAtualCentavos === null
+  const semSaldo = !temAncora
 
   return (
     <section className={estilos.bloco} aria-label="Resumo do mês">
@@ -84,14 +88,14 @@ export function MonthSummary({
             data-testid="editar-saldo"
           >
             <span className={estilos.valorConta}>
-              {semSaldo ? '— ' : formatarBRL(saldoAtualCentavos)}
+              {formatarBRL(saldoNaReferenciaCentavos)}
             </span>
             <span className={estilos.descricaoConta}>
               {semSaldo
-                ? 'informe quanto você tem hoje'
-                : dataDoSaldo === null
+                ? 'toque para informar seu saldo'
+                : referenciaEhHoje
                   ? 'que você tem hoje'
-                  : `que você tinha em ${formatarDiaCurto(dataDoSaldo)}`}
+                  : 'no início deste mês'}
             </span>
             <span className={estilos.editar} aria-hidden="true">
               ✎
@@ -112,16 +116,17 @@ export function MonthSummary({
         </p>
       </div>
 
-      {semSaldo && (
+      {/* O aviso segue o sinal da PROJECAO, nao a mera ausencia de ancora: a
+          curva tambem fica relativa ao abrir um mes anterior ao saldo
+          declarado, e sem isso um numero relativo era exibido como absoluto. */}
+      {saldoRelativo && (
         <p className={estilos.aviso} data-testid="aviso-saldo-relativo">
-          Sem o seu saldo, os valores acima são <strong>relativos</strong> — a forma da
-          curva e o dia de aperto já estão corretos, só o nível está deslocado.
+          {semSaldo
+            ? 'Sem o seu saldo, os valores acima são relativos — a forma da curva e o dia de aperto já estão corretos, só o nível está deslocado.'
+            : 'Este mês é anterior ao saldo que você informou, então os valores acima são relativos: as diferenças estão certas, o nível não.'}
         </p>
       )}
     </section>
   )
 }
 
-function formatarDiaCurto(data: DataISO): string {
-  return `${data.slice(8, 10)}/${data.slice(5, 7)}`
-}

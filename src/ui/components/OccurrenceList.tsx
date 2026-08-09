@@ -28,6 +28,8 @@ export interface OccurrenceListProps {
   readonly componentesDeFatura: readonly OcorrenciaResolvida[]
   readonly onSelecionar: (o: OcorrenciaResolvida) => void
   readonly vazio?: string | undefined
+  /** Competencia exibida na tela; linhas de outros meses ganham o rotulo do mes. */
+  readonly competenciaExibida?: string | undefined
 }
 
 export function OccurrenceList({
@@ -37,6 +39,7 @@ export function OccurrenceList({
   componentesDeFatura,
   onSelecionar,
   vazio,
+  competenciaExibida,
 }: OccurrenceListProps) {
   if (ocorrencias.length === 0) {
     if (vazio === undefined) return null
@@ -55,7 +58,13 @@ export function OccurrenceList({
       <ul className={estilos.lista}>
         {ocorrencias.map((o) => (
           <li key={o.chave}>
-            <Linha ocorrencia={o} onSelecionar={onSelecionar} />
+            <Linha
+              ocorrencia={o}
+              onSelecionar={onSelecionar}
+              mostrarMes={
+                competenciaExibida !== undefined && o.competencia !== competenciaExibida
+              }
+            />
 
             {o.geradorTipo === 'cartao' && (
               <ul className={estilos.aninhada}>
@@ -97,12 +106,20 @@ function Cabecalho({ titulo, total }: { titulo: string; total?: number | undefin
   )
 }
 
+const MES_CURTO = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
+
+function mesCurto(competencia: string): string {
+  return MES_CURTO[Number(competencia.slice(5, 7)) - 1] ?? competencia
+}
+
 function Linha({
   ocorrencia,
   onSelecionar,
+  mostrarMes = false,
 }: {
   ocorrencia: OcorrenciaResolvida
   onSelecionar: (o: OcorrenciaResolvida) => void
+  mostrarMes?: boolean
 }) {
   const valor = ocorrencia.valorPagoCentavos ?? ocorrencia.valorPrevistoCentavos
   const data = ocorrencia.dataPagamento ?? ocorrencia.dataVencimento
@@ -120,7 +137,10 @@ function Linha({
         <span className={estilos.nome}>{ocorrencia.nome}</span>
         <span className={estilos.meta}>
           {/* A situacao nunca e comunicada apenas por cor (RN-70). */}
+          {/* A lista mescla dividas de meses anteriores com as do mes atual.
+              Sem o mes, duas linhas do mesmo aluguel liam ambas 'dia 10'. */}
           dia {dia}
+          {mostrarMes ? ` de ${mesCurto(ocorrencia.competencia)}` : ''}
           {marca !== undefined && (
             <>
               {' · '}

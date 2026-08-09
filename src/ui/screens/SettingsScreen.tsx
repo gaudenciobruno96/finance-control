@@ -55,7 +55,15 @@ export function SettingsScreen() {
         typeof navigator !== 'undefined' &&
         navigator.canShare?.({ files: [arquivo] }) === true
       ) {
-        await navigator.share({ files: [arquivo], title: nome })
+        try {
+          await navigator.share({ files: [arquivo], title: nome })
+        } catch (e) {
+          // Fechar a folha de compartilhamento rejeita com AbortError. E uma
+          // acao rotineira do usuario, nao uma falha: reporta-la exibiria
+          // 'nao foi possivel salvar' e sugeriria problema de armazenamento.
+          if (e instanceof DOMException && e.name === 'AbortError') return
+          throw e
+        }
       } else {
         const url = URL.createObjectURL(blob)
         const link = document.createElement('a')

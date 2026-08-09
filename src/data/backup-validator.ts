@@ -257,6 +257,7 @@ function validarOcorrencias(lista: readonly unknown[]): string | null {
 
 function validarAncoras(lista: readonly unknown[]): string | null {
   const datas: string[] = []
+  const vistas = new Set<string>()
 
   for (const item of lista) {
     if (!ehObjeto(item)) return 'Ha uma ancora de saldo malformada no arquivo.'
@@ -265,6 +266,14 @@ function validarAncoras(lista: readonly unknown[]): string | null {
     if (!ehCentavosValido(item['saldoCentavos'])) {
       return 'Ha uma ancora de saldo com valor invalido.'
     }
+    // Duas ancoras na mesma data e exatamente o estado que RN-50 passou a
+    // impedir na escrita. Um arquivo gerado por versao anterior o traria de
+    // volta pelo bulkPut, contornando a invariante do repositorio.
+    if (vistas.has(item['data'])) {
+      return 'Ha mais de uma ancora de saldo para a mesma data.'
+    }
+    vistas.add(item['data'])
+
     datas.push(item['data'])
   }
 

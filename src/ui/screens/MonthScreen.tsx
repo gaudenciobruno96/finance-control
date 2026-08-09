@@ -131,11 +131,15 @@ export function MonthScreen() {
       </header>
 
       <MonthSummary
-        sobraCentavos={mes.resumo.saldoFinalProjetadoCentavos}
-        saldoAtualCentavos={ancora?.saldoCentavos ?? null}
-        dataDoSaldo={ancora?.data ?? null}
-        aindaEntraCentavos={mes.totalAindaEntraCentavos}
-        faltaPagarCentavos={mes.totalFaltaPagarCentavos}
+
+
+        sobraCentavos={mes.sobraCentavos}
+        saldoNaReferenciaCentavos={mes.saldoNaReferenciaCentavos}
+        referenciaEhHoje={mes.referenciaEhHoje}
+        temAncora={ancora !== undefined && ancora !== null}
+        saldoRelativo={mes.saldoRelativo}
+        aindaEntraCentavos={mes.entraAposReferenciaCentavos}
+        faltaPagarCentavos={mes.saiAposReferenciaCentavos}
         editandoSaldo={editandoSaldo}
         saldoEmEdicao={saldoEmEdicao}
         onAbrirEdicao={abrirEdicaoDeSaldo}
@@ -154,6 +158,7 @@ export function MonthScreen() {
         ocorrencias={mes.faltaPagar}
         componentesDeFatura={mes.componentesDeFatura}
         onSelecionar={setSelecionada}
+        competenciaExibida={competencia}
         vazio="Nada a pagar neste mês."
       />
 

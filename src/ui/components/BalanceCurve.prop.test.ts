@@ -16,7 +16,13 @@ const curva = (): fc.Arbitrary<CurvaSaldo> =>
         saldoCentavos,
       }))
       const diaMinimo = pontos.reduce((a, b) => (b.saldoCentavos < a.saldoCentavos ? b : a))
-      return { pontos, diaMinimo, saldoRelativo: false }
+      return {
+        pontos,
+        diaMinimo,
+        saldoRelativo: false,
+        movimentos: [],
+        saldoInicialCentavos: 0,
+      }
     })
 
 describe('BalanceCurve — propriedades', () => {
@@ -57,7 +63,13 @@ describe('BalanceCurve — propriedades', () => {
             data: `2026-08-${String(i + 1).padStart(2, '0')}`,
             saldoCentavos: saldo,
           }))
-          const c: CurvaSaldo = { pontos, diaMinimo: pontos[0]!, saldoRelativo: false }
+          const c: CurvaSaldo = {
+            pontos,
+            diaMinimo: pontos[0]!,
+            saldoRelativo: false,
+            movimentos: [],
+            saldoInicialCentavos: 0,
+          }
 
           for (const p of calcularPontos(c)) {
             expect(Number.isFinite(p.x)).toBe(true)

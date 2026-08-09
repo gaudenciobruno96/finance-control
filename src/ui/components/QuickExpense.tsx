@@ -38,7 +38,12 @@ export function QuickExpense({
   const [dia, setDia] = useState(() => Number(hoje.slice(8, 10)))
   const [tipo, setTipo] = useState<TipoMovimento>('saida')
 
-  const valido = nome.trim() !== '' && valor > 0 && Number.isInteger(dia)
+  // A faixa precisa ser verificada aqui: min/max no input nao bloqueiam
+  // digitacao, e construirData lanca SINCRONAMENTE dentro do onSubmit -- fora
+  // do executar, entao o erro nao chegaria a faixa e o formulario apenas
+  // morreria sem explicacao.
+  const valido =
+    nome.trim() !== '' && valor > 0 && Number.isInteger(dia) && dia >= 1 && dia <= 31
 
   return (
     <form

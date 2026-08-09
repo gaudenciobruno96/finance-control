@@ -194,9 +194,30 @@ export interface PontoCurva {
   readonly saldoCentavos: Centavos
 }
 
+/** Movimentacao de um dia, separada por sentido. */
+export interface MovimentoDoDia {
+  readonly data: DataISO
+  readonly entradaCentavos: Centavos
+  readonly saidaCentavos: Centavos
+}
+
 export interface CurvaSaldo {
   readonly pontos: readonly PontoCurva[]
   readonly diaMinimo: PontoCurva
+  /**
+   * Movimentos que compoem a curva, dia a dia e por sentido.
+   *
+   * Expostos para que a interface possa exibir a CONTA que leva ao saldo final
+   * -- saldo de hoje, mais o que entra, menos o que sai -- com a garantia de
+   * que ela fecha: os mesmos numeros que formaram a curva formam a conta.
+   *
+   * Recalcular isso na camada de cima a partir das ocorrencias produziria uma
+   * segunda implementacao das mesmas regras de exclusao, e as duas
+   * divergiriam.
+   */
+  readonly movimentos: readonly MovimentoDoDia[]
+  /** Saldo de partida, antes do primeiro dia da curva. */
+  readonly saldoInicialCentavos: Centavos
   /**
    * Verdadeiro quando nao havia ancora de saldo (RN-30). A forma da curva e o
    * dia de saldo minimo permanecem corretos; apenas o nivel esta deslocado.
