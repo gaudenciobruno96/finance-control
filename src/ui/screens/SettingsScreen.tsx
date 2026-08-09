@@ -2,9 +2,10 @@
  * UI-09 — Ajustes: ancora de saldo e backup (RF-27 a RF-30).
  */
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import type { Centavos } from '../../domain/types.js'
+import { diagnosticar, type Diagnostico } from '../../data/storage-diagnostics.js'
 import type { ResumoBackup } from '../../data/backup-validator.js'
 import type { DocumentoBackup } from '../../data/backup-serializer.js'
 import { MoneyInput } from '../components/MoneyInput.js'
@@ -216,6 +217,8 @@ export function SettingsScreen() {
         )}
       </section>
 
+      <StorageDiagnostics />
+
       <section className={estilos.secao}>
         <h2 className={estilos.titulo}>Sobre</h2>
         <p className={estilos.nota}>
@@ -237,3 +240,88 @@ export function SettingsScreen() {
   )
 }
 
+
+/**
+ * Onde os dados estão e o que pode apagá-los.
+ *
+ * Nasceu de um relato de perda: a tela de quem perdeu tudo é idêntica à de
+ * quem nunca cadastrou nada, e sem estes números não há como distinguir uma
+ * da outra.
+ */
+function StorageDiagnostics() {
+  const { db } = useApp()
+  const [d, setD] = useState<Diagnostico | null>(null)
+
+  useEffect(() => {
+    let vivo = true
+    void diagnosticar(db).then((r) => {
+      if (vivo) setD(r)
+    })
+    return () => {
+      vivo = false
+    }
+  }, [db])
+
+  if (d === null) return null
+
+  const total =
+    d.registros.regras +
+    d.registros.parcelamentos +
+    d.registros.ocorrencias +
+    d.registros.ancoras
+
+  return (
+    <section className={estilos.secao} data-testid="diagnostico">
+      <h2 className={estilos.titulo}>Onde ficam seus dados</h2>
+
+      <p className={estilos.nota}>
+        Tudo é gravado no armazenamento do próprio aparelho (IndexedDB). Nada é
+        enviado para lugar nenhum — e é por isso que só o backup protege contra
+        perder o aparelho.
+      </p>
+
+      {/* O aviso mais importante da tela. O iOS apaga o armazenamento de
+          sites abertos no Safari após 7 dias sem visita, sem avisar. O app
+          instalado na tela de início está fora dessa regra. */}
+      {!d.instalado && (
+        <p className={estilos.alerta} data-testid="aviso-nao-instalado">
+          <strong>Este app não está instalado na tela de início.</strong> Aberto
+          pelo Safari, o iPhone apaga os dados depois de cerca de 7 dias sem
+          você abrir — sem aviso. Toque em Compartilhar › Adicionar à Tela de
+          Início e passe a usar pelo ícone. Exporte um backup antes.
+        </p>
+      )}
+
+      <ul className={estilos.diagnostico}>
+        <li>
+          <span>Instalado na tela de início</span>
+          <strong>{d.instalado ? 'sim' : 'não'}</strong>
+        </li>
+        <li>
+          <span>Armazenamento protegido</span>
+          <strong>
+            {!d.persistenciaSuportada
+              ? 'não informado'
+              : d.persistente
+                ? 'sim'
+                : 'não'}
+          </strong>
+        </li>
+        <li>
+          <span>Registros gravados</span>
+          <strong data-testid="total-registros">{total}</strong>
+        </li>
+        {d.bytesUsados !== null && (
+          <li>
+            <span>Espaço usado</span>
+            <strong>{Math.max(1, Math.round(d.bytesUsados / 1024))} KB</strong>
+          </li>
+        )}
+        <li>
+          <span>Versão do banco</span>
+          <strong>{d.versaoDoBanco}</strong>
+        </li>
+      </ul>
+    </section>
+  )
+}

@@ -577,3 +577,23 @@ describe('edição de receita', () => {
     expect(regras[0]?.valorCentavos).toBe(300_000)
   })
 })
+
+describe('diagnóstico de armazenamento', () => {
+  /**
+   * A tela de quem perdeu os dados é idêntica à de quem nunca cadastrou nada.
+   * Estes números são o que distingue uma da outra.
+   */
+  it('mostra quantos registros existem e avisa quando não está instalado', async () => {
+    await semear('Aluguel', 180_000, 10)
+    await semear('Luz', 15_000, 20)
+
+    montar(<SettingsScreen />, '/ajustes')
+
+    const painel = await screen.findByTestId('diagnostico')
+
+    expect(within(painel).getByTestId('total-registros')).toHaveTextContent('2')
+
+    // jsdom nunca roda em modo standalone: o aviso tem de aparecer.
+    expect(within(painel).getByTestId('aviso-nao-instalado')).toBeInTheDocument()
+  })
+})

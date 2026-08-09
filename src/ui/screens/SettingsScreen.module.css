@@ -33,3 +33,31 @@
 
 .resumo h3 { font-weight: var(--peso-forte); margin-bottom: var(--espaco-2); }
 .resumo ul { list-style: none; display: flex; flex-direction: column; gap: 2px; }
+
+.alerta {
+  font-size: 0.875rem;
+  line-height: 1.5;
+  padding: var(--espaco-3);
+  border-radius: var(--raio);
+  border: 1px solid var(--cor-saida);
+  color: var(--cor-texto);
+}
+
+.diagnostico {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-2);
+  font-size: 0.875rem;
+}
+
+.diagnostico li {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--espaco-3);
+  border-bottom: 1px solid var(--cor-borda);
+  padding-bottom: var(--espaco-2);
+}
+
+.diagnostico span { color: var(--cor-texto-suave); }
+.diagnostico strong { font-variant-numeric: tabular-nums; }
