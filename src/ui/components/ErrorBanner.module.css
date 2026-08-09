@@ -1,0 +1,20 @@
+.faixa {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--espaco-2);
+  padding: var(--espaco-3);
+  background: var(--cor-erro-fundo);
+  border: 1px solid var(--cor-saida);
+  border-radius: var(--raio);
+  margin: var(--espaco-3);
+}
+
+.mensagem {
+  flex: 1;
+  font-size: 0.9375rem;
+}
+
+.fechar {
+  min-width: var(--toque-minimo);
+  color: var(--cor-texto-suave);
+}

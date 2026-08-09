@@ -1,0 +1,53 @@
+/* Reset e base. */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  /* Tipografia em unidades relativas: respeita o ajuste de tamanho de fonte
+     do iOS (RN-88). */
+  font-size: 100%;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  font-family: var(--fonte);
+  background: var(--cor-fundo);
+  color: var(--cor-texto);
+  line-height: 1.5;
+
+  /* Safe area: em tela cheia, o notch e a barra inferior comem conteudo. */
+  padding-top: env(safe-area-inset-top);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+
+  /* Sem realce cinza ao tocar, que denuncia que e uma pagina web. */
+  -webkit-tap-highlight-color: transparent;
+}
+
+button,
+input,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+  border: none;
+  background: none;
+  min-height: var(--toque-minimo);
+}
+
+/* Foco sempre visivel (RNF-18). */
+:focus-visible {
+  outline: 2px solid var(--cor-acento);
+  outline-offset: 2px;
+}
+
+/* Nenhuma informacao depende de hover (RNF-19, RN-19). */

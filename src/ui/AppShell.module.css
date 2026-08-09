@@ -1,0 +1,40 @@
+.app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+}
+
+.conteudo {
+  flex: 1;
+  /* Espaco para a barra inferior nao cobrir o fim do conteudo. */
+  padding-bottom: calc(4rem + env(safe-area-inset-bottom));
+}
+
+.barra {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  background: var(--cor-superficie-alta);
+  border-top: 1px solid var(--cor-borda);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.aba,
+.abaAtiva {
+  flex: 1;
+  min-height: var(--toque-minimo);
+  padding: var(--espaco-2) 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  text-decoration: none;
+  color: var(--cor-texto-suave);
+  font-size: 1.125rem;
+}
+
+.abaAtiva { color: var(--cor-acento); }
+
+.abaRotulo { font-size: 0.6875rem; }

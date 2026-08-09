@@ -1,0 +1,26 @@
+.campo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-1);
+}
+
+.rotulo {
+  font-size: 0.875rem;
+  color: var(--cor-texto-suave);
+}
+
+.entrada {
+  min-height: var(--toque-minimo);
+  padding: var(--espaco-2) var(--espaco-3);
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio);
+  background: var(--cor-superficie-alta);
+  font-size: 1.25rem;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.descricao {
+  font-size: 0.8125rem;
+  color: var(--cor-texto-suave);
+}

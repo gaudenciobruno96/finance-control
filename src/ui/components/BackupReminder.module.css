@@ -1,0 +1,18 @@
+.faixa {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--espaco-2);
+  margin: var(--espaco-3);
+  padding: var(--espaco-3);
+  background: var(--cor-atencao-fundo);
+  border: 1px solid var(--cor-atencao);
+  border-radius: var(--raio);
+  font-size: 0.875rem;
+}
+
+.acao {
+  color: var(--cor-acento);
+  font-weight: var(--peso-forte);
+  white-space: nowrap;
+}

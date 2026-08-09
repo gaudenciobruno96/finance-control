@@ -1,0 +1,58 @@
+.fundo {
+  position: fixed;
+  inset: 0;
+  background: rgb(0 0 0 / 40%);
+  display: flex;
+  align-items: flex-end;
+  z-index: 50;
+}
+
+.folha {
+  width: 100%;
+  background: var(--cor-superficie-alta);
+  border-top-left-radius: var(--raio);
+  border-top-right-radius: var(--raio);
+  padding: var(--espaco-5) var(--espaco-4);
+  padding-bottom: calc(var(--espaco-5) + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-3);
+}
+
+.titulo {
+  font-size: 1.125rem;
+  font-weight: var(--peso-forte);
+}
+
+.mensagem {
+  color: var(--cor-texto-suave);
+}
+
+.acoes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-2);
+  margin-top: var(--espaco-2);
+}
+
+.principal,
+.destrutivo,
+.cancelar {
+  min-height: var(--toque-minimo);
+  border-radius: var(--raio);
+  font-weight: var(--peso-forte);
+}
+
+.principal {
+  background: var(--cor-acento);
+  color: #fff;
+}
+
+.destrutivo {
+  background: var(--cor-saida);
+  color: #fff;
+}
+
+.cancelar {
+  border: 1px solid var(--cor-borda);
+}

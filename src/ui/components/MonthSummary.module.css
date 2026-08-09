@@ -1,0 +1,63 @@
+.bloco {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-3);
+  padding: var(--espaco-4);
+}
+
+.grade {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--espaco-3);
+}
+
+.item,
+.itemDestaque {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-1);
+  padding: var(--espaco-3);
+  border-radius: var(--raio);
+  background: var(--cor-superficie);
+}
+
+.itemDestaque {
+  grid-column: 1 / -1;
+  border: 1px solid var(--cor-acento);
+}
+
+.rotulo {
+  font-size: 0.8125rem;
+  color: var(--cor-texto-suave);
+}
+
+.valor {
+  font-size: 1.125rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.entrada { color: var(--cor-entrada); }
+.saida { color: var(--cor-saida); }
+
+.falta {
+  font-size: 0.875rem;
+  color: var(--cor-texto-suave);
+}
+
+.aviso {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-2);
+  padding: var(--espaco-3);
+  background: var(--cor-atencao-fundo);
+  border: 1px solid var(--cor-atencao);
+  border-radius: var(--raio);
+  font-size: 0.875rem;
+}
+
+.aviso button {
+  align-self: flex-start;
+  color: var(--cor-acento);
+  font-weight: var(--peso-forte);
+  text-decoration: underline;
+}

@@ -1,0 +1,35 @@
+.tela { display: flex; flex-direction: column; gap: var(--espaco-5); padding: var(--espaco-4); }
+
+.secao { display: flex; flex-direction: column; gap: var(--espaco-3); }
+
+.titulo { font-size: 1.125rem; font-weight: var(--peso-forte); }
+.nota { font-size: 0.875rem; color: var(--cor-texto-suave); }
+.rotulo { font-size: 0.875rem; color: var(--cor-texto-suave); }
+
+.entrada {
+  min-height: var(--toque-minimo);
+  padding: var(--espaco-2) var(--espaco-3);
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio);
+  background: var(--cor-superficie-alta);
+}
+
+.principal {
+  min-height: var(--toque-minimo);
+  background: var(--cor-acento);
+  color: #fff;
+  border-radius: var(--raio);
+  font-weight: var(--peso-forte);
+}
+
+.confirmacao { font-size: 0.875rem; color: var(--cor-entrada); }
+
+.resumo {
+  padding: var(--espaco-3);
+  background: var(--cor-superficie);
+  border-radius: var(--raio);
+  font-size: 0.875rem;
+}
+
+.resumo h3 { font-weight: var(--peso-forte); margin-bottom: var(--espaco-2); }
+.resumo ul { list-style: none; display: flex; flex-direction: column; gap: 2px; }

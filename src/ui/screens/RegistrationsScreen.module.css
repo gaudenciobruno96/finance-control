@@ -1,0 +1,57 @@
+.tela { display: flex; flex-direction: column; }
+.abas { display: flex; border-bottom: 1px solid var(--cor-borda); }
+.aba, .abaAtiva { flex: 1; min-height: var(--toque-minimo); font-size: 0.875rem; color: var(--cor-texto-suave); }
+.abaAtiva { color: var(--cor-acento); font-weight: var(--peso-forte); border-bottom: 2px solid var(--cor-acento); }
+
+.painel { display: flex; flex-direction: column; gap: var(--espaco-4); padding: var(--espaco-4); }
+.lista { list-style: none; display: flex; flex-direction: column; }
+
+.item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--espaco-3);
+  padding: var(--espaco-3);
+  text-align: left;
+  border-bottom: 1px solid var(--cor-borda);
+}
+
+.item > span:first-child { display: flex; flex-direction: column; gap: 2px; }
+.meta { font-size: 0.8125rem; color: var(--cor-texto-suave); }
+.entrada { color: var(--cor-entrada); font-variant-numeric: tabular-nums; }
+.saida { color: var(--cor-saida); font-variant-numeric: tabular-nums; }
+
+.vazio { font-size: 0.875rem; color: var(--cor-texto-suave); padding: var(--espaco-4) 0; }
+
+.formulario {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-3);
+  padding: var(--espaco-4);
+  background: var(--cor-superficie);
+  border-radius: var(--raio);
+}
+
+.titulo { font-size: 1.125rem; font-weight: var(--peso-forte); }
+.rotulo { font-size: 0.875rem; color: var(--cor-texto-suave); }
+.nota { font-size: 0.8125rem; color: var(--cor-texto-suave); }
+
+.entradaTexto {
+  min-height: var(--toque-minimo);
+  padding: var(--espaco-2) var(--espaco-3);
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio);
+  background: var(--cor-superficie-alta);
+}
+
+.tipos { display: flex; gap: var(--espaco-4); }
+.tipos label { display: flex; align-items: center; gap: var(--espaco-2); min-height: var(--toque-minimo); }
+.caixa { display: flex; align-items: center; gap: var(--espaco-2); font-size: 0.875rem; min-height: var(--toque-minimo); }
+
+.acoes { display: flex; flex-direction: column; gap: var(--espaco-2); }
+.acoes button { min-height: var(--toque-minimo); border: 1px solid var(--cor-borda); border-radius: var(--raio); }
+
+.principal { background: var(--cor-acento); color: #fff; border: none !important; font-weight: var(--peso-forte); }
+.remover { color: var(--cor-saida); }
+.sugestao { align-self: flex-start; color: var(--cor-acento); font-size: 0.875rem; text-decoration: underline; text-align: left; }

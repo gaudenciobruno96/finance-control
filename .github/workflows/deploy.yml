@@ -1,0 +1,55 @@
+name: Verificar e publicar
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Permissões mínimas necessárias para publicar no Pages (SECURITY-06,
+# aplicado ao que existe: nada além do estritamente necessário).
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.publicacao.outputs.page_url }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Instalar dependências
+        run: npm ci
+
+      # Lint, tipos, testes e varredura de vulnerabilidades.
+      #
+      # Se qualquer um falhar, NADA é publicado. É o que resolve a limitação
+      # registrada no NFR Requirements: a varredura deixa de depender de o
+      # desenvolvedor lembrar de executá-la antes de publicar.
+      - name: Verificar
+        run: npm run verify
+
+      - name: Construir
+        run: npm run build
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+      - id: publicacao
+        uses: actions/deploy-pages@v4

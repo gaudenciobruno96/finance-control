@@ -1,0 +1,42 @@
+.tela { display: flex; flex-direction: column; }
+
+.carregando { padding: var(--espaco-6); text-align: center; color: var(--cor-texto-suave); }
+
+.navegador {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--espaco-2) var(--espaco-4);
+  border-bottom: 1px solid var(--cor-borda);
+}
+
+.navegador > button {
+  min-width: var(--toque-minimo);
+  font-size: 1.5rem;
+  color: var(--cor-acento);
+}
+
+.seletor { position: relative; display: flex; align-items: center; }
+
+.mesAtual { font-weight: var(--peso-forte); text-transform: capitalize; }
+
+/* O input de mes cobre o titulo: tocar no nome abre o seletor nativo. */
+.inputMes {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  width: 100%;
+  min-height: var(--toque-minimo);
+}
+
+.curva { padding: 0 var(--espaco-4) var(--espaco-4); }
+
+.rodape { padding: var(--espaco-4); padding-bottom: var(--espaco-6); }
+
+.avulso {
+  width: 100%;
+  min-height: var(--toque-minimo);
+  border: 1px dashed var(--cor-borda);
+  border-radius: var(--raio);
+  color: var(--cor-texto-suave);
+}

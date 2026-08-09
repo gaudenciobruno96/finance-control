@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+
+    <!--
+      Content Security Policy (SECURITY-04, PAD-11).
+
+      Entregue por meta porque o GitHub Pages nao permite cabecalhos HTTP
+      customizados. `frame-ancestors` e HSTS nao funcionam nesta forma; as
+      mitigacoes estao documentadas em infrastructure-design.md.
+
+      `connect-src 'none'` e a diretiva mais importante: o app NAO faz nenhuma
+      requisicao de rede em tempo de uso, e declarar isso transforma qualquer
+      tentativa acidental de exfiltracao em erro de console.
+
+      Nao ha `unsafe-inline` em script-src nem em style-src. A escolha de CSS
+      Modules e o que torna isso possivel.
+    -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="
+        default-src 'self';
+        script-src 'self';
+        style-src 'self';
+        img-src 'self' data:;
+        font-src 'self';
+        connect-src 'none';
+        object-src 'none';
+        base-uri 'self';
+        form-action 'none';
+        manifest-src 'self';
+        worker-src 'self'
+      "
+    />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+
+    <!--
+      viewport-fit=cover e o que permite o conteudo alcancar as bordas em tela
+      cheia; o respeito ao notch e a barra inferior vem das variaveis
+      safe-area-inset em base.css.
+    -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Orçamento" />
+
+    <!-- Um por esquema de cor, para a barra de status acompanhar o tema. -->
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0d1117" />
+
+    <title>Controle Orçamentário</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

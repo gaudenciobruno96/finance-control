@@ -1,0 +1,56 @@
+/*
+ * Tokens de tema.
+ *
+ * O tema segue prefers-color-scheme por CSS puro, sem estado em JavaScript
+ * (PAD-14). Manter o tema em estado produziria um quadro com o tema errado
+ * antes da hidratacao -- o clarao branco ao abrir o app no escuro.
+ */
+
+:root {
+  --cor-fundo: #ffffff;
+  --cor-superficie: #f6f8fa;
+  --cor-superficie-alta: #ffffff;
+  --cor-borda: #d0d7de;
+  --cor-texto: #1f2328;
+  --cor-texto-suave: #59636e;
+
+  --cor-acento: #0969da;
+  --cor-entrada: #1a7f37;
+  --cor-saida: #cf222e;
+  --cor-atencao: #9a6700;
+  --cor-atencao-fundo: #fff8c5;
+  --cor-erro-fundo: #ffebe9;
+
+  --espaco-1: 0.25rem;
+  --espaco-2: 0.5rem;
+  --espaco-3: 0.75rem;
+  --espaco-4: 1rem;
+  --espaco-5: 1.5rem;
+  --espaco-6: 2rem;
+
+  --raio: 0.75rem;
+
+  /* Alvo minimo de toque (RNF-18, RN-87). */
+  --toque-minimo: 2.75rem;
+
+  --fonte: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --peso-forte: 600;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --cor-fundo: #0d1117;
+    --cor-superficie: #151b23;
+    --cor-superficie-alta: #1c2128;
+    --cor-borda: #3d444d;
+    --cor-texto: #f0f6fc;
+    --cor-texto-suave: #9198a1;
+
+    --cor-acento: #4493f8;
+    --cor-entrada: #3fb950;
+    --cor-saida: #f85149;
+    --cor-atencao: #d29922;
+    --cor-atencao-fundo: #2b2611;
+    --cor-erro-fundo: #2d1618;
+  }
+}
