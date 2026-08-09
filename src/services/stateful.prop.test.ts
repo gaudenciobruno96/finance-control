@@ -84,12 +84,27 @@ function escolher<T>(lista: readonly T[], i: number): T | null {
   return lista[i % lista.length] ?? null
 }
 
-async function executar(app: Harness, cmd: Comando): Promise<void> {
+/**
+ * @param ordem Posicao do comando na sequencia. So serve para dar nome unico a
+ * cada regra criada.
+ *
+ * A invariante 3 nao consegue identificar linhagem pelos dados -- o app
+ * versiona criando uma nova Regra com mesmo nome e mesmo dia, sem campo que
+ * aponte para a origem -- entao usa `tipo|nome|dia` como proxy. Duas regras
+ * criadas de forma INDEPENDENTE com esses tres campos iguais sao legitimas
+ * (dois salarios no dia 28), mas o proxy as lia como duas versoes vigentes da
+ * mesma linhagem e acusava violacao onde nao havia.
+ *
+ * Nomear por ordem elimina a colisao sem enfraquecer o que a invariante
+ * verifica: a edicao versionada preserva o nome, e continua caindo no mesmo
+ * grupo.
+ */
+async function executar(app: Harness, cmd: Comando, ordem: number): Promise<void> {
   switch (cmd.tipo) {
     case 'criarRegra':
       await app.regras.criarRegra({
         tipo: cmd.entrada ? 'entrada' : 'saida',
-        nome: cmd.entrada ? 'Entrada' : 'Saida',
+        nome: `${cmd.entrada ? 'Entrada' : 'Saida'} ${ordem}`,
         valorCentavos: cmd.valor,
         valorEhEstimativa: false,
         diaDoMes: cmd.dia,
@@ -293,8 +308,8 @@ describe('stateful — persistencia e orquestracao (PBT-06)', () => {
       fc.asyncProperty(fc.array(comando(), { maxLength: 14 }), async (comandos) => {
         const app = await criarHarness()
         try {
-          for (const cmd of comandos) {
-            await executar(app, cmd)
+          for (const [ordem, cmd] of comandos.entries()) {
+            await executar(app, cmd, ordem)
             await verificarInvariantes(app)
           }
         } finally {
@@ -316,7 +331,7 @@ describe('stateful — persistencia e orquestracao (PBT-06)', () => {
       fc.asyncProperty(fc.array(comando(), { maxLength: 10 }), async (comandos) => {
         const app = await criarHarness()
         try {
-          for (const cmd of comandos) await executar(app, cmd)
+          for (const [ordem, cmd] of comandos.entries()) await executar(app, cmd, ordem)
 
           const antes = await app.projecao.projetarMes(COMPETENCIA, HOJE)
           const conteudo = await app.backup.exportar(HOJE)
@@ -351,7 +366,7 @@ describe('stateful — persistencia e orquestracao (PBT-06)', () => {
         async (comandos, arquivoInvalido) => {
           const app = await criarHarness()
           try {
-            for (const cmd of comandos) await executar(app, cmd)
+            for (const [ordem, cmd] of comandos.entries()) await executar(app, cmd, ordem)
 
             const antes = await app.projecao.projetarMes(COMPETENCIA, HOJE)
 
