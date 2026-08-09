@@ -8,10 +8,8 @@
 import {
   comparar,
   compararCompetencias,
-  construirData,
   intervaloDeCompetencias,
   somarMeses,
-  ultimoDiaDoMes,
 } from '../domain/calendar.js'
 import { expandirParcelamentos } from '../domain/installment-expander.js'
 import { expandirRegras } from '../domain/rule-expander.js'
@@ -77,7 +75,8 @@ export interface MesProjetado {
   // A conta exibida no topo. Vale a identidade, por construcao:
   //   saldoNaReferencia + entraApos - saiApos === sobra
   readonly saldoNaReferenciaCentavos: number
-  readonly dataDaReferencia: DataISO
+  /** Primeiro dia ainda por vir. Nulo quando o mes inteiro ja passou. */
+  readonly dataDaReferencia: DataISO | null
   /** Falso quando o mes exibido nao contem a data corrente. */
   readonly referenciaEhHoje: boolean
   readonly entraAposReferenciaCentavos: number
@@ -87,7 +86,7 @@ export interface MesProjetado {
    * O que compoe cada um dos dois totais acima.
    *
    * Existe para a tela poder abrir os numeros: o usuario quer ver O QUE ainda
-   * entra e O QUE ainda sai, e essas listas nao coincidem com as agrupadas por
+   * entra e O QUE ainda sai. Nao coincide com as listas agrupadas por
    * competencia -- um salario ja recebido no dia 5 pertence ao mes, mas nao ao
    * que ainda esta por vir.
    */
@@ -106,43 +105,82 @@ export interface MesProjetado {
   readonly saldoRelativo: boolean
 }
 
-/**
- * Ponto da curva que serve de referencia para a conta exibida.
- *
- * E o dia de hoje quando ele esta dentro do mes; caso contrario, o primeiro
- * ponto da curva -- para um mes futuro, tudo ainda esta por acontecer.
- */
-function ultimoDiaDaCompetencia(c: Competencia): DataISO {
-  return construirData(c, ultimoDiaDoMes(c))
+interface Referencia {
+  /**
+   * Indice do primeiro dia que ainda esta POR VIR, inclusive. Igual ao numero
+   * de pontos quando o mes inteiro ja passou.
+   */
+  readonly indice: number
+  /** Saldo no COMECO desse dia, antes dos movimentos dele. */
+  readonly saldoCentavos: number
+  /** Nulo quando nao ha dia por vir. */
+  readonly data: DataISO | null
+  readonly ehHoje: boolean
 }
 
-function posicaoNaCurva(
-  curva: CurvaSaldo,
-  agora: DataISO,
-): { data: DataISO; saldoCentavos: number; ehHoje: boolean } {
+/**
+ * Ponto da curva a partir do qual as coisas ainda vao acontecer.
+ *
+ * E o dia de hoje quando ele esta dentro do mes; para um mes futuro, o dia 1,
+ * porque nem ele aconteceu; para um mes passado, nenhum.
+ */
+function posicaoNaCurva(curva: CurvaSaldo, agora: DataISO): Referencia {
   const primeiro = curva.pontos[0]
   const ultimo = curva.pontos[curva.pontos.length - 1]
 
   if (primeiro === undefined || ultimo === undefined) {
-    return { data: agora, saldoCentavos: curva.saldoInicialCentavos, ehHoje: false }
+    return {
+      indice: 0,
+      saldoCentavos: curva.saldoInicialCentavos,
+      data: null,
+      ehHoje: false,
+    }
   }
 
   if (comparar(agora, primeiro.data) < 0) {
-    // Mes inteiramente no futuro: a referencia e o saldo de partida.
+    // Mes inteiramente no futuro: nada dele aconteceu ainda, nem o dia 1.
     return {
-      data: primeiro.data,
+      indice: 0,
       saldoCentavos: curva.saldoInicialCentavos,
+      data: primeiro.data,
       ehHoje: false,
     }
   }
 
   if (comparar(agora, ultimo.data) > 0) {
-    // Mes inteiramente no passado: nao ha nada "apos hoje" dentro dele.
-    return { data: ultimo.data, saldoCentavos: ultimo.saldoCentavos, ehHoje: false }
+    // Mes inteiramente no passado: nao sobrou dia algum por vir.
+    return {
+      indice: curva.pontos.length,
+      saldoCentavos: ultimo.saldoCentavos,
+      data: null,
+      ehHoje: false,
+    }
   }
 
-  const doDia = curva.pontos.find((p) => p.data === agora) ?? ultimo
-  return { data: doDia.data, saldoCentavos: doDia.saldoCentavos, ehHoje: true }
+  const indice = curva.pontos.findIndex((p) => p.data === agora)
+  if (indice < 0) {
+    return {
+      indice: curva.pontos.length,
+      saldoCentavos: ultimo.saldoCentavos,
+      data: null,
+      ehHoje: false,
+    }
+  }
+
+  // O saldo do PONTO de hoje ja desconta as contas que vencem hoje. Mas elas
+  // ainda nao sairam da conta: exibi-lo como "o que voce tem hoje" mostra um
+  // numero menor que o do banco, e menor que o proprio valor digitado.
+  //
+  // A referencia e o saldo no comeco do dia; o que se move hoje entra em
+  // "ainda entra" e "ainda sai", onde a pessoa consegue ver e conferir.
+  const anterior = curva.pontos[indice - 1]
+
+  return {
+    indice,
+    saldoCentavos: anterior?.saldoCentavos ?? curva.saldoInicialCentavos,
+    data: curva.pontos[indice]?.data ?? null,
+    ehHoje: true,
+  }
 }
 
 /**
@@ -233,31 +271,30 @@ export function criarProjectionService(repos: Repositorios) {
       // `saldoHoje + entra - sai = sobra` fecha por construcao.
       const referencia = posicaoNaCurva(curva, agora)
 
+      // A partir do indice, INCLUSIVE: o dia de hoje ainda vai acontecer.
+      //
+      // Como o saldo da referencia e o do comeco desse dia, a identidade
+      // `saldo + entra - sai = sobra` percorre exatamente os mesmos pontos que
+      // construiram a curva, e fecha ao centavo.
+      //
+      // As listas saem dos MESMOS movimentos, nao de um filtro por data: uma
+      // conta vencida e empurrada para hoje pelo projetor (RN-33), e refazer
+      // essa conta aqui deixava o item fora da lista que explica o total.
       let entraDepois = 0
       let saiDepois = 0
-      for (const m of curva.movimentos) {
-        if (comparar(m.data, referencia.data) <= 0) continue
+      const detalheEntra: OcorrenciaResolvida[] = []
+      const detalheSai: OcorrenciaResolvida[] = []
+
+      for (let i = referencia.indice; i < curva.movimentos.length; i += 1) {
+        const m = curva.movimentos[i]
+        if (m === undefined) continue
         entraDepois += m.entradaCentavos
         saiDepois += m.saidaCentavos
+        for (const o of m.itens) {
+          if (o.tipo === 'entrada') detalheEntra.push(o)
+          else detalheSai.push(o)
+        }
       }
-
-      // As ocorrencias por tras de cada total, para a tela poder abri-los.
-      //
-      // O criterio e o MESMO da soma acima -- data efetiva posterior a
-      // referencia -- e nao o agrupamento por competencia usado nas listas.
-      // Sao coisas diferentes: um salario recebido no dia 5 ja passou, e nao
-      // esta em "ainda entra", mesmo sendo do mes exibido.
-      const aposReferencia = resolvidas.filter((o) => {
-        if (o.ignorado) return false
-        const data = o.dataPagamento ?? o.dataVencimento
-        return (
-          comparar(data, referencia.data) > 0 &&
-          comparar(data, ultimoDiaDaCompetencia(competencia)) <= 0
-        )
-      })
-
-      const detalheEntra = aposReferencia.filter((o) => o.tipo === 'entrada')
-      const detalheSai = aposReferencia.filter((o) => o.tipo === 'saida')
 
       return {
         competencia,

@@ -170,6 +170,15 @@ export interface MovimentoDoDia {
   readonly data: DataISO
   readonly entradaCentavos: Centavos
   readonly saidaCentavos: Centavos
+  /**
+   * O que compos os dois valores acima, para a tela poder abri-los.
+   *
+   * Vem daqui, e nao de um filtro por data na camada de cima, porque a data em
+   * que o dinheiro se move nem sempre e a do item: uma conta vencida e
+   * empurrada para o inicio da curva (RN-33). Refazer essa conta em outro lugar
+   * produzia um total e uma lista que nao batiam.
+   */
+  readonly itens: readonly OcorrenciaResolvida[]
 }
 
 export interface CurvaSaldo {

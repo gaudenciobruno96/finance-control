@@ -5,18 +5,34 @@
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
 import { projetarCurva } from './balance-projector.js'
-import { diasDaCompetencia } from './calendar.js'
+import { comparar, diasDaCompetencia } from './calendar.js'
 import { somar } from './money.js'
 import { cenarioDeProjecao } from '../test-support/coherent-state.js'
-import type { Centavos, OcorrenciaResolvida } from './types.js'
+import type { AncoraSaldo, Centavos, OcorrenciaResolvida } from './types.js'
+
+/**
+ * O que o saldo declarado JA reflete (RN-32).
+ *
+ * O extrato do dia ja mostra o que saiu da conta naquele dia: contar de novo
+ * seria contagem dupla. O oraculo precisa conhecer esta regra porque ela decide
+ * QUAIS movimentos existem -- o que ele verifica de forma independente e a
+ * ACUMULACAO deles, por soma direta em vez do laco incremental do projetor.
+ */
+function jaNoSaldo(o: OcorrenciaResolvida, ancora: AncoraSaldo | null): boolean {
+  if (ancora === null || o.dataPagamento === null) return false
+  return comparar(o.dataPagamento, ancora.data) <= 0
+}
 
 /**
  * Oraculo: soma direta dos movimentos, por um caminho completamente diferente
  * do acumulador incremental do projetor.
  */
-function somaDireta(ocorrencias: readonly OcorrenciaResolvida[]): Centavos {
+function somaDireta(
+  ocorrencias: readonly OcorrenciaResolvida[],
+  ancora: AncoraSaldo | null = null,
+): Centavos {
   const valores = ocorrencias
-    .filter((o) => !o.ignorado)
+    .filter((o) => !o.ignorado && !jaNoSaldo(o, ancora))
     .map((o) => {
       const valor = o.valorPagoCentavos ?? o.valorPrevistoCentavos
       return o.tipo === 'entrada' ? valor : -valor
@@ -43,7 +59,7 @@ describe('balance-projector — propriedades', () => {
         )
 
         const base = cenario.ancora?.saldoCentavos ?? 0
-        const esperado = base + somaDireta(cenario.ocorrencias)
+        const esperado = base + somaDireta(cenario.ocorrencias, cenario.ancora)
         const ultimo = curva.pontos[curva.pontos.length - 1]
 
         expect(ultimo?.saldoCentavos).toBe(esperado)
@@ -214,7 +230,7 @@ describe('balance-projector — propriedades', () => {
           const ateOdia = cenario.ocorrencias.filter(
             (o) => (o.dataPagamento ?? o.dataVencimento) <= ponto.data,
           )
-          expect(ponto.saldoCentavos).toBe(base + somaDireta(ateOdia))
+          expect(ponto.saldoCentavos).toBe(base + somaDireta(ateOdia, cenario.ancora))
         }
       }),
     )
@@ -226,6 +242,12 @@ describe('balance-projector — propriedades', () => {
    *
    * E o que justifica exibir a curva antes de o usuario informar seu saldo: o
    * dia de aperto ja esta correto.
+   *
+   * A garantia tem UM limite, e ele e inerente: um pagamento feito ate a data
+   * da ancora ja esta dentro do saldo declarado e por isso nao move a curva
+   * (RN-32) -- mas sem saldo declarado nao ha o que ja o reflita, e o mesmo
+   * pagamento move. Nesses cenarios as duas curvas divergem de proposito, e a
+   * propriedade nao se aplica.
    */
   it('PROP-P07: sem ancora, a forma da curva e preservada', () => {
     fc.assert(
@@ -235,6 +257,8 @@ describe('balance-projector — propriedades', () => {
           data: `${cenario.competencia}-01`,
           saldoCentavos: 123_456,
         }
+
+        fc.pre(cenario.ocorrencias.every((o) => !jaNoSaldo(o, ancora)))
 
         const comAncora = projetarCurva(
           cenario.ocorrencias,

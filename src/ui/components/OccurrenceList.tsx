@@ -128,6 +128,10 @@ function Linha({
               </span>
             </>
           )}
+          {/* Sem isto, um salario de 18.000 que virou 10.000 por causa de um
+              adiantamento aparece como 10.000 e mais nada -- e daqui a duas
+              semanas ninguem lembra por que. */}
+          {ocorrencia.observacao !== null && ` · ${ocorrencia.observacao}`}
         </span>
       </span>
 

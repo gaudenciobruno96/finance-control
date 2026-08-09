@@ -24,6 +24,7 @@ export interface PaymentSheetProps {
   readonly onPagar: (data: DataISO, valor: Centavos) => void
   readonly onDesfazerPagamento: () => void
   readonly onAjustarValor: (valor: Centavos) => void
+  readonly onRegistrarParte: (parte: Centavos) => void
   readonly onAdiar: (data: DataISO) => void
   readonly onIgnorar: () => void
   readonly onReativar: () => void
@@ -36,6 +37,7 @@ export function PaymentSheet({
   onPagar,
   onDesfazerPagamento,
   onAjustarValor,
+  onRegistrarParte,
   onAdiar,
   onIgnorar,
   onReativar,
@@ -60,8 +62,14 @@ export function PaymentSheet({
 
   const [vencimento, setVencimento] = useState<DataISO>(ocorrencia.dataVencimento)
 
+  const [parte, setParte] = useState<Centavos>(0)
+
   const jaPago = ocorrencia.dataPagamento !== null
   const ehEntrada = ocorrencia.tipo === 'entrada'
+
+  // Zero nao diz nada, e o previsto inteiro nao e 'parte': e o total, e nesse
+  // caso o certo e confirmar o pagamento, com data.
+  const parteValida = parte > 0 && parte < ocorrencia.valorPrevistoCentavos
 
   return (
     <div className={estilos.fundo} onClick={onFechar} data-testid="payment-sheet">
@@ -121,6 +129,52 @@ export function PaymentSheet({
           </div>
         )}
 
+        {/* Recebimento parcial e um caso frequente -- adiantamento de salario,
+            conta paga pela metade -- e por isso fica VISIVEL aqui, e nao
+            dentro de 'Outras acoes': escondido, ninguem encontrava. */}
+        {!ocorrencia.ignorado && !jaPago && (
+          <details className={estilos.parcial}>
+            <summary data-testid="parte-antecipada">
+              {ehEntrada ? 'Já recebi uma parte' : 'Já paguei uma parte'}
+            </summary>
+
+            <div className={estilos.grupo}>
+              <MoneyInput
+                id="parte-antecipada"
+                rotulo={ehEntrada ? 'Quanto já caiu' : 'Quanto já saiu'}
+                descricao={
+                  ehEntrada
+                    ? 'Vale só para este mês. Os próximos continuam com o valor de sempre.'
+                    : 'Vale só para este mês.'
+                }
+                valorCentavos={parte}
+                onChange={setParte}
+              />
+
+              <p className={estilos.resta} data-testid="resta-apos-parte">
+                {parteValida
+                  ? `${ehEntrada ? 'Resta receber' : 'Resta pagar'}: ${formatarBRL(
+                      ocorrencia.valorPrevistoCentavos - parte,
+                    )}`
+                  : `Informe um valor entre R$ 0,01 e ${formatarBRL(
+                      ocorrencia.valorPrevistoCentavos - 1,
+                    )}. Se já veio tudo, confirme o ${
+                      ehEntrada ? 'recebimento' : 'pagamento'
+                    } acima.`}
+              </p>
+
+              <button
+                type="button"
+                disabled={!parteValida}
+                onClick={() => onRegistrarParte(parte)}
+                data-testid="salvar-parte"
+              >
+                Salvar
+              </button>
+            </div>
+          </details>
+        )}
+
         <details className={estilos.secundarias}>
           <summary data-testid="acoes-secundarias">Outras ações</summary>
 
@@ -132,7 +186,7 @@ export function PaymentSheet({
               }
               descricao={
                 ehEntrada
-                  ? 'Para quando você pediu adiantamento ou recebeu a mais. Os próximos meses continuam com o valor de sempre.'
+                  ? 'Quando o valor deste mês é outro. Os próximos continuam com o de sempre.'
                   : 'Para contas de valor variável, como luz e água. Vale só para este mês.'
               }
               valorCentavos={valorPrevisto}

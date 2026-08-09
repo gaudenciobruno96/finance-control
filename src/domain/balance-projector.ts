@@ -91,11 +91,18 @@ export function projetarCurva(
   )
 
   // Acumula os movimentos por dia antes de percorrer o mes.
-  const movimentosPorDia = new Map<DataISO, { entrada: Centavos; saida: Centavos }>()
+  interface Acumulado {
+    entrada: Centavos
+    saida: Centavos
+    itens: OcorrenciaResolvida[]
+  }
+
+  const movimentosPorDia = new Map<DataISO, Acumulado>()
   const acumular = (data: DataISO, o: OcorrenciaResolvida, bruto: Centavos): void => {
-    const atual = movimentosPorDia.get(data) ?? { entrada: 0, saida: 0 }
+    const atual = movimentosPorDia.get(data) ?? { entrada: 0, saida: 0, itens: [] }
     if (o.tipo === 'entrada') atual.entrada += bruto
     else atual.saida += bruto
+    atual.itens.push(o)
     movimentosPorDia.set(data, atual)
   }
 
@@ -108,6 +115,8 @@ export function projetarCurva(
   // compoem o saldo de partida em vez de aparecerem como um ponto.
   const antesDoMes: Centavos[] = []
 
+  const temAncora = !semAncora && ancoraForaDoFuturo
+
   for (const o of ocorrencias) {
     if (!movimenta(o)) continue
 
@@ -117,6 +126,20 @@ export function projetarCurva(
 
     if (comparar(data, ultimoDia) > 0) {
       // Cai em mes posterior: pertence a curva daquele mes, nao a deste.
+      continue
+    }
+
+    // RN-32, ate a data da ancora INCLUSIVE.
+    //
+    // O saldo declarado e uma leitura do extrato: o que ja saiu da conta hoje
+    // ja esta descontado dele. Subtrair de novo uma conta paga hoje mostraria
+    // um saldo menor que o digitado, na propria linha que diz "que voce tem
+    // hoje" -- e foi exatamente o que acontecia.
+    if (
+      temAncora &&
+      o.dataPagamento !== null &&
+      comparar(o.dataPagamento, dataDaAncora) <= 0
+    ) {
       continue
     }
 
@@ -164,7 +187,7 @@ export function projetarCurva(
   for (const dia of dias) {
     if (comparar(dia, inicio) < 0) continue
 
-    const doDia = movimentosPorDia.get(dia) ?? { entrada: 0, saida: 0 }
+    const doDia = movimentosPorDia.get(dia) ?? { entrada: 0, saida: 0, itens: [] }
     saldo = somar(saldo, doDia.entrada, -doDia.saida)
 
     pontos.push({ data: dia, saldoCentavos: saldo })
@@ -172,6 +195,7 @@ export function projetarCurva(
       data: dia,
       entradaCentavos: doDia.entrada,
       saidaCentavos: doDia.saida,
+      itens: doDia.itens,
     })
   }
 

@@ -126,3 +126,77 @@ describe('atrasados de meses anteriores (regressão da 2ª revisão)', () => {
     ])
   })
 })
+
+/**
+ * O saldo exibido tem de ser IGUAL ao digitado.
+ *
+ * Bug relatado: a pessoa informou 3.940 e a tela mostrou 1.940. A conta
+ * vencida do dia era empurrada para hoje (RN-33) e o ponto da curva do dia de
+ * hoje ja vinha com ela descontada -- mas o dinheiro ainda estava na conta, e
+ * a linha ao lado do numero diz "que voce tem hoje".
+ */
+describe('o saldo de hoje é o que foi declarado', () => {
+  it('conta vencida empurrada para hoje não some do saldo, vai para “ainda sai”', async () => {
+    // Vence dia 10, hoje e 15: atrasada, empurrada para hoje.
+    await app.regras.criarRegra({
+      tipo: 'saida', nome: 'Boleto', valorCentavos: 200_000,
+      valorEhEstimativa: false, diaDoMes: 10, ajusteFimDeSemana: 'nenhum',
+      vigenteDe: '2026-08', vigenteAte: null,
+    })
+    await app.regras.definirAncora(HOJE, 394_000, HOJE)
+
+    const mes = await app.projecao.projetarMes('2026-08', HOJE)
+
+    expect(mes.saldoNaReferenciaCentavos).toBe(394_000)
+    expect(mes.referenciaEhHoje).toBe(true)
+    expect(mes.saiAposReferenciaCentavos).toBe(200_000)
+    expect(mes.sobraCentavos).toBe(194_000)
+
+    // E aparece na lista que se abre, para poder ser conferida.
+    expect(mes.detalheSaiApos.map((o) => o.nome)).toEqual(['Boleto'])
+  })
+
+  it('o que foi pago hoje não é descontado de novo do saldo declarado', async () => {
+    await app.regras.criarRegra({
+      tipo: 'saida', nome: 'Boleto', valorCentavos: 200_000,
+      valorEhEstimativa: false, diaDoMes: 15, ajusteFimDeSemana: 'nenhum',
+      vigenteDe: '2026-08', vigenteAte: null,
+    })
+
+    const antes = await app.projecao.projetarMes('2026-08', HOJE)
+    const boleto = antes.faltaPagar[0]
+    expect(boleto).toBeDefined()
+    await app.pagamento.registrarPagamento(boleto!, HOJE, 200_000)
+
+    // O saldo e lido do extrato DEPOIS de pagar: ja vem descontado.
+    await app.regras.definirAncora(HOJE, 394_000, HOJE)
+
+    const mes = await app.projecao.projetarMes('2026-08', HOJE)
+
+    expect(mes.saldoNaReferenciaCentavos).toBe(394_000)
+    expect(mes.saiAposReferenciaCentavos).toBe(0)
+    expect(mes.sobraCentavos).toBe(394_000)
+    expect(mes.jaResolvido).toHaveLength(1)
+  })
+
+  it('a identidade continua fechando quando o mês exibido é futuro', async () => {
+    await app.regras.criarRegra({
+      tipo: 'saida', nome: 'Aluguel', valorCentavos: 80_000,
+      valorEhEstimativa: false, diaDoMes: 1, ajusteFimDeSemana: 'nenhum',
+      vigenteDe: '2026-08', vigenteAte: null,
+    })
+    await app.regras.definirAncora(HOJE, 394_000, HOJE)
+
+    // Setembro inteiro esta no futuro: nem o dia 1 aconteceu.
+    const mes = await app.projecao.projetarMes('2026-09', HOJE)
+
+    expect(
+      mes.saldoNaReferenciaCentavos +
+        mes.entraAposReferenciaCentavos -
+        mes.saiAposReferenciaCentavos,
+    ).toBe(mes.sobraCentavos)
+    // 80.000 de setembro mais o aluguel de agosto, vencido e nao pago: a
+    // divida antiga e empurrada para o inicio da curva (RN-33).
+    expect(mes.saiAposReferenciaCentavos).toBe(160_000)
+  })
+})

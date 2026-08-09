@@ -233,6 +233,9 @@ export function MonthScreen() {
           onAjustarValor={(valor: Centavos) =>
             acao(() => pagamento.ajustarValorPrevisto(selecionada, valor))
           }
+          onRegistrarParte={(parte: Centavos) =>
+            acao(() => pagamento.registrarParteAntecipada(selecionada, parte))
+          }
           onAdiar={(data: DataISO) =>
             acao(() => pagamento.adiarVencimento(selecionada, data))
           }

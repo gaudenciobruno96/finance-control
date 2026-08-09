@@ -409,3 +409,83 @@ describe('abrir os totais da conta', () => {
     expect(within(detalhe as HTMLElement).getByText('Aluguel')).toBeInTheDocument()
   })
 })
+
+describe('recebimento parcial', () => {
+  /**
+   * O caso relatado: salário de 18.000 no dia 31, 8.000 já vieram de
+   * adiantamento, restam 10.000 a receber -- e só neste mês.
+   */
+  it('registra a parte já recebida e deixa o restante para receber', async () => {
+    const usuario = userEvent.setup()
+
+    await criarRuleService(db, criarRepositorios(db)).criarRegra({
+      tipo: 'entrada',
+      nome: 'Salário',
+      valorCentavos: 1_800_000,
+      valorEhEstimativa: false,
+      diaDoMes: 31,
+      ajusteFimDeSemana: 'antecipa',
+      vigenteDe: competenciaDe(hojeLocal()),
+      vigenteAte: null,
+    })
+
+    montar(<MonthScreen />)
+
+    const secao = await screen.findByLabelText('Ainda entra')
+    await usuario.click(await within(secao).findByText('Salário'))
+
+    const folha = await screen.findByTestId('payment-sheet')
+
+    // Visível na própria folha, não escondido em "Outras ações".
+    await usuario.click(within(folha).getByTestId('parte-antecipada'))
+
+    const campo = within(folha).getByTestId('money-input-parte-antecipada')
+    await usuario.clear(campo)
+    await usuario.type(campo, '800000')
+
+    expect(within(folha).getByTestId('resta-apos-parte')).toHaveTextContent(
+      'Resta receber',
+    )
+
+    await usuario.click(within(folha).getByTestId('salvar-parte'))
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('payment-sheet')).not.toBeInTheDocument()
+    })
+
+    const repos = criarRepositorios(db)
+
+    const ocorrencias = await repos.ocorrencias.listar()
+    expect(ocorrencias).toHaveLength(1)
+    expect(ocorrencias[0]?.competencia).toBe(competenciaDe(hojeLocal()))
+    expect(ocorrencias[0]?.valorPrevistoCentavos).toBe(1_000_000)
+    expect(ocorrencias[0]?.observacao).toContain('8.000,00')
+    // Não vira pagamento: os 10.000 continuam a receber.
+    expect(ocorrencias[0]?.dataPagamento).toBeNull()
+
+    // A regra fica intacta: os próximos meses seguem em 18.000.
+    const regras = await repos.regras.listar()
+    expect(regras).toHaveLength(1)
+    expect(regras[0]?.valorCentavos).toBe(1_800_000)
+  })
+
+  it('não aceita uma parte igual ou maior que o previsto', async () => {
+    const usuario = userEvent.setup()
+    await semear('Aluguel', 180_000, 28)
+
+    montar(<MonthScreen />)
+
+    const aPagar = await screen.findByLabelText('Falta pagar')
+    await usuario.click(await within(aPagar).findByText('Aluguel'))
+
+    const folha = await screen.findByTestId('payment-sheet')
+    await usuario.click(within(folha).getByTestId('parte-antecipada'))
+
+    const campo = within(folha).getByTestId('money-input-parte-antecipada')
+    await usuario.clear(campo)
+    await usuario.type(campo, '180000')
+
+    // Pagar tudo é confirmar o pagamento, com data — não é "uma parte".
+    expect(within(folha).getByTestId('salvar-parte')).toBeDisabled()
+  })
+})

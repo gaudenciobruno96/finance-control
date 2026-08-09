@@ -73,3 +73,25 @@
   min-height: var(--toque-minimo);
   color: var(--cor-texto-suave);
 }
+
+/* Sobe visualmente em relacao a "Outras acoes": e uma acao frequente, nao
+   um canto de configuracao. */
+.parcial {
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio);
+  padding: var(--espaco-2) var(--espaco-3);
+}
+
+.parcial > summary {
+  min-height: var(--toque-minimo);
+  display: flex;
+  align-items: center;
+  color: var(--cor-acento);
+  cursor: pointer;
+}
+
+.resta {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--cor-texto-suave);
+}

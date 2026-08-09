@@ -3,6 +3,8 @@
  */
 
 import { novoId } from '../data/ids.js'
+import { falhar } from '../domain/errors.js'
+import { formatarBRL } from '../domain/money.js'
 import type { Repositorios } from '../data/repositories.js'
 import type {
   Centavos,
@@ -80,6 +82,36 @@ export function criarPaymentService(repos: Repositorios) {
 
     ajustarValorPrevisto: (o: OcorrenciaResolvida, valor: Centavos) =>
       aplicar(o, { valorPrevistoCentavos: valor }),
+
+    /**
+     * Parte do valor ja entrou (ou ja saiu) antes do vencimento.
+     *
+     * O caso concreto: o salario e 18.000 no dia 31, veio 8.000 de
+     * adiantamento, restam 10.000 a receber. Os 8.000 ja estao na conta e
+     * portanto ja estao no saldo declarado -- o que muda e quanto AINDA falta.
+     *
+     * Vale so para este mes: escreve uma ocorrencia que sobrepoe a virtual
+     * daquela competencia e nao toca na regra, entao os proximos meses seguem
+     * nos 18.000.
+     *
+     * Recebimento integral nao passa por aqui: e um pagamento confirmado, com
+     * data. Por isso a parte precisa ser menor que o previsto.
+     */
+    registrarParteAntecipada: (o: OcorrenciaResolvida, parte: Centavos) => {
+      if (!Number.isInteger(parte) || parte <= 0) {
+        falhar('VALOR_NAO_POSITIVO', 'parteAntecipada')
+      }
+      if (parte >= o.valorPrevistoCentavos) {
+        falhar('VALOR_NAO_POSITIVO', 'restanteAposParte')
+      }
+
+      const verbo = o.tipo === 'entrada' ? 'recebido' : 'pago'
+
+      return aplicar(o, {
+        valorPrevistoCentavos: o.valorPrevistoCentavos - parte,
+        observacao: `${formatarBRL(parte)} ${verbo} adiantado`,
+      })
+    },
 
     adiarVencimento: (o: OcorrenciaResolvida, data: DataISO) =>
       aplicar(o, { dataVencimento: data }),

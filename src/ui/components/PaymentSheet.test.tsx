@@ -38,6 +38,7 @@ function montar(over: Partial<Parameters<typeof PaymentSheet>[0]> = {}) {
     onPagar: vi.fn(),
     onDesfazerPagamento: vi.fn(),
     onAjustarValor: vi.fn(),
+    onRegistrarParte: vi.fn(),
     onAdiar: vi.fn(),
     onIgnorar: vi.fn(),
     onReativar: vi.fn(),
