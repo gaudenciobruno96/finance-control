@@ -1,0 +1,33 @@
+.fundo {
+  position: fixed;
+  inset: 0;
+  background: rgb(0 0 0 / 40%);
+  display: flex;
+  align-items: flex-end;
+  z-index: 50;
+}
+
+.folha {
+  width: 100%;
+  max-height: 88vh;
+  overflow-y: auto;
+  background: var(--cor-superficie-alta);
+  border-top-left-radius: var(--raio);
+  border-top-right-radius: var(--raio);
+  padding: var(--espaco-5) var(--espaco-4);
+  padding-bottom: calc(var(--espaco-5) + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-3);
+}
+
+.titulo {
+  font-size: 1.125rem;
+  font-weight: var(--peso-forte);
+}
+
+.fechar {
+  min-height: var(--toque-minimo);
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio);
+}

@@ -5,7 +5,7 @@
  * -- nasce na tela do mes, na mesma caixa, porque e la que voce esta quando o
  * boleto chega.
  *
- * As contas fixas ja criadas continuam listadas nesta tela, em secao propria:
+ * As contas fixas ja criadas continuam listadas nesta tela, em painel proprio:
  * sao a unica forma de altera-las ou remove-las, e escondendo-as elas ficariam
  * presas no app para sempre.
  */
@@ -19,6 +19,8 @@ import type { Centavos, Regra } from '../../domain/types.js'
 import { MoneyInput } from '../components/MoneyInput.js'
 import { ConfirmSheet } from '../components/ConfirmSheet.js'
 import { QuickExpense } from '../components/QuickExpense.js'
+import { Sheet } from '../components/Sheet.js'
+import { SwipeTabs, type Painel } from '../components/SwipeTabs.js'
 import { useAgora } from '../hooks/useAgora.js'
 import { useApp } from '../hooks/useApp.js'
 import { useSalvarLancamento } from '../hooks/useLancamento.js'
@@ -42,55 +44,76 @@ export function RegistrationsScreen() {
   const receitas = lista.filter((r) => r.tipo === 'entrada')
   const fixas = lista.filter((r) => r.tipo === 'saida')
 
-  return (
-    <div className={estilos.tela}>
-      <section className={estilos.painel} aria-label="Receitas">
-        <h2 className={estilos.titulo}>O que entra todo mês</h2>
+  const somar = (rs: readonly Regra[]) =>
+    rs.reduce((t, r) => t + r.valorCentavos, 0)
 
-        <ListaDeRegras
-          regras={receitas}
-          onSelecionar={setEditando}
-          vazio="Cadastre seus salários. Depois disso o mês aparece sozinho, sem lançamento manual."
-        />
-
-        {criando ? (
-          <QuickExpense
-            competencia={competenciaDe(agora)}
-            hoje={agora}
-            tipoFixo="entrada"
-            onCancelar={() => setCriando(false)}
-            onSalvar={(dados) => {
-              void executar(async () => {
-                await salvarLancamento(dados)
-                setCriando(false)
-              })
-            }}
+  const paineis: Painel[] = [
+    {
+      id: 'receitas',
+      rotulo: 'Entra',
+      detalhe: formatarBRL(somar(receitas)),
+      conteudo: (
+        <section className={estilos.painel} aria-label="Receitas">
+          <ListaDeRegras
+            regras={receitas}
+            onSelecionar={setEditando}
+            vazio="Cadastre seus salários. Depois disso o mês aparece sozinho, sem lançamento manual."
           />
-        ) : (
-          <button
-            type="button"
-            className={estilos.principal}
-            onClick={() => setCriando(true)}
-            data-testid="nova-regra"
-          >
-            + Nova receita
-          </button>
-        )}
-      </section>
 
-      <section className={estilos.painel} aria-label="Contas fixas">
-        <h2 className={estilos.titulo}>Contas que se repetem</h2>
+          {criando ? (
+            <QuickExpense
+              competencia={competenciaDe(agora)}
+              hoje={agora}
+              tipoFixo="entrada"
+              onCancelar={() => setCriando(false)}
+              onSalvar={(dados) => {
+                void executar(async () => {
+                  await salvarLancamento(dados)
+                  setCriando(false)
+                })
+              }}
+            />
+          ) : (
+            <button
+              type="button"
+              className={estilos.principal}
+              onClick={() => setCriando(true)}
+              data-testid="nova-regra"
+            >
+              + Nova receita
+            </button>
+          )}
+        </section>
+      ),
+    },
+    {
+      id: 'fixas',
+      rotulo: 'Repete',
+      detalhe: formatarBRL(somar(fixas)),
+      conteudo: (
+        <section className={estilos.painel} aria-label="Contas fixas">
+          <ListaDeRegras
+            regras={fixas}
+            onSelecionar={setEditando}
+            vazio="Nenhuma ainda. Marque “repete todo mês” ao anotar uma conta na tela do mês."
+          />
 
-        <ListaDeRegras
-          regras={fixas}
-          onSelecionar={setEditando}
-          vazio="Nenhuma ainda. Marque “repete todo mês” ao anotar uma conta na tela do mês."
-        />
-      </section>
+          <p className={estilos.nota} data-testid="dica-cadastros">
+            Contas a pagar são anotadas na tela do mês — inclusive as que se
+            repetem e as parceladas.
+          </p>
+        </section>
+      ),
+    },
+  ]
 
-      {parcelamentos.length > 0 && (
+  if (parcelamentos.length > 0) {
+    paineis.push({
+      id: 'parcelas',
+      rotulo: 'Parcelas',
+      detalhe: `${parcelamentos.length}`,
+      conteudo: (
         <section className={estilos.painel} aria-label="Parcelamentos">
-          <h2 className={estilos.titulo}>Compras parceladas</h2>
           <ul className={estilos.lista}>
             {parcelamentos.map((p) => (
               <li key={p.id} className={estilos.item}>
@@ -108,7 +131,13 @@ export function RegistrationsScreen() {
             ))}
           </ul>
         </section>
-      )}
+      ),
+    })
+  }
+
+  return (
+    <div className={estilos.tela}>
+      <SwipeTabs paineis={paineis} rotuloDaLista="Cadastros" />
 
       {editando !== null && (
         <FormularioEdicao
@@ -152,14 +181,8 @@ export function RegistrationsScreen() {
           onCancelar={() => setRemovendo(null)}
         />
       )}
-
-      <p className={estilos.nota} data-testid="dica-cadastros">
-        Contas a pagar são anotadas na tela do mês — inclusive as que se repetem
-        e as parceladas.
-      </p>
     </div>
   )
-
 }
 
 function ListaDeRegras({
@@ -204,6 +227,13 @@ function ListaDeRegras({
 
 // ---------------------------------------------------------------------------
 
+/**
+ * Abre como folha sobre a lista, e nao no fim da pagina.
+ *
+ * Antes o formulario nascia embaixo de tudo: tocar numa receita e ter de rolar
+ * ate o fim para achar o campo -- e rolar de volta para ver o que mudou -- e o
+ * caminho mais longo possivel entre a intencao e a acao.
+ */
 function FormularioEdicao({
   regra,
   mediaSugerida,
@@ -220,8 +250,15 @@ function FormularioEdicao({
   const [valor, setValor] = useState(regra.valorCentavos)
 
   return (
-    <div className={estilos.formulario} data-testid="editar-regra">
-      <h3 className={estilos.titulo}>{regra.nome}</h3>
+    <Sheet
+      titulo={regra.nome}
+      idDoTitulo="editar-regra-titulo"
+      onFechar={onCancelar}
+      testId="editar-regra"
+    >
+      <p className={estilos.meta}>
+        dia {regra.diaDoMes} · {regra.tipo === 'entrada' ? 'entra' : 'sai'} todo mês
+      </p>
 
       <MoneyInput
         id="editar-valor"
@@ -265,19 +302,14 @@ function FormularioEdicao({
         </button>
       </div>
 
-      <div className={estilos.acoes}>
-        <button
-          type="button"
-          className={estilos.remover}
-          onClick={onRemover}
-          data-testid="remover-regra"
-        >
-          Remover
-        </button>
-        <button type="button" onClick={onCancelar}>
-          Cancelar
-        </button>
-      </div>
-    </div>
+      <button
+        type="button"
+        className={estilos.remover}
+        onClick={onRemover}
+        data-testid="remover-regra"
+      >
+        Remover
+      </button>
+    </Sheet>
   )
 }

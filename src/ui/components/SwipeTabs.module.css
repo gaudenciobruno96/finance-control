@@ -1,0 +1,81 @@
+.bloco {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-2);
+}
+
+.abas {
+  display: flex;
+  gap: var(--espaco-2);
+}
+
+.aba,
+.abaAtiva {
+  flex: 1;
+  min-height: var(--toque-minimo);
+  padding: var(--espaco-2);
+  border-radius: var(--raio);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  border: 1px solid var(--cor-borda);
+  background: var(--cor-superficie);
+}
+
+.abaAtiva {
+  border-color: var(--cor-acento);
+  background: var(--cor-superficie-alta);
+}
+
+.rotulo {
+  font-size: 0.875rem;
+  color: var(--cor-texto-suave);
+}
+
+.abaAtiva .rotulo {
+  color: var(--cor-texto);
+  font-weight: var(--peso-forte);
+}
+
+.detalhe {
+  font-size: 1rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--peso-forte);
+}
+
+/*
+ * O arraste e do navegador. `scroll-snap` prende em cada painel; a rolagem
+ * vertical de dentro deles continua funcionando porque o iOS trava a direcao
+ * do gesto sozinho.
+ */
+.trilho {
+  display: flex;
+  /*
+   * `flex-start` nao e estetica: sem ele o alinhamento padrao (`stretch`)
+   * estica todo painel ate a altura do container. Como a altura do container e
+   * medida a partir do painel ativo, o painel passaria a reportar a altura que
+   * ele mesmo causou -- e o valor travaria no do painel mais alto, que e
+   * exatamente a faixa vazia que este componente existe para eliminar.
+   */
+  align-items: flex-start;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  transition: height 120ms ease;
+}
+
+.trilho::-webkit-scrollbar {
+  display: none;
+}
+
+.painel {
+  flex: 0 0 100%;
+  min-width: 0;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+}

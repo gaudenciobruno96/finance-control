@@ -21,7 +21,9 @@ import type {
   DataISO,
   OcorrenciaResolvida,
 } from '../../domain/types.js'
+import { formatarBRL } from '../../domain/money.js'
 import { MonthSummary } from '../components/MonthSummary.js'
+import { SwipeTabs } from '../components/SwipeTabs.js'
 import { BalanceCurve } from '../components/BalanceCurve.js'
 import { OccurrenceList } from '../components/OccurrenceList.js'
 import { PaymentSheet } from '../components/PaymentSheet.js'
@@ -156,45 +158,66 @@ export function MonthScreen() {
         <BalanceCurve curva={mes.curva} />
       </div>
 
-      <OccurrenceList
-        titulo="Falta pagar"
-        total={mes.totalFaltaPagarCentavos}
-        ocorrencias={mes.faltaPagar}
-        onSelecionar={setSelecionada}
-        competenciaExibida={competencia}
-        vazio="Nada a pagar neste mês."
-      />
+      {/* Duas listas lado a lado, nao empilhadas: ver o que entra nao deve
+          custar rolar a tela inteira do que sai. */}
+      <SwipeTabs
+        rotuloDaLista="Listas do mês"
+        paineis={[
+          {
+            id: 'falta-pagar',
+            rotulo: 'Falta pagar',
+            detalhe: formatarBRL(mes.totalFaltaPagarCentavos),
+            conteudo: (
+              <>
+                <OccurrenceList
+                  titulo="Falta pagar"
+                  ocorrencias={mes.faltaPagar}
+                  onSelecionar={setSelecionada}
+                  competenciaExibida={competencia}
+                  vazio="Nada a pagar neste mês."
+                />
 
-      <div className={estilos.rodapeLista}>
-        {lancando ? (
-          <QuickExpense
-            competencia={competencia}
-            hoje={agora}
-            onCancelar={() => setLancando(false)}
-            onSalvar={(dados) => {
-              void executar(async () => {
-                await salvarLancamento(dados)
-                setLancando(false)
-              })
-            }}
-          />
-        ) : (
-          <button
-            type="button"
-            className={estilos.anotar}
-            onClick={() => setLancando(true)}
-            data-testid="anotar-conta"
-          >
-            + Anotar uma conta
-          </button>
-        )}
-      </div>
-
-      <OccurrenceList
-        titulo="Ainda entra"
-        total={mes.totalAindaEntraCentavos}
-        ocorrencias={mes.aindaEntra}
-        onSelecionar={setSelecionada}
+                <div className={estilos.rodapeLista}>
+                  {lancando ? (
+                    <QuickExpense
+                      competencia={competencia}
+                      hoje={agora}
+                      onCancelar={() => setLancando(false)}
+                      onSalvar={(dados) => {
+                        void executar(async () => {
+                          await salvarLancamento(dados)
+                          setLancando(false)
+                        })
+                      }}
+                    />
+                  ) : (
+                    <button
+                      type="button"
+                      className={estilos.anotar}
+                      onClick={() => setLancando(true)}
+                      data-testid="anotar-conta"
+                    >
+                      + Anotar uma conta
+                    </button>
+                  )}
+                </div>
+              </>
+            ),
+          },
+          {
+            id: 'ainda-entra',
+            rotulo: 'Ainda entra',
+            detalhe: formatarBRL(mes.totalAindaEntraCentavos),
+            conteudo: (
+              <OccurrenceList
+                titulo="Ainda entra"
+                ocorrencias={mes.aindaEntra}
+                onSelecionar={setSelecionada}
+                vazio="Nada a receber neste mês."
+              />
+            ),
+          },
+        ]}
       />
 
       {mes.jaResolvido.length > 0 && (
@@ -205,7 +228,7 @@ export function MonthScreen() {
           <OccurrenceList
             titulo="Já resolvido"
             ocorrencias={mes.jaResolvido}
-                onSelecionar={setSelecionada}
+            onSelecionar={setSelecionada}
           />
         </details>
       )}
@@ -216,7 +239,7 @@ export function MonthScreen() {
           <OccurrenceList
             titulo="Ignorado neste mês"
             ocorrencias={mes.ignorados}
-                onSelecionar={setSelecionada}
+            onSelecionar={setSelecionada}
           />
         </details>
       )}

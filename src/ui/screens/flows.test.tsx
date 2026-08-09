@@ -489,3 +489,91 @@ describe('recebimento parcial', () => {
     expect(within(folha).getByTestId('salvar-parte')).toBeDisabled()
   })
 })
+
+describe('painéis laterais', () => {
+  /**
+   * Empilhadas, ver "ainda entra" custava rolar a tela inteira do que sai.
+   * Os dois painéis existem juntos -- é o que permite o arraste -- e as abas
+   * dizem qual está à vista.
+   */
+  it('a tela do mês separa o que sai do que entra em painéis', async () => {
+    const usuario = userEvent.setup()
+    await semear('Aluguel', 180_000, 10)
+
+    montar(<MonthScreen />)
+
+    const abaSai = await screen.findByTestId('aba-falta-pagar')
+    const abaEntra = screen.getByTestId('aba-ainda-entra')
+
+    expect(abaSai).toHaveAttribute('aria-selected', 'true')
+    expect(abaEntra).toHaveAttribute('aria-selected', 'false')
+
+    // O total fica na própria aba: dá para comparar sem trocar de painel.
+    expect(abaSai).toHaveTextContent('1.800,00')
+
+    await usuario.click(abaEntra)
+
+    expect(abaEntra).toHaveAttribute('aria-selected', 'true')
+    expect(abaSai).toHaveAttribute('aria-selected', 'false')
+
+    // Trocar de painel não some com o outro: ele está ao lado, e o conteúdo
+    // continua acessível.
+    expect(screen.getByLabelText('Falta pagar')).toBeInTheDocument()
+    expect(screen.getByLabelText('Ainda entra')).toBeInTheDocument()
+  })
+
+  it('a tela de receitas separa o que entra das contas fixas', async () => {
+    const usuario = userEvent.setup()
+
+    montar(<RegistrationsScreen />, '/cadastros')
+
+    const abaEntra = await screen.findByTestId('aba-receitas')
+    const abaFixas = screen.getByTestId('aba-fixas')
+
+    expect(abaEntra).toHaveAttribute('aria-selected', 'true')
+
+    await usuario.click(abaFixas)
+    expect(abaFixas).toHaveAttribute('aria-selected', 'true')
+  })
+})
+
+describe('edição de receita', () => {
+  /**
+   * O formulário nascia no fim da página: tocar numa receita e ter de rolar
+   * até embaixo para achar o campo -- e rolar de volta -- era o caminho mais
+   * longo possível entre a intenção e a ação.
+   */
+  it('abre como folha sobre a lista, não no fim da página', async () => {
+    const usuario = userEvent.setup()
+
+    await criarRuleService(db, criarRepositorios(db)).criarRegra({
+      tipo: 'entrada',
+      nome: 'Salário',
+      valorCentavos: 300_000,
+      valorEhEstimativa: false,
+      diaDoMes: 5,
+      ajusteFimDeSemana: 'antecipa',
+      vigenteDe: competenciaDe(hojeLocal()),
+      vigenteAte: null,
+    })
+
+    montar(<RegistrationsScreen />, '/cadastros')
+
+    await usuario.click(await screen.findByTestId('regra-Salário'))
+
+    // Diálogo modal, não um bloco no fim do documento.
+    const folha = await screen.findByRole('dialog')
+    expect(folha).toHaveAttribute('aria-modal', 'true')
+    expect(folha).toHaveAccessibleName('Salário')
+
+    // E fecha sem salvar nada.
+    await usuario.click(within(folha).getByText('Fechar'))
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('editar-regra')).not.toBeInTheDocument()
+    })
+
+    const regras = await criarRepositorios(db).regras.listar()
+    expect(regras[0]?.valorCentavos).toBe(300_000)
+  })
+})
