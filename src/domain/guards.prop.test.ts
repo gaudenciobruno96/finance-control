@@ -17,7 +17,6 @@ import {
 } from './guards.js'
 import {
   ancoraSaldo,
-  cartao,
   centavos,
   centavosPositivo,
   competencia,
@@ -102,15 +101,6 @@ describe('guards — propriedades', () => {
     )
   })
 
-  it('PROP-E01: cartoes gerados tem dias validos e gasto nao negativo', () => {
-    fc.assert(
-      fc.property(cartao(), (c) => {
-        expect(ehDiaDoMesValido(c.diaFechamento)).toBe(true)
-        expect(ehDiaDoMesValido(c.diaVencimento)).toBe(true)
-        expect(c.gastoMensalTipicoCentavos).toBeGreaterThanOrEqual(0)
-      }),
-    )
-  })
 
   /**
    * PROP-E03 · Invariante: dataPagamento e valorPagoCentavos sao

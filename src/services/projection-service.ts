@@ -5,12 +5,13 @@
  * (RN-62): tudo que decide algo esta na Unidade 1.
  */
 
-import { expandirFaturas } from '../domain/card-invoice-expander.js'
 import {
   comparar,
   compararCompetencias,
+  construirData,
   intervaloDeCompetencias,
   somarMeses,
+  ultimoDiaDoMes,
 } from '../domain/calendar.js'
 import { expandirParcelamentos } from '../domain/installment-expander.js'
 import { expandirRegras } from '../domain/rule-expander.js'
@@ -69,9 +70,6 @@ export interface MesProjetado {
 
   readonly ignorados: readonly OcorrenciaResolvida[]
 
-  /** Parcelas de cartao, exibidas aninhadas sob a fatura a que pertencem. */
-  readonly componentesDeFatura: readonly OcorrenciaResolvida[]
-
   readonly totalFaltaPagarCentavos: number
   readonly totalAindaEntraCentavos: number
   readonly totalJaResolvidoCentavos: number
@@ -84,6 +82,17 @@ export interface MesProjetado {
   readonly referenciaEhHoje: boolean
   readonly entraAposReferenciaCentavos: number
   readonly saiAposReferenciaCentavos: number
+
+  /**
+   * O que compoe cada um dos dois totais acima.
+   *
+   * Existe para a tela poder abrir os numeros: o usuario quer ver O QUE ainda
+   * entra e O QUE ainda sai, e essas listas nao coincidem com as agrupadas por
+   * competencia -- um salario ja recebido no dia 5 pertence ao mes, mas nao ao
+   * que ainda esta por vir.
+   */
+  readonly detalheEntraApos: readonly OcorrenciaResolvida[]
+  readonly detalheSaiApos: readonly OcorrenciaResolvida[]
   readonly sobraCentavos: number
 
   /**
@@ -103,6 +112,10 @@ export interface MesProjetado {
  * E o dia de hoje quando ele esta dentro do mes; caso contrario, o primeiro
  * ponto da curva -- para um mes futuro, tudo ainda esta por acontecer.
  */
+function ultimoDiaDaCompetencia(c: Competencia): DataISO {
+  return construirData(c, ultimoDiaDoMes(c))
+}
+
 function posicaoNaCurva(
   curva: CurvaSaldo,
   agora: DataISO,
@@ -142,10 +155,9 @@ async function resolverIntervalo(
   ate: Competencia,
   agora: DataISO,
 ): Promise<readonly OcorrenciaResolvida[]> {
-  const [regras, parcelamentos, cartoes, reais] = await Promise.all([
+  const [regras, parcelamentos, reais] = await Promise.all([
     repos.regras.listar(),
     repos.parcelamentos.listar(),
-    repos.cartoes.listar(),
     repos.ocorrencias.listarPorIntervalo(de, ate),
   ])
 
@@ -154,7 +166,6 @@ async function resolverIntervalo(
   const virtuais = [
     ...expandirRegras(regras, intervalo),
     ...expandirParcelamentos(parcelamentos, intervalo),
-    ...expandirFaturas(cartoes, parcelamentos, intervalo),
   ]
 
   return resolver(virtuais, reais, agora)
@@ -175,14 +186,7 @@ export function criarProjectionService(repos: Repositorios) {
 
       const doMes = resolvidas.filter((o) => o.competencia === competencia)
 
-      // Componentes de fatura sao exibidos aninhados sob a fatura, nunca como
-      // linha propria: seu valor ja esta somado nela (RN-18, RN-71).
-      // Inclui os componentes de TODO o intervalo, nao so os do mes: uma
-      // fatura atrasada de mes anterior aparece na lista e precisa do seu
-      // detalhamento, senao renderiza sem nenhuma parcela enquanto as demais
-      // mostram as suas.
-      const componentesDeFatura = resolvidas.filter((o) => o.ehComponenteDeFatura)
-      const proprios = doMes.filter((o) => !o.ehComponenteDeFatura)
+      const proprios = doMes
 
       // Saidas atrasadas de meses ANTERIORES continuam sendo divida e
       // aparecem junto com as do mes. Entradas de meses anteriores nao: sao
@@ -196,8 +200,7 @@ export function criarProjectionService(repos: Repositorios) {
       const atrasadasDeAntes = resolvidas.filter(
         (o) =>
           compararCompetencias(o.competencia, competencia) < 0 &&
-          o.situacao === 'atrasado' &&
-          !o.ehComponenteDeFatura,
+          o.situacao === 'atrasado',
       )
 
       const faltaPagar = [
@@ -238,6 +241,24 @@ export function criarProjectionService(repos: Repositorios) {
         saiDepois += m.saidaCentavos
       }
 
+      // As ocorrencias por tras de cada total, para a tela poder abri-los.
+      //
+      // O criterio e o MESMO da soma acima -- data efetiva posterior a
+      // referencia -- e nao o agrupamento por competencia usado nas listas.
+      // Sao coisas diferentes: um salario recebido no dia 5 ja passou, e nao
+      // esta em "ainda entra", mesmo sendo do mes exibido.
+      const aposReferencia = resolvidas.filter((o) => {
+        if (o.ignorado) return false
+        const data = o.dataPagamento ?? o.dataVencimento
+        return (
+          comparar(data, referencia.data) > 0 &&
+          comparar(data, ultimoDiaDaCompetencia(competencia)) <= 0
+        )
+      })
+
+      const detalheEntra = aposReferencia.filter((o) => o.tipo === 'entrada')
+      const detalheSai = aposReferencia.filter((o) => o.tipo === 'saida')
+
       return {
         competencia,
         resumo,
@@ -246,7 +267,6 @@ export function criarProjectionService(repos: Repositorios) {
         aindaEntra,
         jaResolvido,
         ignorados: proprios.filter((o) => o.situacao === 'ignorado'),
-        componentesDeFatura,
         totalFaltaPagarCentavos: somar(faltaPagar),
         totalAindaEntraCentavos: somar(aindaEntra),
         totalJaResolvidoCentavos: somar(jaResolvido),
@@ -256,6 +276,8 @@ export function criarProjectionService(repos: Repositorios) {
         referenciaEhHoje: referencia.ehHoje,
         entraAposReferenciaCentavos: entraDepois,
         saiAposReferenciaCentavos: saiDepois,
+        detalheEntraApos: detalheEntra,
+        detalheSaiApos: detalheSai,
         sobraCentavos: curva.pontos[curva.pontos.length - 1]?.saldoCentavos ?? 0,
         saldoRelativo: curva.saldoRelativo,
       }

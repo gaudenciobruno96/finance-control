@@ -14,8 +14,7 @@ import { validar } from './backup-validator.js'
 import { VERSAO_SCHEMA } from './db.js'
 import {
   ancoraSaldo,
-  cartao,
-  parcelamentoDeCartao,
+  parcelamentoAvulso,
   regra,
 } from '../test-support/generators.js'
 
@@ -23,17 +22,14 @@ const HOJE = '2026-08-15'
 
 /** Estado coerente para popular o banco. */
 const estado = () =>
-  cartao().chain((c) =>
-    fc.record({
-      cartao: fc.constant(c),
-      regras: fc.uniqueArray(regra(), { maxLength: 5, selector: (r) => r.id }),
-      parcelamentos: fc.uniqueArray(parcelamentoDeCartao(c.id), {
-        maxLength: 3,
-        selector: (p) => p.id,
-      }),
-      ancoras: fc.uniqueArray(ancoraSaldo(), { maxLength: 3, selector: (a) => a.data }),
+  fc.record({
+    regras: fc.uniqueArray(regra(), { maxLength: 5, selector: (r) => r.id }),
+    parcelamentos: fc.uniqueArray(parcelamentoAvulso(), {
+      maxLength: 3,
+      selector: (p) => p.id,
     }),
-  )
+    ancoras: fc.uniqueArray(ancoraSaldo(), { maxLength: 3, selector: (a) => a.data }),
+  })
 
 describe('backup — propriedades', () => {
   /** PROP-D01 · Serializar e desserializar devolve estado igual ao original. */
@@ -42,7 +38,6 @@ describe('backup — propriedades', () => {
       fc.asyncProperty(estado(), async (dados) => {
         const app = await criarHarness()
         try {
-          await app.repos.cartoes.salvar(dados.cartao)
           for (const r of dados.regras) await app.repos.regras.salvar(r)
           for (const p of dados.parcelamentos) await app.repos.parcelamentos.salvar(p)
           for (const a of dados.ancoras) {
@@ -54,7 +49,6 @@ describe('backup — propriedades', () => {
 
           await app.db.regras.clear()
           await app.db.parcelamentos.clear()
-          await app.db.cartoes.clear()
           await app.db.ancoras.clear()
 
           const resultado = app.backup.validarImportacao(conteudo)
@@ -66,7 +60,6 @@ describe('backup — propriedades', () => {
 
           expect(ordenar(depois.regras)).toEqual(ordenar(antes.regras))
           expect(ordenar(depois.parcelamentos)).toEqual(ordenar(antes.parcelamentos))
-          expect(ordenar(depois.cartoes)).toEqual(ordenar(antes.cartoes))
           expect(ordenar(depois.ancoras)).toEqual(ordenar(antes.ancoras))
         } finally {
           await app.encerrar()
@@ -82,7 +75,6 @@ describe('backup — propriedades', () => {
       fc.asyncProperty(estado(), async (dados) => {
         const app = await criarHarness()
         try {
-          await app.repos.cartoes.salvar(dados.cartao)
           for (const r of dados.regras) await app.repos.regras.salvar(r)
 
           const primeiro = await app.backup.exportar(HOJE)
@@ -96,7 +88,6 @@ describe('backup — propriedades', () => {
           if (!r2.valido) return
 
           expect(ordenar(r2.documento.regras)).toEqual(ordenar(r1.documento.regras))
-          expect(ordenar(r2.documento.cartoes)).toEqual(ordenar(r1.documento.cartoes))
         } finally {
           await app.encerrar()
         }

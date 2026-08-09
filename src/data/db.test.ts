@@ -17,12 +17,11 @@ afterEach(async () => {
 })
 
 describe('schema', () => {
-  it('abre com as seis tabelas declaradas', () => {
+  it('abre com as cinco tabelas declaradas', () => {
     const nomes = db.tables.map((t) => t.name).sort()
 
     expect(nomes).toEqual([
       'ancoras',
-      'cartoes',
       'configuracoes',
       'ocorrencias',
       'parcelamentos',
@@ -37,7 +36,6 @@ describe('schema', () => {
     expect(indicesDeOcorrencias).toContain('[geradorTipo+geradorId+competencia]')
     expect(indicesDeOcorrencias).toContain('[geradorTipo+geradorId]')
     expect(db.ancoras.schema.indexes.map((i) => i.name)).toContain('data')
-    expect(db.parcelamentos.schema.indexes.map((i) => i.name)).toContain('cartaoId')
   })
 
   it('a chave de sobreposicao nao e armazenada como campo', () => {
@@ -47,7 +45,7 @@ describe('schema', () => {
   })
 
   it('expoe a versao corrente do schema', () => {
-    expect(VERSAO_SCHEMA).toBe(1)
+    expect(VERSAO_SCHEMA).toBe(2)
     expect(db.verno).toBe(VERSAO_SCHEMA)
   })
 
@@ -89,12 +87,61 @@ describe('schema', () => {
     await atual.delete()
   })
 
+  /**
+   * A migracao que este app vai mesmo executar no aparelho de quem ja usa:
+   * v1 -> v2, largando o cartao.
+   *
+   * Um `cartaoId` sobrevivente nao quebraria nada visivelmente -- Dexie guarda
+   * o objeto inteiro --, mas voltaria a aparecer no proximo backup exportado e
+   * seria rejeitado na importacao pelo validador, que nao conhece mais o
+   * campo. O dado ficaria irrecuperavel justamente pelo caminho que existe
+   * para recupera-lo.
+   */
+  it('a migracao para a versao 2 larga o cartao sem perder o parcelamento', async () => {
+    const nome = `teste-migracao-cartao-${contador}`
+
+    const antigo = new Dexie(nome)
+    antigo.version(1).stores({
+      regras: 'id, vigenteDe',
+      parcelamentos: 'id, cartaoId',
+      cartoes: 'id',
+      ocorrencias: 'id, competencia',
+      ancoras: 'id, data',
+      configuracoes: 'chave',
+    })
+    await antigo.open()
+    await antigo.table('cartoes').put({ id: 'c1', nome: 'Principal' })
+    await antigo.table('parcelamentos').put({
+      id: 'p1',
+      nome: 'Notebook',
+      valorParcelaCentavos: 30_000,
+      quantidadeParcelas: 10,
+      primeiroVencimento: '2026-08-28',
+      cartaoId: 'c1',
+    })
+    antigo.close()
+
+    const atual = new Dexie(nome)
+    declararSchema(atual)
+    await atual.open()
+
+    expect(atual.tables.map((t) => t.name)).not.toContain('cartoes')
+
+    const p = (await atual.table('parcelamentos').get('p1')) as Record<string, unknown>
+    expect(p['nome']).toBe('Notebook')
+    expect(p['quantidadeParcelas']).toBe(10)
+    expect('cartaoId' in p).toBe(false)
+
+    atual.close()
+    await atual.delete()
+  })
+
   it('declararSchema pode ser aplicado a qualquer instancia', async () => {
     const outro = new Dexie(`teste-declarar-${contador}`)
     declararSchema(outro)
     await outro.open()
 
-    expect(outro.tables).toHaveLength(6)
+    expect(outro.tables).toHaveLength(5)
 
     outro.close()
     await outro.delete()

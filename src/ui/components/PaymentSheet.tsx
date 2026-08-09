@@ -1,6 +1,9 @@
 /**
  * UI-06 — Folha de pagamento (RF-13 a RF-18, RN-73).
  *
+ * O vocabulario segue o tipo: uma entrada nao se "paga", se recebe, e chamar
+ * de pagamento o salario que caiu confunde quem le.
+ *
  * Confirmar sao DOIS TOQUES no caso comum: abrir a folha e confirmar. Data
  * preenchida com hoje, valor com o previsto. Acoes secundarias abaixo,
  * visiveis mas sem competir com a principal.
@@ -58,6 +61,7 @@ export function PaymentSheet({
   const [vencimento, setVencimento] = useState<DataISO>(ocorrencia.dataVencimento)
 
   const jaPago = ocorrencia.dataPagamento !== null
+  const ehEntrada = ocorrencia.tipo === 'entrada'
 
   return (
     <div className={estilos.fundo} onClick={onFechar} data-testid="payment-sheet">
@@ -81,7 +85,7 @@ export function PaymentSheet({
         {!ocorrencia.ignorado && (
           <div className={estilos.principal}>
             <label className={estilos.rotulo} htmlFor="pagamento-data">
-              Data do pagamento
+              {ehEntrada ? 'Data em que caiu' : 'Data do pagamento'}
             </label>
             <input
               id="pagamento-data"
@@ -95,7 +99,7 @@ export function PaymentSheet({
 
             <MoneyInput
               id="pagamento-valor"
-              rotulo="Valor pago"
+              rotulo={ehEntrada ? 'Valor recebido' : 'Valor pago'}
               valorCentavos={valorPago}
               onChange={setValorPago}
             />
@@ -106,7 +110,13 @@ export function PaymentSheet({
               onClick={() => onPagar(data, valorPago)}
               data-testid="confirmar-pagamento"
             >
-              {jaPago ? 'Atualizar pagamento' : 'Confirmar pagamento'}
+              {ehEntrada
+                ? jaPago
+                  ? 'Atualizar recebimento'
+                  : 'Confirmar recebimento'
+                : jaPago
+                  ? 'Atualizar pagamento'
+                  : 'Confirmar pagamento'}
             </button>
           </div>
         )}
@@ -117,8 +127,14 @@ export function PaymentSheet({
           <div className={estilos.grupo}>
             <MoneyInput
               id="ajuste-valor"
-              rotulo="Corrigir o valor previsto"
-              descricao="Para contas de valor variável, como luz e água."
+              rotulo={
+                ehEntrada ? 'Mudar o valor só deste mês' : 'Corrigir o valor previsto'
+              }
+              descricao={
+                ehEntrada
+                  ? 'Para quando você pediu adiantamento ou recebeu a mais. Os próximos meses continuam com o valor de sempre.'
+                  : 'Para contas de valor variável, como luz e água. Vale só para este mês.'
+              }
               valorCentavos={valorPrevisto}
               onChange={setValorPrevisto}
             />
@@ -127,7 +143,7 @@ export function PaymentSheet({
               onClick={() => onAjustarValor(valorPrevisto)}
               data-testid="ajustar-valor"
             >
-              Salvar sem marcar como pago
+              {ehEntrada ? 'Salvar só para este mês' : 'Salvar sem marcar como pago'}
             </button>
           </div>
 
@@ -155,7 +171,7 @@ export function PaymentSheet({
               </button>
             ) : (
               <button type="button" onClick={onIgnorar} data-testid="ignorar">
-                Ignorar neste mês
+                {ehEntrada ? 'Não vou receber neste mês' : 'Ignorar neste mês'}
               </button>
             )}
 
@@ -166,7 +182,7 @@ export function PaymentSheet({
                 onClick={onDesfazerPagamento}
                 data-testid="desfazer-pagamento"
               >
-                Desfazer pagamento
+                {ehEntrada ? 'Desfazer recebimento' : 'Desfazer pagamento'}
               </button>
             )}
           </div>

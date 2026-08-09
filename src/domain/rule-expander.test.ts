@@ -107,7 +107,6 @@ describe('rule-expander', () => {
       expect(ocorrencia?.origem).toBe('virtual')
       expect(ocorrencia?.situacao).toBe('previsto')
       expect(ocorrencia?.dataPagamento).toBeNull()
-      expect(ocorrencia?.ehComponenteDeFatura).toBe(false)
     })
 
     it('expande varias regras de uma vez', () => {

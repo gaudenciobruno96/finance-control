@@ -28,6 +28,7 @@ import { PaymentSheet } from '../components/PaymentSheet.js'
 import { QuickExpense } from '../components/QuickExpense.js'
 import { useAgora } from '../hooks/useAgora.js'
 import { useApp } from '../hooks/useApp.js'
+import { useSalvarLancamento } from '../hooks/useLancamento.js'
 import { useAcao } from '../hooks/useErro.js'
 import { useMonthProjection } from '../hooks/useProjection.js'
 import estilos from './MonthScreen.module.css'
@@ -58,6 +59,7 @@ export function MonthScreen() {
   const mes = useMonthProjection(competencia)
   const { pagamento, regras, repos } = useApp()
   const executar = useAcao()
+  const salvarLancamento = useSalvarLancamento()
 
   const ancora = useLiveQuery(() => repos.ancoras.vigenteEm(agora), [repos, agora])
 
@@ -140,6 +142,8 @@ export function MonthScreen() {
         saldoRelativo={mes.saldoRelativo}
         aindaEntraCentavos={mes.entraAposReferenciaCentavos}
         faltaPagarCentavos={mes.saiAposReferenciaCentavos}
+        detalheEntra={mes.detalheEntraApos}
+        detalheSai={mes.detalheSaiApos}
         editandoSaldo={editandoSaldo}
         saldoEmEdicao={saldoEmEdicao}
         onAbrirEdicao={abrirEdicaoDeSaldo}
@@ -156,7 +160,6 @@ export function MonthScreen() {
         titulo="Falta pagar"
         total={mes.totalFaltaPagarCentavos}
         ocorrencias={mes.faltaPagar}
-        componentesDeFatura={mes.componentesDeFatura}
         onSelecionar={setSelecionada}
         competenciaExibida={competencia}
         vazio="Nada a pagar neste mês."
@@ -170,7 +173,7 @@ export function MonthScreen() {
             onCancelar={() => setLancando(false)}
             onSalvar={(dados) => {
               void executar(async () => {
-                await pagamento.lancarAvulso(dados)
+                await salvarLancamento(dados)
                 setLancando(false)
               })
             }}
@@ -191,7 +194,6 @@ export function MonthScreen() {
         titulo="Ainda entra"
         total={mes.totalAindaEntraCentavos}
         ocorrencias={mes.aindaEntra}
-        componentesDeFatura={mes.componentesDeFatura}
         onSelecionar={setSelecionada}
       />
 
@@ -203,8 +205,7 @@ export function MonthScreen() {
           <OccurrenceList
             titulo="Já resolvido"
             ocorrencias={mes.jaResolvido}
-            componentesDeFatura={mes.componentesDeFatura}
-            onSelecionar={setSelecionada}
+                onSelecionar={setSelecionada}
           />
         </details>
       )}
@@ -215,8 +216,7 @@ export function MonthScreen() {
           <OccurrenceList
             titulo="Ignorado neste mês"
             ocorrencias={mes.ignorados}
-            componentesDeFatura={mes.componentesDeFatura}
-            onSelecionar={setSelecionada}
+                onSelecionar={setSelecionada}
           />
         </details>
       )}

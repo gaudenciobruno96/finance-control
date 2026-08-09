@@ -17,9 +17,6 @@ const COMPONENTE = 'installmentExpander'
 /**
  * Expande parcelamentos, produzindo uma ocorrencia por parcela (RN-16).
  *
- * Parcelas vinculadas a cartao sao marcadas como componentes de fatura e NAO
- * viram saida independente (RN-18) -- e a unica barreira contra contar o mesmo
- * dinheiro duas vezes, uma na parcela e outra dentro da fatura.
  */
 export function expandirParcelamentos(
   parcelamentos: readonly Parcelamento[],
@@ -47,8 +44,6 @@ export function expandirParcelamentos(
         origem: 'virtual',
         idReal: null,
         situacao: 'previsto',
-        ehComponenteDeFatura: p.cartaoId !== null,
-        cartaoId: p.cartaoId,
         numeroParcela: n,
         geradorTipo: 'parcelamento',
         geradorId: p.id,
@@ -68,15 +63,3 @@ export function expandirParcelamentos(
   return resultado
 }
 
-/**
- * Parcelas de um cartao especifico em uma competencia. Insumo da estimativa de
- * fatura (RN-19).
- */
-export function parcelasDoCartaoEm(
-  parcelamentos: readonly Parcelamento[],
-  cartaoId: string,
-  competencia: Competencia,
-): readonly OcorrenciaResolvida[] {
-  const doCartao = parcelamentos.filter((p) => p.cartaoId === cartaoId)
-  return expandirParcelamentos(doCartao, [competencia])
-}

@@ -9,7 +9,7 @@
  */
 
 import { formatarBRL } from '../../domain/money.js'
-import type { Centavos } from '../../domain/types.js'
+import type { Centavos, OcorrenciaResolvida } from '../../domain/types.js'
 import { MoneyInput } from './MoneyInput.js'
 import estilos from './MonthSummary.module.css'
 
@@ -21,6 +21,16 @@ export interface MonthSummaryProps {
   readonly saldoRelativo: boolean
   readonly aindaEntraCentavos: Centavos
   readonly faltaPagarCentavos: Centavos
+
+  /**
+   * O que compoe cada uma das duas linhas.
+   *
+   * As linhas abrem porque o total sozinho nao responde a pergunta seguinte:
+   * 'ainda entra quanto, vindo de onde?'. Um recebimento antecipado sai do
+   * total sem deixar rastro, e sem a lista nao ha como conferir.
+   */
+  readonly detalheEntra: readonly OcorrenciaResolvida[]
+  readonly detalheSai: readonly OcorrenciaResolvida[]
   readonly editandoSaldo: boolean
   readonly saldoEmEdicao: Centavos
   readonly onAbrirEdicao: () => void
@@ -37,6 +47,8 @@ export function MonthSummary({
   saldoRelativo,
   aindaEntraCentavos,
   faltaPagarCentavos,
+  detalheEntra,
+  detalheSai,
   editandoSaldo,
   saldoEmEdicao,
   onAbrirEdicao,
@@ -103,17 +115,21 @@ export function MonthSummary({
           </button>
         )}
 
-        <p className={estilos.linhaConta}>
-          <span className={estilos.sinal}>+</span>
-          <span className={estilos.valorConta}>{formatarBRL(aindaEntraCentavos)}</span>
-          <span className={estilos.descricaoConta}>ainda entra</span>
-        </p>
+        <LinhaAbrivel
+          sinal="+"
+          valorCentavos={aindaEntraCentavos}
+          descricao="ainda entra"
+          itens={detalheEntra}
+          testId="detalhe-entra"
+        />
 
-        <p className={estilos.linhaConta}>
-          <span className={estilos.sinal}>−</span>
-          <span className={estilos.valorConta}>{formatarBRL(faltaPagarCentavos)}</span>
-          <span className={estilos.descricaoConta}>ainda sai</span>
-        </p>
+        <LinhaAbrivel
+          sinal="−"
+          valorCentavos={faltaPagarCentavos}
+          descricao="ainda sai"
+          itens={detalheSai}
+          testId="detalhe-sai"
+        />
       </div>
 
       {/* O aviso segue o sinal da PROJECAO, nao a mera ausencia de ancora: a
@@ -127,6 +143,72 @@ export function MonthSummary({
         </p>
       )}
     </section>
+  )
+}
+
+const MES_CURTO = [
+  'jan', 'fev', 'mar', 'abr', 'mai', 'jun',
+  'jul', 'ago', 'set', 'out', 'nov', 'dez',
+]
+
+/**
+ * Uma linha da conta que se abre no que a compoe.
+ *
+ * Sem itens a linha vira um paragrafo comum: um `<details>` que abre para nada
+ * convida ao toque e nao entrega nada.
+ */
+function LinhaAbrivel({
+  sinal,
+  valorCentavos,
+  descricao,
+  itens,
+  testId,
+}: {
+  sinal: string
+  valorCentavos: Centavos
+  descricao: string
+  itens: readonly OcorrenciaResolvida[]
+  testId: string
+}) {
+  const corpo = (
+    <>
+      <span className={estilos.sinal}>{sinal}</span>
+      <span className={estilos.valorConta}>{formatarBRL(valorCentavos)}</span>
+      <span className={estilos.descricaoConta}>{descricao}</span>
+    </>
+  )
+
+  if (itens.length === 0) {
+    return <p className={estilos.linhaConta}>{corpo}</p>
+  }
+
+  return (
+    <details className={estilos.detalhe}>
+      <summary className={estilos.linhaConta} data-testid={testId}>
+        {corpo}
+        <span className={estilos.seta} aria-hidden="true">
+          ⌄
+        </span>
+      </summary>
+
+      <ul className={estilos.itens}>
+        {itens.map((o) => {
+          const data = o.dataPagamento ?? o.dataVencimento
+          const mes = MES_CURTO[Number(data.slice(5, 7)) - 1] ?? ''
+          return (
+            <li key={o.chave} className={estilos.item}>
+              <span className={estilos.itemNome}>{o.nome}</span>
+              <span className={estilos.itemData}>
+                dia {Number(data.slice(8, 10))} de {mes}
+              </span>
+              <span className={estilos.itemValor}>
+                {formatarBRL(o.valorPagoCentavos ?? o.valorPrevistoCentavos)}
+              </span>
+            </li>
+          )
+        })}
+      </ul>
+    </details>
   )
 }
 

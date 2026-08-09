@@ -26,6 +26,37 @@
   background: var(--cor-superficie-alta);
 }
 
+.flags {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-1);
+  padding-top: var(--espaco-1);
+  border-top: 1px solid var(--cor-borda);
+}
+
+.flag {
+  display: flex;
+  align-items: center;
+  gap: var(--espaco-2);
+  min-height: var(--toque-minimo);
+  font-size: 0.9375rem;
+}
+
+.caixaParcelas {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-2);
+  padding: var(--espaco-3);
+  background: var(--cor-superficie-alta);
+  border-radius: var(--raio);
+}
+
+.ajuda {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--cor-texto-suave);
+}
+
 .acoes { display: flex; gap: var(--espaco-2); }
 .acoes button {
   flex: 1;

@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { ErroDeDominio } from '../domain/errors.js'
 import { criarBanco, type BancoFinanceiro } from './db.js'
 import { criarRepositorios, type Repositorios } from './repositories.js'
-import type { AncoraSaldo, Cartao, Ocorrencia, Parcelamento, Regra } from '../domain/types.js'
+import type { AncoraSaldo, Ocorrencia, Parcelamento, Regra } from '../domain/types.js'
 
 const HOJE = '2026-08-15'
 
@@ -37,17 +37,6 @@ function regra(over: Partial<Regra> = {}): Regra {
   }
 }
 
-function cartao(over: Partial<Cartao> = {}): Cartao {
-  return {
-    id: 'c1',
-    nome: 'Cartao',
-    diaFechamento: 20,
-    diaVencimento: 28,
-    gastoMensalTipicoCentavos: 50_000,
-    ...over,
-  }
-}
-
 function parcelamento(over: Partial<Parcelamento> = {}): Parcelamento {
   return {
     id: 'p1',
@@ -55,7 +44,6 @@ function parcelamento(over: Partial<Parcelamento> = {}): Parcelamento {
     valorParcelaCentavos: 30_000,
     quantidadeParcelas: 10,
     primeiroVencimento: '2026-08-28',
-    cartaoId: null,
     ...over,
   }
 }
@@ -95,6 +83,15 @@ describe('repositorios', () => {
       expect(await repos.regras.obter('nao-existe')).toBeNull()
     })
 
+    it('grava e recupera um parcelamento', async () => {
+      await repos.parcelamentos.salvar(parcelamento())
+
+      const lista = await repos.parcelamentos.listar()
+
+      expect(lista).toHaveLength(1)
+      expect(lista[0]?.quantidadeParcelas).toBe(10)
+    })
+
     it('sobrescreve ao salvar com o mesmo identificador', async () => {
       await repos.regras.salvar(regra({ valorCentavos: 180_000 }))
       await repos.regras.salvar(regra({ valorCentavos: 200_000 }))
@@ -121,22 +118,6 @@ describe('repositorios', () => {
 
     it('rejeita dia do mes fora da faixa', async () => {
       await expect(repos.regras.salvar(regra({ diaDoMes: 32 }))).rejects.toThrow(ErroDeDominio)
-    })
-
-    /** RN-44: integridade referencial verificada na escrita. */
-    it('rejeita parcelamento apontando para cartao inexistente', async () => {
-      await expect(
-        repos.parcelamentos.salvar(parcelamento({ cartaoId: 'cartao-fantasma' })),
-      ).rejects.toThrow(ErroDeDominio)
-
-      expect(await repos.parcelamentos.listar()).toHaveLength(0)
-    })
-
-    it('aceita parcelamento apontando para cartao existente', async () => {
-      await repos.cartoes.salvar(cartao())
-      await repos.parcelamentos.salvar(parcelamento({ cartaoId: 'c1' }))
-
-      expect(await repos.parcelamentos.listar()).toHaveLength(1)
     })
 
     /** RN-45: declarar saldo para data futura nao tem significado. */

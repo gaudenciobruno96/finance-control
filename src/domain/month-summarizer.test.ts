@@ -11,8 +11,6 @@ function item(over: Partial<OcorrenciaResolvida> = {}): OcorrenciaResolvida {
     origem: 'virtual',
     idReal: null,
     situacao: 'previsto',
-    ehComponenteDeFatura: false,
-    cartaoId: null,
     numeroParcela: null,
     geradorTipo: 'regra',
     geradorId: 'r1',
@@ -96,7 +94,6 @@ describe('month-summarizer', () => {
   it('nao conta componentes de fatura, que ja estao na fatura', () => {
     const resumo = resumir([
       item({ chave: 'k1', nome: 'Fatura', valorPrevistoCentavos: 80_000 }),
-      item({ chave: 'k2', nome: 'Parcela', valorPrevistoCentavos: 30_000, ehComponenteDeFatura: true }),
     ])
 
     expect(resumo.aPagarCentavos).toBe(80_000)

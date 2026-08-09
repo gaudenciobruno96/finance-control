@@ -1,9 +1,8 @@
 /**
  * UI-05 — Lista de ocorrencias.
  *
- * Componentes de fatura aparecem ANINHADOS sob a fatura do cartao a que
- * pertencem, recuados e sem valor somado ao total (RN-71). O usuario ve o que
- * compoe a fatura sem que a leitura conte o mesmo dinheiro duas vezes.
+ * Uma linha por ocorrencia, sem hierarquia. Toda linha e um botao: e a unica
+ * porta de entrada para a folha de pagamento.
  */
 
 import { formatarBRL } from '../../domain/money.js'
@@ -25,7 +24,6 @@ export interface OccurrenceListProps {
   readonly titulo: string
   readonly total?: number | undefined
   readonly ocorrencias: readonly OcorrenciaResolvida[]
-  readonly componentesDeFatura: readonly OcorrenciaResolvida[]
   readonly onSelecionar: (o: OcorrenciaResolvida) => void
   readonly vazio?: string | undefined
   /** Competencia exibida na tela; linhas de outros meses ganham o rotulo do mes. */
@@ -36,7 +34,6 @@ export function OccurrenceList({
   titulo,
   total,
   ocorrencias,
-  componentesDeFatura,
   onSelecionar,
   vazio,
   competenciaExibida,
@@ -66,28 +63,6 @@ export function OccurrenceList({
               }
             />
 
-            {o.geradorTipo === 'cartao' && (
-              <ul className={estilos.aninhada}>
-                {componentesDeFatura
-                  // Filtra pelo CARTAO, nao apenas pela competencia.
-                  //
-                  // Antes o filtro era só por competência: com dois cartões,
-                  // cada fatura listava as parcelas de ambos, e o detalhamento
-                  // não batia com o próprio total.
-                  .filter(
-                    (c) =>
-                      c.competencia === o.competencia && c.cartaoId === o.cartaoId,
-                  )
-                  .map((c) => (
-                    <li key={c.chave} className={estilos.componente}>
-                      <span>{c.nome}</span>
-                      <span className={estilos.componenteValor}>
-                        {formatarBRL(c.valorPrevistoCentavos)}
-                      </span>
-                    </li>
-                  ))}
-              </ul>
-            )}
           </li>
         ))}
       </ul>

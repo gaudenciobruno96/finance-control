@@ -40,7 +40,7 @@ export type TipoMovimento = 'entrada' | 'saida'
 
 export type AjusteFimDeSemana = 'nenhum' | 'antecipa' | 'posterga'
 
-export type TipoGerador = 'regra' | 'parcelamento' | 'cartao' | 'avulso'
+export type TipoGerador = 'regra' | 'parcelamento' | 'avulso'
 
 /**
  * Situacao derivada de uma ocorrencia.
@@ -85,23 +85,6 @@ export interface Parcelamento {
   readonly valorParcelaCentavos: Centavos
   readonly quantidadeParcelas: number
   readonly primeiroVencimento: DataISO
-  /**
-   * Cartao em que as parcelas caem, ou nulo se e boleto proprio.
-   *
-   * Quando preenchido, as ocorrencias geradas compoem a fatura e NAO viram
-   * saida independente (RN-18). E a unica barreira contra contar o mesmo
-   * dinheiro duas vezes.
-   */
-  readonly cartaoId: string | null
-}
-
-export interface Cartao {
-  readonly id: string
-  readonly nome: string
-  readonly diaFechamento: number
-  readonly diaVencimento: number
-  /** Gasto recorrente nao parcelado, informado pelo usuario. */
-  readonly gastoMensalTipicoCentavos: Centavos
 }
 
 /**
@@ -162,18 +145,6 @@ export interface OcorrenciaResolvida {
    */
   readonly idReal: string | null
   readonly situacao: SituacaoOcorrencia
-  /** Verdadeiro para parcela vinculada a cartao (RN-18). */
-  readonly ehComponenteDeFatura: boolean
-  /**
-   * Cartao ao qual a ocorrencia pertence.
-   *
-   * Preenchido tanto na fatura (o proprio cartao) quanto na parcela vinculada
-   * a ele. Sem este campo, a interface so conseguia agrupar componentes de
-   * fatura por competencia -- e com dois cartoes cada fatura listava as
-   * parcelas de ambos, exibindo um detalhamento que nao batia com o proprio
-   * total.
-   */
-  readonly cartaoId: string | null
   readonly numeroParcela: number | null
 
   readonly geradorTipo: TipoGerador

@@ -1,130 +1,113 @@
 /**
- * UI-07 — Cadastros de regras, parcelamentos e cartoes.
+ * UI-08 — Receitas e contas fixas.
+ *
+ * So SE CRIA receita aqui. Conta a pagar -- de uma vez, repetida ou parcelada
+ * -- nasce na tela do mes, na mesma caixa, porque e la que voce esta quando o
+ * boleto chega.
+ *
+ * As contas fixas ja criadas continuam listadas nesta tela, em secao propria:
+ * sao a unica forma de altera-las ou remove-las, e escondendo-as elas ficariam
+ * presas no app para sempre.
  */
 
 import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { ajustePadrao, competenciaDe } from '../../domain/calendar.js'
+import { competenciaDe } from '../../domain/calendar.js'
 import { formatarBRL } from '../../domain/money.js'
 import { mediaDosUltimosPagos } from '../../domain/estimation.js'
-import type { Centavos, Regra, TipoMovimento } from '../../domain/types.js'
+import type { Centavos, Regra } from '../../domain/types.js'
 import { MoneyInput } from '../components/MoneyInput.js'
 import { ConfirmSheet } from '../components/ConfirmSheet.js'
+import { QuickExpense } from '../components/QuickExpense.js'
 import { useAgora } from '../hooks/useAgora.js'
 import { useApp } from '../hooks/useApp.js'
+import { useSalvarLancamento } from '../hooks/useLancamento.js'
 import { useAcao } from '../hooks/useErro.js'
 import estilos from './RegistrationsScreen.module.css'
 
-type Aba = 'regras' | 'parcelamentos' | 'cartoes'
-
-/**
- * Converte a entrada de um campo numerico.
- *
- * Campo vazio produz NaN em vez de 0: zero seria um valor plausivel que
- * passaria pelas validacoes e gravaria dia 0, enquanto NaN e barrado pelo
- * guarda do formulario antes de chegar ao dominio.
- */
-function paraInteiro(texto: string): number {
-  if (texto.trim() === '') return Number.NaN
-  const n = Number(texto)
-  return Number.isInteger(n) ? n : Number.NaN
-}
-
 export function RegistrationsScreen() {
-  const [aba, setAba] = useState<Aba>('regras')
-
-  return (
-    <div className={estilos.tela}>
-      <div className={estilos.abas} role="tablist">
-        {(['regras', 'parcelamentos', 'cartoes'] as const).map((a) => (
-          <button
-            key={a}
-            type="button"
-            role="tab"
-            aria-selected={aba === a}
-            className={aba === a ? estilos.abaAtiva : estilos.aba}
-            onClick={() => setAba(a)}
-            data-testid={`aba-cadastro-${a}`}
-          >
-            {a === 'regras' ? 'Recorrentes' : a === 'parcelamentos' ? 'Parcelas' : 'Cartões'}
-          </button>
-        ))}
-      </div>
-
-      {aba === 'regras' && <PainelRegras />}
-      {aba === 'parcelamentos' && <PainelParcelamentos />}
-      {aba === 'cartoes' && <PainelCartoes />}
-    </div>
-  )
-}
-
-// ---------------------------------------------------------------------------
-
-function PainelRegras() {
   const agora = useAgora()
   const { repos, regras } = useApp()
   const executar = useAcao()
+  const salvarLancamento = useSalvarLancamento()
 
   const lista = useLiveQuery(() => repos.regras.listar(), [repos]) ?? []
   const ocorrencias = useLiveQuery(() => repos.ocorrencias.listar(), [repos]) ?? []
+  const parcelamentos = useLiveQuery(() => repos.parcelamentos.listar(), [repos]) ?? []
 
   const [editando, setEditando] = useState<Regra | null>(null)
   const [removendo, setRemovendo] = useState<Regra | null>(null)
   const [criando, setCriando] = useState(false)
 
+  const receitas = lista.filter((r) => r.tipo === 'entrada')
+  const fixas = lista.filter((r) => r.tipo === 'saida')
+
   return (
-    <section className={estilos.painel}>
-      <ul className={estilos.lista}>
-        {lista.map((r) => (
-          <li key={r.id}>
-            <button
-              type="button"
-              className={estilos.item}
-              onClick={() => setEditando(r)}
-              data-testid={`regra-${r.nome}`}
-            >
-              <span>
-                <strong>{r.nome}</strong>
-                <span className={estilos.meta}>
-                  dia {r.diaDoMes} · {r.tipo === 'entrada' ? 'entrada' : 'saída'}
-                  {r.valorEhEstimativa ? ' · estimativa' : ''}
-                </span>
-              </span>
-              <span className={r.tipo === 'entrada' ? estilos.entrada : estilos.saida}>
-                {formatarBRL(r.valorCentavos)}
-              </span>
-            </button>
-          </li>
-        ))}
-      </ul>
+    <div className={estilos.tela}>
+      <section className={estilos.painel} aria-label="Receitas">
+        <h2 className={estilos.titulo}>O que entra todo mês</h2>
 
-      {lista.length === 0 && (
-        <p className={estilos.vazio}>
-          Cadastre seus salários e contas fixas. Depois disso o mês aparece sozinho, sem
-          lançamento manual.
-        </p>
-      )}
-
-      <button
-        type="button"
-        className={estilos.principal}
-        onClick={() => setCriando(true)}
-        data-testid="nova-regra"
-      >
-        + Nova recorrência
-      </button>
-
-      {criando && (
-        <FormularioRegra
-          sugestao={null}
-          onCancelar={() => setCriando(false)}
-          onSalvar={(dados) => {
-            void executar(async () => {
-              await regras.criarRegra({ ...dados, vigenteDe: competenciaDe(agora), vigenteAte: null })
-              setCriando(false)
-            })
-          }}
+        <ListaDeRegras
+          regras={receitas}
+          onSelecionar={setEditando}
+          vazio="Cadastre seus salários. Depois disso o mês aparece sozinho, sem lançamento manual."
         />
+
+        {criando ? (
+          <QuickExpense
+            competencia={competenciaDe(agora)}
+            hoje={agora}
+            tipoFixo="entrada"
+            onCancelar={() => setCriando(false)}
+            onSalvar={(dados) => {
+              void executar(async () => {
+                await salvarLancamento(dados)
+                setCriando(false)
+              })
+            }}
+          />
+        ) : (
+          <button
+            type="button"
+            className={estilos.principal}
+            onClick={() => setCriando(true)}
+            data-testid="nova-regra"
+          >
+            + Nova receita
+          </button>
+        )}
+      </section>
+
+      <section className={estilos.painel} aria-label="Contas fixas">
+        <h2 className={estilos.titulo}>Contas que se repetem</h2>
+
+        <ListaDeRegras
+          regras={fixas}
+          onSelecionar={setEditando}
+          vazio="Nenhuma ainda. Marque “repete todo mês” ao anotar uma conta na tela do mês."
+        />
+      </section>
+
+      {parcelamentos.length > 0 && (
+        <section className={estilos.painel} aria-label="Parcelamentos">
+          <h2 className={estilos.titulo}>Compras parceladas</h2>
+          <ul className={estilos.lista}>
+            {parcelamentos.map((p) => (
+              <li key={p.id} className={estilos.item}>
+                <span>
+                  <strong>{p.nome}</strong>
+                  <span className={estilos.meta}>
+                    {p.quantidadeParcelas}x a partir de{' '}
+                    {p.primeiroVencimento.slice(8, 10)}/{p.primeiroVencimento.slice(5, 7)}
+                  </span>
+                </span>
+                <span className={estilos.saida}>
+                  {formatarBRL(p.valorParcelaCentavos)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
 
       {editando !== null && (
@@ -169,131 +152,53 @@ function PainelRegras() {
           onCancelar={() => setRemovendo(null)}
         />
       )}
-    </section>
+
+      <p className={estilos.nota} data-testid="dica-cadastros">
+        Contas a pagar são anotadas na tela do mês — inclusive as que se repetem
+        e as parceladas.
+      </p>
+    </div>
   )
+
 }
 
-// ---------------------------------------------------------------------------
-
-interface DadosRegra {
-  readonly tipo: TipoMovimento
-  readonly nome: string
-  readonly valorCentavos: Centavos
-  readonly valorEhEstimativa: boolean
-  readonly diaDoMes: number
-  readonly ajusteFimDeSemana: 'nenhum' | 'antecipa' | 'posterga'
-}
-
-function FormularioRegra({
-  sugestao,
-  onSalvar,
-  onCancelar,
+function ListaDeRegras({
+  regras,
+  onSelecionar,
+  vazio,
 }: {
-  sugestao: Centavos | null
-  onSalvar: (dados: DadosRegra) => void
-  onCancelar: () => void
+  regras: readonly Regra[]
+  onSelecionar: (r: Regra) => void
+  vazio: string
 }) {
-  const [tipo, setTipo] = useState<TipoMovimento>('saida')
-  const [nome, setNome] = useState('')
-  const [valor, setValor] = useState<Centavos>(sugestao ?? 0)
-  const [estimativa, setEstimativa] = useState(false)
-  const [dia, setDia] = useState(10)
-
-  // O guarda cobre TODOS os campos: antes olhava so nome e valor, e um campo
-  // numerico limpo enviava NaN ao dominio, que respondia com a mensagem
-  // generica de 'dado invalido' em vez de apontar o campo.
-  const valido =
-    nome.trim() !== '' && valor > 0 && Number.isInteger(dia) && dia >= 1 && dia <= 31
+  if (regras.length === 0) {
+    return <p className={estilos.vazio}>{vazio}</p>
+  }
 
   return (
-    <form
-      className={estilos.formulario}
-      onSubmit={(e) => {
-        e.preventDefault()
-        // Validacao na confirmacao, nao a cada tecla (RN-79).
-        if (!valido) return
-        onSalvar({
-          tipo,
-          nome: nome.trim(),
-          valorCentavos: valor,
-          valorEhEstimativa: estimativa,
-          diaDoMes: dia,
-          // O padrao sugerido depende do tipo (RN-09): salario costuma ser
-          // antecipado, boleto costuma aceitar o proximo dia util.
-          ajusteFimDeSemana: ajustePadrao(tipo),
-        })
-      }}
-    >
-      <div className={estilos.tipos}>
-        <label>
-          <input
-            type="radio"
-            name="tipo"
-            checked={tipo === 'saida'}
-            onChange={() => setTipo('saida')}
-            data-testid="tipo-saida"
-          />
-          Saída
-        </label>
-        <label>
-          <input
-            type="radio"
-            name="tipo"
-            checked={tipo === 'entrada'}
-            onChange={() => setTipo('entrada')}
-            data-testid="tipo-entrada"
-          />
-          Entrada
-        </label>
-      </div>
-
-      <label className={estilos.rotulo} htmlFor="regra-nome">
-        Nome
-      </label>
-      <input
-        id="regra-nome"
-        data-testid="regra-nome"
-        className={estilos.entradaTexto}
-        value={nome}
-        maxLength={60}
-        onChange={(e) => setNome(e.target.value)}
-      />
-
-      <MoneyInput id="regra-valor" rotulo="Valor" valorCentavos={valor} onChange={setValor} />
-
-      <label className={estilos.rotulo} htmlFor="regra-dia">
-        Dia do mês
-      </label>
-      <input
-        id="regra-dia"
-        data-testid="regra-dia"
-        className={estilos.entradaTexto}
-        type="number"
-        min={1}
-        max={31}
-        value={Number.isInteger(dia) ? dia : ''}
-        onChange={(e) => setDia(paraInteiro(e.target.value))}
-      />
-
-      <label className={estilos.caixa}>
-        <input
-          type="checkbox"
-          checked={estimativa}
-          onChange={(e) => setEstimativa(e.target.checked)}
-          data-testid="regra-estimativa"
-        />
-        Valor variável (luz, água) — o previsto é uma estimativa
-      </label>
-
-      <div className={estilos.acoes}>
-        <button type="submit" className={estilos.principal} data-testid="salvar-regra">
-          Salvar
-        </button>
-        <button type="button" onClick={onCancelar}>
-          Cancelar
-        </button>
-      </div>
-    </form>
+    <ul className={estilos.lista}>
+      {regras.map((r) => (
+        <li key={r.id}>
+          <button
+            type="button"
+            className={estilos.item}
+            onClick={() => onSelecionar(r)}
+            data-testid={`regra-${r.nome}`}
+          >
+            <span>
+              <strong>{r.nome}</strong>
+              <span className={estilos.meta}>
+                dia {r.diaDoMes}
+                {r.valorEhEstimativa ? ' · estimativa' : ''}
+              </span>
+            </span>
+            <span className={r.tipo === 'entrada' ? estilos.entrada : estilos.saida}>
+              {formatarBRL(r.valorCentavos)}
+            </span>
+          </button>
+        </li>
+      ))}
+    </ul>
   )
 }
 
@@ -337,7 +242,10 @@ function FormularioEdicao({
         </button>
       )}
 
-      <p className={estilos.nota}>A partir de quando o novo valor vale?</p>
+      <p className={estilos.nota}>
+        Isto muda o valor daqui para a frente. Para mudar só um mês — um
+        adiantamento, por exemplo — toque no item na tela do mês.
+      </p>
 
       <div className={estilos.acoes}>
         <button
@@ -358,7 +266,12 @@ function FormularioEdicao({
       </div>
 
       <div className={estilos.acoes}>
-        <button type="button" className={estilos.remover} onClick={onRemover} data-testid="remover-regra">
+        <button
+          type="button"
+          className={estilos.remover}
+          onClick={onRemover}
+          data-testid="remover-regra"
+        >
           Remover
         </button>
         <button type="button" onClick={onCancelar}>
@@ -366,171 +279,5 @@ function FormularioEdicao({
         </button>
       </div>
     </div>
-  )
-}
-
-// ---------------------------------------------------------------------------
-
-function PainelParcelamentos() {
-  const { repos, regras } = useApp()
-  const executar = useAcao()
-
-  const lista = useLiveQuery(() => repos.parcelamentos.listar(), [repos]) ?? []
-  const cartoes = useLiveQuery(() => repos.cartoes.listar(), [repos]) ?? []
-
-  const [nome, setNome] = useState('')
-  const [valor, setValor] = useState<Centavos>(0)
-  const [parcelas, setParcelas] = useState(10)
-  const [primeiro, setPrimeiro] = useState('')
-  const [cartaoId, setCartaoId] = useState('')
-
-  return (
-    <section className={estilos.painel}>
-      <ul className={estilos.lista}>
-        {lista.map((p) => (
-          <li key={p.id} className={estilos.item}>
-            <span>
-              <strong>{p.nome}</strong>
-              <span className={estilos.meta}>
-                {p.quantidadeParcelas}x · {p.cartaoId === null ? 'boleto' : 'no cartão'}
-              </span>
-            </span>
-            <span className={estilos.saida}>{formatarBRL(p.valorParcelaCentavos)}</span>
-          </li>
-        ))}
-      </ul>
-
-      <form
-        className={estilos.formulario}
-        onSubmit={(e) => {
-          e.preventDefault()
-          if (
-            nome.trim() === '' ||
-            valor <= 0 ||
-            primeiro === '' ||
-            !Number.isInteger(parcelas) ||
-            parcelas < 1
-          ) {
-            return
-          }
-          void executar(async () => {
-            await regras.criarParcelamento({
-              nome: nome.trim(),
-              valorParcelaCentavos: valor,
-              quantidadeParcelas: parcelas,
-              primeiroVencimento: primeiro,
-              cartaoId: cartaoId === '' ? null : cartaoId,
-            })
-            setNome('')
-            setValor(0)
-            setPrimeiro('')
-          })
-        }}
-      >
-        <label className={estilos.rotulo} htmlFor="parc-nome">Nome</label>
-        <input id="parc-nome" data-testid="parc-nome" className={estilos.entradaTexto} value={nome} onChange={(e) => setNome(e.target.value)} />
-
-        <MoneyInput id="parc-valor" rotulo="Valor da parcela" valorCentavos={valor} onChange={setValor} />
-
-        <label className={estilos.rotulo} htmlFor="parc-qtd">Quantidade de parcelas</label>
-        <input id="parc-qtd" data-testid="parc-qtd" className={estilos.entradaTexto} type="number" min={1} max={360} value={Number.isInteger(parcelas) ? parcelas : ''} onChange={(e) => setParcelas(paraInteiro(e.target.value))} />
-
-        <label className={estilos.rotulo} htmlFor="parc-primeiro">Primeiro vencimento</label>
-        <input id="parc-primeiro" data-testid="parc-primeiro" className={estilos.entradaTexto} type="date" value={primeiro} onChange={(e) => setPrimeiro(e.target.value)} />
-
-        <label className={estilos.rotulo} htmlFor="parc-cartao">Cai na fatura do cartão?</label>
-        <select id="parc-cartao" data-testid="parc-cartao" className={estilos.entradaTexto} value={cartaoId} onChange={(e) => setCartaoId(e.target.value)}>
-          <option value="">Não — é boleto próprio</option>
-          {cartoes.map((c) => (
-            <option key={c.id} value={c.id}>{c.nome}</option>
-          ))}
-        </select>
-
-        <p className={estilos.nota}>
-          Use as datas de vencimento das faturas, não a data da compra.
-        </p>
-
-        <button type="submit" className={estilos.principal} data-testid="salvar-parcelamento">
-          Salvar parcelamento
-        </button>
-      </form>
-    </section>
-  )
-}
-
-// ---------------------------------------------------------------------------
-
-function PainelCartoes() {
-  const { repos, regras } = useApp()
-  const executar = useAcao()
-
-  const lista = useLiveQuery(() => repos.cartoes.listar(), [repos]) ?? []
-
-  const [nome, setNome] = useState('')
-  const [fechamento, setFechamento] = useState(20)
-  const [vencimento, setVencimento] = useState(28)
-  const [gasto, setGasto] = useState<Centavos>(0)
-
-  return (
-    <section className={estilos.painel}>
-      <ul className={estilos.lista}>
-        {lista.map((c) => (
-          <li key={c.id} className={estilos.item}>
-            <span>
-              <strong>{c.nome}</strong>
-              <span className={estilos.meta}>
-                fecha dia {c.diaFechamento} · vence dia {c.diaVencimento}
-              </span>
-            </span>
-            <span className={estilos.saida}>{formatarBRL(c.gastoMensalTipicoCentavos)}</span>
-          </li>
-        ))}
-      </ul>
-
-      <form
-        className={estilos.formulario}
-        onSubmit={(e) => {
-          e.preventDefault()
-          if (
-            nome.trim() === '' ||
-            !Number.isInteger(fechamento) ||
-            !Number.isInteger(vencimento)
-          ) {
-            return
-          }
-          void executar(async () => {
-            await regras.criarCartao({
-              nome: nome.trim(),
-              diaFechamento: fechamento,
-              diaVencimento: vencimento,
-              gastoMensalTipicoCentavos: gasto,
-            })
-            setNome('')
-            setGasto(0)
-          })
-        }}
-      >
-        <label className={estilos.rotulo} htmlFor="cartao-nome">Nome</label>
-        <input id="cartao-nome" data-testid="cartao-nome" className={estilos.entradaTexto} value={nome} onChange={(e) => setNome(e.target.value)} />
-
-        <label className={estilos.rotulo} htmlFor="cartao-fechamento">Dia de fechamento</label>
-        <input id="cartao-fechamento" data-testid="cartao-fechamento" className={estilos.entradaTexto} type="number" min={1} max={31} value={Number.isInteger(fechamento) ? fechamento : ''} onChange={(e) => setFechamento(paraInteiro(e.target.value))} />
-
-        <label className={estilos.rotulo} htmlFor="cartao-vencimento">Dia de vencimento</label>
-        <input id="cartao-vencimento" data-testid="cartao-vencimento" className={estilos.entradaTexto} type="number" min={1} max={31} value={Number.isInteger(vencimento) ? vencimento : ''} onChange={(e) => setVencimento(paraInteiro(e.target.value))} />
-
-        <MoneyInput
-          id="cartao-gasto"
-          rotulo="Gasto mensal típico"
-          descricao="O que você costuma gastar por mês fora as parcelas. Usado só para estimar a fatura antes de ela fechar."
-          valorCentavos={gasto}
-          onChange={setGasto}
-        />
-
-        <button type="submit" className={estilos.principal} data-testid="salvar-cartao">
-          Salvar cartão
-        </button>
-      </form>
-    </section>
   )
 }

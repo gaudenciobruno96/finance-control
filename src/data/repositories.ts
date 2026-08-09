@@ -6,11 +6,9 @@
  * o banco nao e tocado.
  */
 
-import { ErroDeDominio } from '../domain/errors.js'
 import { comparar } from '../domain/calendar.js'
 import type {
   AncoraSaldo,
-  Cartao,
   Competencia,
   DataISO,
   Ocorrencia,
@@ -21,7 +19,6 @@ import type {
 import type { BancoFinanceiro } from './db.js'
 import {
   validarAncora,
-  validarCartao,
   validarOcorrencia,
   validarParcelamento,
   validarRegra,
@@ -61,17 +58,8 @@ export function criarParcelamentoRepository(db: BancoFinanceiro) {
     obter: async (id: string): Promise<Parcelamento | null> =>
       (await db.parcelamentos.get(id)) ?? null,
 
-    /** RN-44: integridade referencial verificada na escrita. */
     salvar: async (p: Parcelamento): Promise<void> => {
       validarParcelamento(p)
-
-      if (p.cartaoId !== null) {
-        const cartao = await db.cartoes.get(p.cartaoId)
-        if (cartao === undefined) {
-          throw new ErroDeDominio('REFERENCIA_INEXISTENTE', 'repositorio')
-        }
-      }
-
       await db.parcelamentos.put(p)
     },
 
@@ -79,30 +67,6 @@ export function criarParcelamentoRepository(db: BancoFinanceiro) {
       await db.parcelamentos.delete(id)
     },
 
-    porCartao: (cartaoId: string): Promise<Parcelamento[]> =>
-      db.parcelamentos.where('cartaoId').equals(cartaoId).toArray(),
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Cartoes
-// ---------------------------------------------------------------------------
-
-export function criarCartaoRepository(db: BancoFinanceiro) {
-  return {
-    listar: (): Promise<Cartao[]> => db.cartoes.toArray(),
-
-    obter: async (id: string): Promise<Cartao | null> =>
-      (await db.cartoes.get(id)) ?? null,
-
-    salvar: async (c: Cartao): Promise<void> => {
-      validarCartao(c)
-      await db.cartoes.put(c)
-    },
-
-    remover: async (id: string): Promise<void> => {
-      await db.cartoes.delete(id)
-    },
   }
 }
 
@@ -247,7 +211,6 @@ export function criarConfiguracaoRepository(db: BancoFinanceiro) {
 export interface Repositorios {
   readonly regras: ReturnType<typeof criarRegraRepository>
   readonly parcelamentos: ReturnType<typeof criarParcelamentoRepository>
-  readonly cartoes: ReturnType<typeof criarCartaoRepository>
   readonly ocorrencias: ReturnType<typeof criarOcorrenciaRepository>
   readonly ancoras: ReturnType<typeof criarAncoraRepository>
   readonly configuracoes: ReturnType<typeof criarConfiguracaoRepository>
@@ -257,7 +220,6 @@ export function criarRepositorios(db: BancoFinanceiro): Repositorios {
   return {
     regras: criarRegraRepository(db),
     parcelamentos: criarParcelamentoRepository(db),
-    cartoes: criarCartaoRepository(db),
     ocorrencias: criarOcorrenciaRepository(db),
     ancoras: criarAncoraRepository(db),
     configuracoes: criarConfiguracaoRepository(db),

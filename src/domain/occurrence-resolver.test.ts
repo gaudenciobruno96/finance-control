@@ -136,19 +136,16 @@ describe('occurrence-resolver', () => {
     })
 
     /**
-     * As caracteristicas do gerador sobrevivem a materializacao: uma parcela
-     * continua sendo componente de fatura depois de o usuario ajustar seu
-     * valor. Sem isso, ajustar uma parcela de cartao a faria passar a contar
-     * na curva alem de estar dentro da fatura -- dupla contagem.
+     * As caracteristicas do gerador sobrevivem a materializacao: ajustar o
+     * valor de uma parcela nao a faz esquecer que e a terceira de dez. O
+     * numero da parcela so existe na expansao, nao no registro gravado.
      */
-    it('preserva ehComponenteDeFatura ao materializar', () => {
+    it('preserva o numero da parcela ao materializar', () => {
       const virtual: OcorrenciaResolvida = {
         chave: 'parcelamento:p1:2026-08',
         origem: 'virtual',
         idReal: null,
         situacao: 'previsto',
-        ehComponenteDeFatura: true,
-        cartaoId: 'c1',
         numeroParcela: 3,
         geradorTipo: 'parcelamento',
         geradorId: 'p1',
@@ -172,7 +169,6 @@ describe('occurrence-resolver', () => {
       const [resolvida] = resolver([virtual], [ajustada], HOJE)
 
       expect(resolvida?.origem).toBe('real')
-      expect(resolvida?.ehComponenteDeFatura).toBe(true)
       expect(resolvida?.numeroParcela).toBe(3)
       expect(resolvida?.valorPrevistoCentavos).toBe(32_000)
     })

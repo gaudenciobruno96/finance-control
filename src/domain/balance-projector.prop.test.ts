@@ -16,7 +16,7 @@ import type { Centavos, OcorrenciaResolvida } from './types.js'
  */
 function somaDireta(ocorrencias: readonly OcorrenciaResolvida[]): Centavos {
   const valores = ocorrencias
-    .filter((o) => !o.ignorado && !o.ehComponenteDeFatura)
+    .filter((o) => !o.ignorado)
     .map((o) => {
       const valor = o.valorPagoCentavos ?? o.valorPrevistoCentavos
       return o.tipo === 'entrada' ? valor : -valor
@@ -168,29 +168,32 @@ describe('balance-projector — propriedades', () => {
   })
 
   /**
-   * PROP-P05 · Componentes de fatura nao alteram a curva por si sos (RN-18).
+   * PROP-P05 · Os movimentos expostos explicam a curva inteira.
    *
-   * E a propriedade que impede a dupla contagem: se uma parcela de cartao
-   * entrasse na curva alem de estar somada na fatura, remove-la mudaria o
-   * resultado.
+   * A tela abre 'ainda entra' e 'ainda sai' listando os itens por tras de cada
+   * total, e ambos saem destes movimentos. Se um centavo entrasse na curva sem
+   * passar por aqui, o total exibido nao bateria com a lista que o detalha --
+   * exatamente na tela cujo proposito e explicar de onde vem o numero.
    */
-  it('PROP-P05: componentes de fatura nao afetam a curva', () => {
+  it('PROP-P05: o saldo final e o saldo inicial mais todos os movimentos', () => {
     fc.assert(
       fc.property(cenarioDeProjecao(), (cenario) => {
-        const comTodos = projetarCurva(
+        const curva = projetarCurva(
           cenario.ocorrencias,
           cenario.ancora,
           cenario.competencia,
           cenario.hoje,
         )
-        const semComponentes = projetarCurva(
-          cenario.ocorrencias.filter((o) => !o.ehComponenteDeFatura),
-          cenario.ancora,
-          cenario.competencia,
-          cenario.hoje,
+
+        const liquido = curva.movimentos.reduce(
+          (t, m) => t + m.entradaCentavos - m.saidaCentavos,
+          0,
         )
 
-        expect(comTodos.pontos).toEqual(semComponentes.pontos)
+        const ultimo = curva.pontos[curva.pontos.length - 1]
+        if (ultimo === undefined) return
+
+        expect(ultimo.saldoCentavos).toBe(curva.saldoInicialCentavos + liquido)
       }),
     )
   })

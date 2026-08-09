@@ -10,8 +10,6 @@ function item(over: Partial<OcorrenciaResolvida> = {}): OcorrenciaResolvida {
     origem: 'virtual',
     idReal: null,
     situacao: 'previsto',
-    ehComponenteDeFatura: false,
-    cartaoId: null,
     numeroParcela: null,
     geradorTipo: 'regra',
     geradorId: 'r1',
@@ -148,20 +146,6 @@ describe('balance-projector', () => {
       expect(saldoEm(curva, '2026-08-31')).toBe(100_000)
     })
 
-    /**
-     * RN-18: a parcela ja esta somada dentro da fatura do cartao. Conta-la
-     * aqui seria contar o mesmo dinheiro duas vezes.
-     */
-    it('componente de fatura nao afeta a curva sozinho', () => {
-      const curva = projetarCurva(
-        [item({ ehComponenteDeFatura: true, valorPrevistoCentavos: 30_000 })],
-        ANCORA,
-        '2026-08',
-        '2026-08-15',
-      )
-
-      expect(saldoEm(curva, '2026-08-31')).toBe(100_000)
-    })
 
     /**
      * Uma ocorrencia de competencia agosto postergada para 1o de setembro

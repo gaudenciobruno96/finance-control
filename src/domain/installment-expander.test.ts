@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { expandirParcelamentos, parcelasDoCartaoEm } from './installment-expander.js'
+import { expandirParcelamentos } from './installment-expander.js'
 import { intervaloDeCompetencias } from './calendar.js'
 import type { Parcelamento } from './types.js'
 
@@ -10,7 +10,6 @@ function parcelamento(over: Partial<Parcelamento> = {}): Parcelamento {
     valorParcelaCentavos: 25_000,
     quantidadeParcelas: 10,
     primeiroVencimento: '2026-08-15',
-    cartaoId: null,
     ...over,
   }
 }
@@ -76,31 +75,6 @@ describe('installment-expander', () => {
     expect(ocorrencias[0]?.nome).toBe('Geladeira (1/1)')
   })
 
-  describe('vinculo com cartao (RN-18)', () => {
-    it('marca parcela de cartao como componente de fatura', () => {
-      const p = parcelamento({ cartaoId: 'c1' })
-      const [ocorrencia] = expandirParcelamentos([p], ['2026-08'])
-
-      expect(ocorrencia?.ehComponenteDeFatura).toBe(true)
-    })
-
-    it('nao marca parcelamento avulso como componente de fatura', () => {
-      const [ocorrencia] = expandirParcelamentos([parcelamento({ cartaoId: null })], ['2026-08'])
-
-      expect(ocorrencia?.ehComponenteDeFatura).toBe(false)
-    })
-
-    it('filtra parcelas por cartao', () => {
-      const doCartao = parcelamento({ id: 'p1', cartaoId: 'c1' })
-      const deOutro = parcelamento({ id: 'p2', cartaoId: 'c2' })
-      const avulso = parcelamento({ id: 'p3', cartaoId: null })
-
-      const parcelas = parcelasDoCartaoEm([doCartao, deOutro, avulso], 'c1', '2026-08')
-
-      expect(parcelas).toHaveLength(1)
-      expect(parcelas[0]?.geradorId).toBe('p1')
-    })
-  })
 
   it('sempre produz saida, nunca entrada', () => {
     const ocorrencias = expandirParcelamentos([parcelamento()], ['2026-08'])

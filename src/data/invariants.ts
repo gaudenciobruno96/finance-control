@@ -16,7 +16,6 @@ import {
 import { comparar } from '../domain/calendar.js'
 import type {
   AncoraSaldo,
-  Cartao,
   DataISO,
   Ocorrencia,
   Parcelamento,
@@ -53,13 +52,6 @@ export function validarParcelamento(p: Parcelamento): void {
     'QUANTIDADE_PARCELAS_INVALIDA',
   )
   exigir(ehDataValida(p.primeiroVencimento), 'DATA_INVALIDA')
-}
-
-export function validarCartao(c: Cartao): void {
-  exigir(ehDiaDoMesValido(c.diaFechamento), 'DIA_DO_MES_INVALIDO')
-  exigir(ehDiaDoMesValido(c.diaVencimento), 'DIA_DO_MES_INVALIDO')
-  exigir(ehCentavosValido(c.gastoMensalTipicoCentavos), 'VALOR_NAO_INTEIRO')
-  exigir(c.gastoMensalTipicoCentavos >= 0, 'VALOR_NAO_POSITIVO')
 }
 
 export function validarOcorrencia(o: Ocorrencia): void {

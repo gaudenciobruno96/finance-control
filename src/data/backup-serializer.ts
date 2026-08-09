@@ -4,7 +4,6 @@
 
 import type {
   AncoraSaldo,
-  Cartao,
   DataISO,
   Ocorrencia,
   Parcelamento,
@@ -12,7 +11,6 @@ import type {
 } from '../domain/types.js'
 import { VERSAO_SCHEMA, type BancoFinanceiro, type Configuracao } from './db.js'
 import {
-  validarCartao,
   validarOcorrencia,
   validarParcelamento,
   validarRegra,
@@ -23,7 +21,6 @@ export interface DocumentoBackup {
   readonly exportadoEm: DataISO
   readonly regras: readonly Regra[]
   readonly parcelamentos: readonly Parcelamento[]
-  readonly cartoes: readonly Cartao[]
   readonly ocorrencias: readonly Ocorrencia[]
   readonly ancoras: readonly AncoraSaldo[]
   readonly configuracoes: readonly Configuracao[]
@@ -34,11 +31,10 @@ export async function serializar(
   db: BancoFinanceiro,
   hoje: DataISO,
 ): Promise<DocumentoBackup> {
-  const [regras, parcelamentos, cartoes, ocorrencias, ancoras, configuracoes] =
+  const [regras, parcelamentos, ocorrencias, ancoras, configuracoes] =
     await Promise.all([
       db.regras.toArray(),
       db.parcelamentos.toArray(),
-      db.cartoes.toArray(),
       db.ocorrencias.toArray(),
       db.ancoras.toArray(),
       db.configuracoes.toArray(),
@@ -51,7 +47,6 @@ export async function serializar(
     exportadoEm: hoje,
     regras,
     parcelamentos,
-    cartoes,
     ocorrencias,
     ancoras,
     configuracoes,
@@ -76,18 +71,16 @@ export async function escrever(
   //
   // Uma falha aqui aborta a transacao inteira: o banco fica como estava.
   for (const r of doc.regras) validarRegra(r)
-  for (const c of doc.cartoes) validarCartao(c)
   for (const p of doc.parcelamentos) validarParcelamento(p)
   for (const o of doc.ocorrencias) validarOcorrencia(o)
 
   await db.transaction(
     'rw',
-    [db.regras, db.parcelamentos, db.cartoes, db.ocorrencias, db.ancoras, db.configuracoes],
+    [db.regras, db.parcelamentos, db.ocorrencias, db.ancoras, db.configuracoes],
     async () => {
       await Promise.all([
         db.regras.clear(),
         db.parcelamentos.clear(),
-        db.cartoes.clear(),
         db.ocorrencias.clear(),
         db.ancoras.clear(),
         db.configuracoes.clear(),
@@ -96,7 +89,6 @@ export async function escrever(
       await Promise.all([
         db.regras.bulkPut([...doc.regras]),
         db.parcelamentos.bulkPut([...doc.parcelamentos]),
-        db.cartoes.bulkPut([...doc.cartoes]),
         db.ocorrencias.bulkPut([...doc.ocorrencias]),
         db.ancoras.bulkPut([...doc.ancoras]),
         db.configuracoes.bulkPut([...doc.configuracoes]),
@@ -112,18 +104,51 @@ export async function escrever(
  * porque este caminho e reutilizado pela importacao, fora do controle do
  * Dexie.
  *
- * Na versao 1 nao ha migracao a fazer. Cada versao futura acrescenta seu passo
- * aqui, e o documento atravessa a cadeia inteira ate a versao corrente.
+ * Cada versao acrescenta seu passo aqui, e o documento atravessa a cadeia
+ * inteira ate a versao corrente.
  */
 export function migrarDocumento(doc: DocumentoBackup): DocumentoBackup {
   let atual = doc
 
-  // Exemplo do formato que as migracoes futuras seguirao:
-  // if (atual.versaoSchema < 2) atual = { ...deVersao1Para2(atual), versaoSchema: 2 }
+  if (atual.versaoSchema < 2) atual = { ...deVersao1Para2(atual), versaoSchema: 2 }
 
   if (atual.versaoSchema < VERSAO_SCHEMA) {
     atual = { ...atual, versaoSchema: VERSAO_SCHEMA }
   }
 
   return atual
+}
+
+/**
+ * Versao 2: o cartao deixou de existir.
+ *
+ * Um arquivo exportado antes da mudanca traz a tabela `cartoes` e o campo
+ * `cartaoId` em cada parcelamento. Deixa-los passar gravaria no banco um campo
+ * que nenhuma parte do app le, e que voltaria rejeitado pelo validador no
+ * proximo ciclo de exportar e importar -- o dado ficaria irrecuperavel
+ * justamente pelo caminho que existe para recupera-lo.
+ *
+ * O parcelamento em si sobrevive: uma compra em 10x continua sendo uma compra
+ * em 10x, tenha caido na fatura ou nao.
+ */
+function deVersao1Para2(doc: DocumentoBackup): DocumentoBackup {
+  // Reconstroi campo a campo em vez de remover os conhecidos.
+  //
+  // Uma lista de exclusao so tira o que ja se sabe que existe; esta forma
+  // descarta tambem qualquer campo de uma versao que nao esteja prevista aqui.
+  return {
+    versaoSchema: doc.versaoSchema,
+    exportadoEm: doc.exportadoEm,
+    regras: doc.regras,
+    ocorrencias: doc.ocorrencias,
+    ancoras: doc.ancoras,
+    configuracoes: doc.configuracoes,
+    parcelamentos: doc.parcelamentos.map((p) => ({
+      id: p.id,
+      nome: p.nome,
+      valorParcelaCentavos: p.valorParcelaCentavos,
+      quantidadeParcelas: p.quantidadeParcelas,
+      primeiroVencimento: p.primeiroVencimento,
+    })),
+  }
 }

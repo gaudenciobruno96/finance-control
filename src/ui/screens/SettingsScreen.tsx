@@ -203,7 +203,6 @@ export function SettingsScreen() {
             <ul>
               <li>{pendente.resumo.quantidadeRegras} regras</li>
               <li>{pendente.resumo.quantidadeParcelamentos} parcelamentos</li>
-              <li>{pendente.resumo.quantidadeCartoes} cartões</li>
               <li>{pendente.resumo.quantidadeOcorrencias} lançamentos</li>
               {pendente.resumo.competenciaInicial !== null && (
                 <li>

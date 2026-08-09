@@ -23,7 +23,6 @@ export interface ResumoBackup {
   readonly exportadoEm: string | null
   readonly quantidadeRegras: number
   readonly quantidadeParcelamentos: number
-  readonly quantidadeCartoes: number
   readonly quantidadeOcorrencias: number
   readonly quantidadeAncoras: number
   readonly competenciaInicial: Competencia | null
@@ -74,7 +73,6 @@ export function validar(bruto: unknown): ResultadoValidacao {
   const tabelas = [
     'regras',
     'parcelamentos',
-    'cartoes',
     'ocorrencias',
     'ancoras',
     'configuracoes',
@@ -88,11 +86,7 @@ export function validar(bruto: unknown): ResultadoValidacao {
 
   const erroDeConteudo =
     validarRegras(bruto['regras'] as unknown[]) ??
-    validarCartoes(bruto['cartoes'] as unknown[]) ??
-    validarParcelamentos(
-      bruto['parcelamentos'] as unknown[],
-      bruto['cartoes'] as unknown[],
-    ) ??
+    validarParcelamentos(bruto['parcelamentos'] as unknown[]) ??
     validarOcorrencias(bruto['ocorrencias'] as unknown[]) ??
     validarAncoras(bruto['ancoras'] as unknown[])
 
@@ -109,7 +103,6 @@ export function validar(bruto: unknown): ResultadoValidacao {
       exportadoEm: ehTexto(bruto['exportadoEm']) ? bruto['exportadoEm'] : null,
       quantidadeRegras: documento.regras.length,
       quantidadeParcelamentos: documento.parcelamentos.length,
-      quantidadeCartoes: documento.cartoes.length,
       quantidadeOcorrencias: documento.ocorrencias.length,
       quantidadeAncoras: documento.ancoras.length,
       competenciaInicial: competencias[0] ?? null,
@@ -139,28 +132,7 @@ function validarRegras(lista: readonly unknown[]): string | null {
   return null
 }
 
-function validarCartoes(lista: readonly unknown[]): string | null {
-  for (const item of lista) {
-    if (!ehObjeto(item)) return 'Ha um cartao malformado no arquivo.'
-    if (!ehTexto(item['id'])) return 'Ha um cartao sem identificador.'
-    if (!ehDiaDoMesValido(item['diaFechamento'])) {
-      return 'Ha um cartao com dia de fechamento invalido.'
-    }
-    if (!ehDiaDoMesValido(item['diaVencimento'])) {
-      return 'Ha um cartao com dia de vencimento invalido.'
-    }
-  }
-  return null
-}
-
-/** Integridade referencial DENTRO do proprio arquivo. */
-function validarParcelamentos(
-  lista: readonly unknown[],
-  cartoes: readonly unknown[],
-): string | null {
-  const idsDeCartao = new Set(
-    cartoes.filter(ehObjeto).map((c) => c['id']).filter(ehTexto),
-  )
+function validarParcelamentos(lista: readonly unknown[]): string | null {
 
   for (const item of lista) {
     if (!ehObjeto(item)) return 'Ha um parcelamento malformado no arquivo.'
@@ -177,19 +149,12 @@ function validarParcelamentos(
       return 'Ha um parcelamento com data de vencimento invalida.'
     }
 
-    const cartaoId = item['cartaoId']
-    if (cartaoId !== null) {
-      if (!ehTexto(cartaoId)) return 'Ha um parcelamento com referencia de cartao invalida.'
-      if (!idsDeCartao.has(cartaoId)) {
-        return 'Ha um parcelamento apontando para um cartao que nao esta no arquivo.'
-      }
-    }
   }
   return null
 }
 
 const TIPOS_DE_MOVIMENTO = new Set(['entrada', 'saida'])
-const TIPOS_DE_GERADOR = new Set(['regra', 'parcelamento', 'cartao', 'avulso'])
+const TIPOS_DE_GERADOR = new Set(['regra', 'parcelamento', 'avulso'])
 
 function validarOcorrencias(lista: readonly unknown[]): string | null {
   for (const item of lista) {

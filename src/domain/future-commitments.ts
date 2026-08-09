@@ -13,10 +13,8 @@ import type {
  * Resume, por competencia, quanto ha a pagar e quanto disso vem de
  * parcelamentos.
  *
- * `deParcelamentos` contabiliza as parcelas de cartao MESMO estando embutidas
- * na fatura. O objetivo desta tela e justamente revelar o peso dos
- * parcelamentos, que de outro modo ficaria escondido dentro do valor da
- * fatura -- e e o que da sentido a cadastrar uma compra em 10x.
+ * `deParcelamentos` isola quanto do total vem de compras parceladas -- e o
+ * que da sentido a cadastrar uma compra em 10x.
  */
 export function resumirMeses(
   ocorrencias: readonly OcorrenciaResolvida[],
@@ -27,11 +25,7 @@ export function resumirMeses(
       (o) => o.competencia === competencia && !o.ignorado && o.tipo === 'saida',
     )
 
-    // O total a pagar exclui componentes de fatura, que ja estao somados
-    // dentro da fatura do cartao (RN-18).
-    const totalAPagarCentavos = somar(
-      ...doMes.filter((o) => !o.ehComponenteDeFatura).map(valorConsiderado),
-    )
+    const totalAPagarCentavos = somar(...doMes.map(valorConsiderado))
 
     const deParcelamentosCentavos = somar(
       ...doMes.filter((o) => o.geradorTipo === 'parcelamento').map(valorConsiderado),

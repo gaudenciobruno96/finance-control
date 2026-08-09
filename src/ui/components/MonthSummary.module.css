@@ -66,6 +66,53 @@
 
 .editar { color: var(--cor-acento); }
 
+/* A linha e um alvo de toque: precisa da altura minima e da area de folga. */
+.detalhe > summary {
+  min-height: var(--toque-minimo);
+  align-items: center;
+  cursor: pointer;
+  list-style: none;
+}
+
+.detalhe > summary::-webkit-details-marker { display: none; }
+
+.seta {
+  color: var(--cor-acento);
+  font-size: 0.75rem;
+  transition: transform 120ms ease;
+}
+
+.detalhe[open] .seta { transform: rotate(180deg); }
+
+.itens {
+  list-style: none;
+  margin: 0 0 var(--espaco-2);
+  padding: var(--espaco-2) var(--espaco-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-2);
+  background: var(--cor-superficie);
+  border-radius: var(--raio);
+}
+
+.item {
+  display: flex;
+  align-items: baseline;
+  gap: var(--espaco-2);
+  font-size: 0.875rem;
+}
+
+.itemNome {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.itemData { color: var(--cor-texto-suave); font-size: 0.8125rem; }
+
+.itemValor { font-variant-numeric: tabular-nums; }
+
 .edicao {
   display: flex;
   flex-direction: column;

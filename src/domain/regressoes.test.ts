@@ -115,11 +115,3 @@ describe('ocorrencia antecipada para o mes anterior (revisao #1)', () => {
   })
 })
 
-describe('cartao da ocorrencia (revisao #3)', () => {
-  it('a fatura carrega o identificador do proprio cartao', () => {
-    const resolvidas = resolver(expandirRegras([regra()], ['2026-08']), [], '2026-08-15')
-
-    // Regra comum nao pertence a cartao algum.
-    expect(resolvidas[0]?.cartaoId).toBeNull()
-  })
-})

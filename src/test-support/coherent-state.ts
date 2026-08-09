@@ -59,7 +59,6 @@ function ocorrenciaNaCompetencia(
         { nil: null },
       ),
       ignorado: fc.boolean(),
-      ehComponenteDeFatura: fc.boolean(),
     })
     .map((r) => {
       const geradorId = `g${indice}`
@@ -70,8 +69,6 @@ function ocorrenciaNaCompetencia(
         origem: 'virtual' as const,
         idReal: null,
         situacao: r.ignorado ? ('ignorado' as const) : ('previsto' as const),
-        ehComponenteDeFatura: r.ehComponenteDeFatura,
-        cartaoId: null,
         numeroParcela: null,
         geradorTipo: 'regra' as const,
         geradorId,

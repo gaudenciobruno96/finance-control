@@ -11,14 +11,9 @@ import type {
   ResumoMes,
 } from './types.js'
 
-/**
- * Itens que contam no resumo.
- *
- * Mesmas exclusoes da curva: ignorados nao contam (RN-35) e componentes de
- * fatura nao contam sozinhos (RN-18), pois ja estao dentro da fatura.
- */
+/** Itens que contam no resumo. Ignorados nao contam (RN-35). */
 function conta(o: OcorrenciaResolvida): boolean {
-  return !o.ignorado && !o.ehComponenteDeFatura
+  return !o.ignorado
 }
 
 /**

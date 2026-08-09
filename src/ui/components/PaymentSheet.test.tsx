@@ -17,8 +17,6 @@ const LUZ: OcorrenciaResolvida = {
   origem: 'virtual',
   idReal: null,
   situacao: 'previsto',
-  ehComponenteDeFatura: false,
-  cartaoId: null,
   numeroParcela: null,
   geradorTipo: 'regra',
   geradorId: 'r1',

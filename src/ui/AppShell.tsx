@@ -20,7 +20,7 @@ import estilos from './AppShell.module.css'
 
 const ABAS = [
   { para: '/', rotulo: 'Mês', icone: '◫' },
-  { para: '/cadastros', rotulo: 'Cadastros', icone: '☰' },
+  { para: '/cadastros', rotulo: 'Receitas', icone: '☰' },
   { para: '/futuro', rotulo: 'Futuro', icone: '↗' },
   { para: '/ajustes', rotulo: 'Ajustes', icone: '⚙' },
 ]

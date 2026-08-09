@@ -32,8 +32,7 @@ type Comando =
   | { tipo: 'editarAPartirDeste'; indice: number; valor: number }
   | { tipo: 'editarDesdeSempre'; indice: number; valor: number }
   | { tipo: 'removerRegra'; indice: number }
-  | { tipo: 'criarCartao'; gasto: number }
-  | { tipo: 'criarParcelamento'; valor: number; parcelas: number; comCartao: boolean }
+  | { tipo: 'criarParcelamento'; valor: number; parcelas: number }
   | { tipo: 'removerParcelamento'; indice: number }
   | { tipo: 'registrarPagamento'; indice: number; valor: number }
   | { tipo: 'desfazerPagamento'; indice: number }
@@ -53,12 +52,10 @@ const comando = (): fc.Arbitrary<Comando> =>
     fc.record({ tipo: fc.constant('editarAPartirDeste' as const), indice: indice(), valor: valor() }),
     fc.record({ tipo: fc.constant('editarDesdeSempre' as const), indice: indice(), valor: valor() }),
     fc.record({ tipo: fc.constant('removerRegra' as const), indice: indice() }),
-    fc.record({ tipo: fc.constant('criarCartao' as const), gasto: fc.integer({ min: 0, max: 200_000 }) }),
     fc.record({
       tipo: fc.constant('criarParcelamento' as const),
       valor: valor(),
       parcelas: fc.integer({ min: 1, max: 12 }),
-      comCartao: fc.boolean(),
     }),
     fc.record({ tipo: fc.constant('removerParcelamento' as const), indice: indice() }),
     fc.record({ tipo: fc.constant('registrarPagamento' as const), indice: indice(), valor: valor() }),
@@ -123,24 +120,12 @@ async function executar(app: Harness, cmd: Comando): Promise<void> {
       return
     }
 
-    case 'criarCartao':
-      await app.regras.criarCartao({
-        nome: 'Cartao',
-        diaFechamento: 20,
-        diaVencimento: 28,
-        gastoMensalTipicoCentavos: cmd.gasto,
-      })
-      return
-
     case 'criarParcelamento': {
-      const cartoes = await app.repos.cartoes.listar()
-      const cartao = cmd.comCartao ? escolher(cartoes, 0) : null
       await app.regras.criarParcelamento({
         nome: 'Parcelado',
         valorParcelaCentavos: cmd.valor,
         quantidadeParcelas: cmd.parcelas,
         primeiroVencimento: '2026-08-15',
-        cartaoId: cartao?.id ?? null,
       })
       return
     }
@@ -228,10 +213,9 @@ function porLinhagem(regras: readonly Regra[]): Map<string, Regra[]> {
 }
 
 async function verificarInvariantes(app: Harness): Promise<void> {
-  const [regras, parcelamentos, cartoes, ocorrencias, ancoras] = await Promise.all([
+  const [regras, parcelamentos, ocorrencias, ancoras] = await Promise.all([
     app.repos.regras.listar(),
     app.repos.parcelamentos.listar(),
-    app.repos.cartoes.listar(),
     app.repos.ocorrencias.listar(),
     app.repos.ancoras.listar(),
   ])
@@ -248,10 +232,9 @@ async function verificarInvariantes(app: Harness): Promise<void> {
     expect(o.dataPagamento === null).toBe(o.valorPagoCentavos === null)
   }
 
-  // 2. Nenhum parcelamento referencia cartao inexistente (RN-44).
-  const idsDeCartao = new Set(cartoes.map((c) => c.id))
+  // 2. Todo parcelamento tem quantidade de parcelas positiva.
   for (const p of parcelamentos) {
-    if (p.cartaoId !== null) expect(idsDeCartao.has(p.cartaoId)).toBe(true)
+    expect(p.quantidadeParcelas).toBeGreaterThan(0)
   }
 
   // 3. Nenhuma competencia tem duas regras da mesma linhagem vigentes (RN-15).
@@ -340,7 +323,6 @@ describe('stateful — persistencia e orquestracao (PBT-06)', () => {
 
           await app.db.regras.clear()
           await app.db.parcelamentos.clear()
-          await app.db.cartoes.clear()
           await app.db.ocorrencias.clear()
           await app.db.ancoras.clear()
 

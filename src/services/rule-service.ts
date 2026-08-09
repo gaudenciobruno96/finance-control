@@ -8,7 +8,6 @@ import type { BancoFinanceiro } from '../data/db.js'
 import type { Repositorios } from '../data/repositories.js'
 import type {
   AlteracaoRegra,
-  Cartao,
   Competencia,
   Parcelamento,
   Regra,
@@ -65,18 +64,6 @@ export function criarRuleService(db: BancoFinanceiro, repos: Repositorios) {
     },
 
     removerParcelamento: (id: string) => repos.parcelamentos.remover(id),
-
-    async criarCartao(dados: Omit<Cartao, 'id'>): Promise<Cartao> {
-      const cartao: Cartao = { ...dados, id: novoId() }
-      await repos.cartoes.salvar(cartao)
-      return cartao
-    },
-
-    async atualizarCartao(c: Cartao): Promise<void> {
-      await repos.cartoes.salvar(c)
-    },
-
-    removerCartao: (id: string) => repos.cartoes.remover(id),
 
     async definirAncora(
       data: string,

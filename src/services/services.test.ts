@@ -268,26 +268,18 @@ describe('rule-service', () => {
     expect(depois.faltaPagar).toHaveLength(0)
   })
 
-  it('cria cartao e parcelamento vinculado', async () => {
-    const cartao = await app.regras.criarCartao({
-      nome: 'Principal',
-      diaFechamento: 20,
-      diaVencimento: 28,
-      gastoMensalTipicoCentavos: 50_000,
-    })
-
+  it('cria parcelamento e ele aparece nas contas do mes', async () => {
     await app.regras.criarParcelamento({
       nome: 'Notebook',
       valorParcelaCentavos: 30_000,
       quantidadeParcelas: 10,
       primeiroVencimento: '2026-08-28',
-      cartaoId: cartao.id,
     })
 
     const mes = await app.projecao.projetarMes('2026-08', HOJE)
 
-    // A fatura soma parcela + gasto tipico; a parcela NAO conta separadamente.
-    expect(mes.resumo.aPagarCentavos).toBe(80_000)
+    expect(mes.resumo.aPagarCentavos).toBe(30_000)
+    expect(mes.faltaPagar[0]?.nome).toBe('Notebook (1/10)')
   })
 })
 
@@ -375,21 +367,33 @@ describe('backup-service', () => {
       expect(r.erro).toContain('pela metade')
     })
 
-    it('recusa parcelamento apontando para cartao ausente do arquivo', () => {
+    /**
+     * Arquivo exportado antes de o cartao deixar de existir.
+     *
+     * Quem ja usava o app tem backups no formato antigo. Recusa-los deixaria
+     * essa pessoa sem a unica copia dos proprios dados.
+     */
+    it('importa um arquivo da versao 1 largando o cartao', () => {
       const r = app.backup.validarImportacao(
         JSON.stringify({
           versaoSchema: 1,
-          regras: [], cartoes: [], ocorrencias: [], ancoras: [], configuracoes: [],
+          regras: [], cartoes: [{ id: 'c1', nome: 'Principal' }],
+          ocorrencias: [], ancoras: [], configuracoes: [],
           parcelamentos: [
             {
               id: 'p1', nome: 'X', valorParcelaCentavos: 100, quantidadeParcelas: 3,
-              primeiroVencimento: '2026-08-10', cartaoId: 'fantasma',
+              primeiroVencimento: '2026-08-10', cartaoId: 'c1',
             },
           ],
         }),
       )
 
-      expect(r.valido).toBe(false)
+      expect(r.valido).toBe(true)
+      if (!r.valido) return
+
+      expect(r.documento.parcelamentos).toHaveLength(1)
+      expect('cartaoId' in r.documento.parcelamentos[0]!).toBe(false)
+      expect('cartoes' in r.documento).toBe(false)
     })
 
     it('uma importacao recusada nao altera o banco', async () => {

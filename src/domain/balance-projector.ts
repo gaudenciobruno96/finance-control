@@ -48,14 +48,10 @@ function delta(o: OcorrenciaResolvida, valor: Centavos): Centavos {
 /**
  * Ocorrencias que efetivamente movimentam dinheiro.
  *
- * Duas exclusoes definem a corretude do numero:
- * - ignoradas nunca entram (RN-35);
- * - componentes de fatura nunca entram sozinhos (RN-18), porque ja estao
- *   somados dentro da fatura do cartao. Conta-los aqui seria contar o mesmo
- *   dinheiro duas vezes.
+ * Itens ignorados nunca entram (RN-35).
  */
 function movimenta(o: OcorrenciaResolvida): boolean {
-  return !o.ignorado && !o.ehComponenteDeFatura
+  return !o.ignorado
 }
 
 /** Data em que o dinheiro efetivamente se move. */

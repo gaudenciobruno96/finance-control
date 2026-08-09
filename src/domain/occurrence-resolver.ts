@@ -49,12 +49,8 @@ function realParaResolvida(
     origem: 'real',
     idReal: real.id,
     situacao: derivarSituacao(real, hoje),
-    // Estas duas caracteristicas pertencem ao GERADOR, nao ao registro
-    // persistido: uma parcela continua sendo componente de fatura depois de o
-    // usuario ajustar seu valor. Por isso sao herdadas da virtual quando ela
-    // existe.
-    ehComponenteDeFatura: base?.ehComponenteDeFatura ?? false,
-    cartaoId: base?.cartaoId ?? null,
+    // O numero da parcela pertence ao GERADOR, nao ao registro persistido:
+    // por isso e herdado da virtual quando ela existe.
     numeroParcela: base?.numeroParcela ?? null,
     geradorTipo: real.geradorTipo,
     geradorId: real.geradorId,

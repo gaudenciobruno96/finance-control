@@ -8,8 +8,6 @@ function item(over: Partial<OcorrenciaResolvida> = {}): OcorrenciaResolvida {
     origem: 'virtual',
     idReal: null,
     situacao: 'previsto',
-    ehComponenteDeFatura: false,
-    cartaoId: null,
     numeroParcela: null,
     geradorTipo: 'regra',
     geradorId: 'r1',
@@ -67,20 +65,20 @@ describe('future-commitments', () => {
   })
 
   /**
-   * O total exclui componentes de fatura, que ja estao somados na fatura --
-   * mas `deParcelamentos` os INCLUI de proposito.
+   * O total soma tudo; `deParcelamentos` recorta a parte que vem de compras
+   * em N vezes.
    *
    * O objetivo desta tela e revelar o peso dos parcelamentos, que de outro
-   * modo ficaria escondido dentro do valor da fatura. E o que da sentido a
+   * modo se perderia no meio das demais contas do mes. E o que da sentido a
    * cadastrar uma compra em 10x.
    */
-  it('revela o peso das parcelas mesmo quando embutidas na fatura', () => {
+  it('revela o peso das parcelas dentro do total do mes', () => {
     const resumos = resumirMeses(
       [
         item({
-          chave: 'cartao:c1:2026-08',
-          geradorTipo: 'cartao',
-          nome: 'Fatura',
+          chave: 'regra:r1:2026-08',
+          geradorTipo: 'regra',
+          nome: 'Fatura do cartão',
           valorPrevistoCentavos: 80_000,
         }),
         item({
@@ -88,13 +86,12 @@ describe('future-commitments', () => {
           geradorTipo: 'parcelamento',
           nome: 'Notebook (3/10)',
           valorPrevistoCentavos: 30_000,
-          ehComponenteDeFatura: true,
         }),
       ],
       ['2026-08'],
     )
 
-    expect(resumos[0]?.totalAPagarCentavos).toBe(80_000)
+    expect(resumos[0]?.totalAPagarCentavos).toBe(110_000)
     expect(resumos[0]?.deParcelamentosCentavos).toBe(30_000)
   })
 
@@ -105,7 +102,6 @@ describe('future-commitments', () => {
           chave: 'parcelamento:p1:2026-08',
           geradorTipo: 'parcelamento',
           valorPrevistoCentavos: 25_000,
-          ehComponenteDeFatura: false,
         }),
       ],
       ['2026-08'],

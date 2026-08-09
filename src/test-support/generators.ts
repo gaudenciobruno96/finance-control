@@ -18,7 +18,6 @@ import { diasNoMes } from '../domain/guards.js'
 import type {
   AjusteFimDeSemana,
   AncoraSaldo,
-  Cartao,
   Centavos,
   Competencia,
   DataISO,
@@ -138,16 +137,6 @@ function somarMesesSimples(c: Competencia, n: number): Competencia {
   return `${String(novoAno).padStart(4, '0')}-${String(novoMes).padStart(2, '0')}`
 }
 
-export const cartao = (): fc.Arbitrary<Cartao> =>
-  fc.record({
-    id: identificador('cartao'),
-    nome: fc.constantFrom('Cartao principal', 'Cartao secundario'),
-    diaFechamento: diaDoMes(),
-    diaVencimento: diaDoMes(),
-    gastoMensalTipicoCentavos: centavosNaoNegativo(),
-  })
-
-/** Parcelamento sem vinculo a cartao. */
 export const parcelamentoAvulso = (): fc.Arbitrary<Parcelamento> =>
   fc.record({
     id: identificador('parcelamento'),
@@ -155,18 +144,6 @@ export const parcelamentoAvulso = (): fc.Arbitrary<Parcelamento> =>
     valorParcelaCentavos: centavosPositivo(),
     quantidadeParcelas: fc.integer({ min: 1, max: 24 }),
     primeiroVencimento: dataISO(),
-    cartaoId: fc.constant(null),
-  })
-
-/** Parcelamento vinculado a um cartao especifico. */
-export const parcelamentoDeCartao = (cartaoId: string): fc.Arbitrary<Parcelamento> =>
-  fc.record({
-    id: identificador('parcelamento'),
-    nome: fc.constantFrom('Geladeira', 'Notebook', 'Curso', 'Viagem'),
-    valorParcelaCentavos: centavosPositivo(),
-    quantidadeParcelas: fc.integer({ min: 1, max: 24 }),
-    primeiroVencimento: dataISO(),
-    cartaoId: fc.constant(cartaoId),
   })
 
 /**

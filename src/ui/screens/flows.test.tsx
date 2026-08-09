@@ -86,8 +86,11 @@ describe('fluxo: marcar como pago', () => {
     montar(<MonthScreen />)
 
     // A lista aparece assim que a projecao resolve.
-    const linha = await screen.findByText('Aluguel')
-    await usuario.click(linha)
+    //
+    // A busca e ESCOPADA na secao: o nome tambem aparece no detalhe de
+    // 'ainda sai', e uma busca global acharia duas ocorrencias do texto.
+    const aPagar = await screen.findByLabelText('Falta pagar')
+    await usuario.click(await within(aPagar).findByText('Aluguel'))
 
     // Toque 1: a folha abre com data de hoje e valor previsto.
     const folha = await screen.findByTestId('payment-sheet')
@@ -125,7 +128,8 @@ describe('fluxo: marcar como pago', () => {
 
     montar(<MonthScreen />)
 
-    await usuario.click(await screen.findByText('Aluguel'))
+    const aPagar = await screen.findByLabelText('Falta pagar')
+    await usuario.click(await within(aPagar).findByText('Aluguel'))
     await usuario.click(await screen.findByTestId('confirmar-pagamento'))
 
     // A folha fechar é o sinal de que a escrita concluiu; a reprojeção vem em
@@ -157,7 +161,8 @@ describe('fluxo: corrigir o valor da conta de luz', () => {
 
     montar(<MonthScreen />)
 
-    await usuario.click(await screen.findByText('Luz'))
+    const aPagar = await screen.findByLabelText('Falta pagar')
+    await usuario.click(await within(aPagar).findByText('Luz'))
     const folha = await screen.findByTestId('payment-sheet')
 
     await usuario.click(within(folha).getByTestId('acoes-secundarias'))
@@ -204,27 +209,30 @@ describe('fluxo: redefinir a âncora de saldo', () => {
 })
 
 describe('cadastro de recorrência', () => {
-  it('cria uma regra e ela aparece no mês sem lançamento manual', async () => {
+  it('cria uma receita recorrente marcando a flag de repetição', async () => {
     const usuario = userEvent.setup()
 
     montar(<RegistrationsScreen />, '/cadastros')
 
     await usuario.click(screen.getByTestId('nova-regra'))
 
-    await usuario.type(screen.getByTestId('regra-nome'), 'Internet')
-    const valor = screen.getByTestId('money-input-regra-valor')
+    await usuario.type(screen.getByTestId('quick-nome'), 'Freela')
+    const valor = screen.getByTestId('money-input-quick-valor')
     await usuario.clear(valor)
     await usuario.type(valor, '9990')
 
-    await usuario.click(screen.getByTestId('salvar-regra'))
+    // A flag e o que transforma o lancamento em recorrencia.
+    await usuario.click(screen.getByTestId('quick-repete'))
+    await usuario.click(screen.getByTestId('salvar-quick'))
 
     await waitFor(async () => {
       const regras = await criarRepositorios(db).regras.listar()
       expect(regras).toHaveLength(1)
-      expect(regras[0]?.nome).toBe('Internet')
+      expect(regras[0]?.nome).toBe('Freela')
+      expect(regras[0]?.tipo).toBe('entrada')
       expect(regras[0]?.valorCentavos).toBe(9_990)
-      // O padrao sugerido para saida e postergar (RN-09).
-      expect(regras[0]?.ajusteFimDeSemana).toBe('posterga')
+      // O padrao sugerido para entrada e antecipar (RN-09).
+      expect(regras[0]?.ajusteFimDeSemana).toBe('antecipa')
     })
   })
 
@@ -261,5 +269,143 @@ describe('cadastro de recorrência', () => {
       expect(regras).toHaveLength(2)
       expect(regras.map((r) => r.valorCentavos).sort()).toEqual([180_000, 200_000])
     })
+  })
+})
+
+describe('lançamento pela caixa única', () => {
+  /**
+   * As tres formas nascem do mesmo formulario. Cada flag muda para onde o
+   * lancamento vai, e e a unica coisa que o usuario decide alem do valor.
+   */
+  it('cria um parcelamento marcando a flag e informando as vezes', async () => {
+    const usuario = userEvent.setup()
+
+    montar(<MonthScreen />)
+
+    await usuario.click(await screen.findByTestId('anotar-conta'))
+
+    await usuario.type(screen.getByTestId('quick-nome'), 'Notebook')
+    const valor = screen.getByTestId('money-input-quick-valor')
+    await usuario.clear(valor)
+    await usuario.type(valor, '30000')
+
+    await usuario.click(screen.getByTestId('quick-parcelado'))
+
+    const vezes = screen.getByTestId('quick-parcelas')
+    await usuario.clear(vezes)
+    await usuario.type(vezes, '10')
+
+    await usuario.click(screen.getByTestId('salvar-quick'))
+
+    await waitFor(async () => {
+      const lista = await criarRepositorios(db).parcelamentos.listar()
+      expect(lista).toHaveLength(1)
+      expect(lista[0]?.quantidadeParcelas).toBe(10)
+      expect(lista[0]?.valorParcelaCentavos).toBe(30_000)
+    })
+
+    // Nenhuma ocorrencia avulsa foi criada junto: a parcela e virtual.
+    expect(await criarRepositorios(db).ocorrencias.listar()).toHaveLength(0)
+  })
+
+  it('anota uma conta de uma vez só quando nenhuma flag está marcada', async () => {
+    const usuario = userEvent.setup()
+
+    montar(<MonthScreen />)
+
+    await usuario.click(await screen.findByTestId('anotar-conta'))
+    await usuario.type(screen.getByTestId('quick-nome'), 'Dentista')
+    const valor = screen.getByTestId('money-input-quick-valor')
+    await usuario.clear(valor)
+    await usuario.type(valor, '25000')
+    await usuario.click(screen.getByTestId('salvar-quick'))
+
+    await waitFor(async () => {
+      const lista = await criarRepositorios(db).ocorrencias.listar()
+      expect(lista).toHaveLength(1)
+      expect(lista[0]?.geradorTipo).toBe('avulso')
+      expect(lista[0]?.nome).toBe('Dentista')
+    })
+
+    expect(await criarRepositorios(db).regras.listar()).toHaveLength(0)
+  })
+})
+
+describe('adiantamento de salário', () => {
+  /**
+   * O caso que motivou o ajuste de valor por mes: recebi adiantado, entao
+   * NESTE mes entra mais -- e nos proximos continua o de sempre.
+   */
+  it('muda o valor de um mês sem tocar nos seguintes', async () => {
+    const usuario = userEvent.setup()
+
+    const regra = await criarRuleService(db, criarRepositorios(db)).criarRegra({
+      tipo: 'entrada',
+      nome: 'Salário',
+      valorCentavos: 300_000,
+      valorEhEstimativa: false,
+      diaDoMes: 5,
+      ajusteFimDeSemana: 'antecipa',
+      vigenteDe: competenciaDe(hojeLocal()),
+      vigenteAte: null,
+    })
+
+    montar(<MonthScreen />)
+
+    const secao = await screen.findByLabelText('Ainda entra')
+    await usuario.click(await within(secao).findByText('Salário'))
+
+    const folha = await screen.findByTestId('payment-sheet')
+    await usuario.click(within(folha).getByTestId('acoes-secundarias'))
+
+    const campo = within(folha).getByTestId('money-input-ajuste-valor')
+    await usuario.clear(campo)
+    await usuario.type(campo, '450000')
+
+    await usuario.click(within(folha).getByTestId('ajustar-valor'))
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('payment-sheet')).not.toBeInTheDocument()
+    })
+
+    const repos = criarRepositorios(db)
+
+    // Uma ocorrencia real cobre so este mes.
+    const ocorrencias = await repos.ocorrencias.listar()
+    expect(ocorrencias).toHaveLength(1)
+    expect(ocorrencias[0]?.competencia).toBe(competenciaDe(hojeLocal()))
+    expect(ocorrencias[0]?.valorPrevistoCentavos).toBe(450_000)
+
+    // A regra permanece intacta: os proximos meses seguem em 3.000.
+    const regras = await repos.regras.listar()
+    expect(regras).toHaveLength(1)
+    expect(regras[0]?.id).toBe(regra.id)
+    expect(regras[0]?.valorCentavos).toBe(300_000)
+  })
+})
+
+describe('abrir os totais da conta', () => {
+  /**
+   * O total sozinho nao responde a pergunta seguinte: entra quanto, vindo de
+   * onde? E o item ja recebido some do total sem deixar rastro -- abrir e a
+   * unica forma de conferir.
+   */
+  it('“ainda sai” lista os itens que ainda vão sair', async () => {
+    const usuario = userEvent.setup()
+
+    await semear('Aluguel', 180_000, 10)
+
+    montar(<MonthScreen />)
+
+    // Avanca um mes em vez de contar com o dia de hoje: no dia 20 uma conta do
+    // dia 10 ja passou, e o teste falharia por causa da data em que roda.
+    await usuario.click(await screen.findByTestId('proximo-mes'))
+
+    const linha = await screen.findByTestId('detalhe-sai')
+    await usuario.click(linha)
+
+    const detalhe = linha.closest('details')
+    expect(detalhe).not.toBeNull()
+    expect(within(detalhe as HTMLElement).getByText('Aluguel')).toBeInTheDocument()
   })
 })
