@@ -9,6 +9,7 @@
 
 import {
   diasNoMes,
+  ehCompetenciaValida,
   exigirCompetencia,
   exigirData,
   exigirDiaDoMes,
@@ -17,6 +18,9 @@ import { falhar } from './errors.js'
 import type { AjusteFimDeSemana, Competencia, DataISO } from './types.js'
 
 const COMPONENTE = 'calendar'
+
+/** Reexportado para que a interface valide antes de chamar o dominio. */
+export { ehCompetenciaValida }
 
 // ---------------------------------------------------------------------------
 // Decomposicao e composicao

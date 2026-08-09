@@ -19,11 +19,28 @@ export const DIAS_PARA_AVISO = 14
 
 export function criarBackupService(db: BancoFinanceiro, repos: Repositorios) {
   return {
-    /** Gera o conteudo do arquivo e registra a data da exportacao (RN-59). */
-    async exportar(hoje: DataISO): Promise<string> {
-      const documento = await serializar(db, hoje)
+    /**
+     * Gera o conteudo do arquivo, SEM registrar a exportacao.
+     *
+     * A separacao em dois passos existe porque gerar o conteudo nao garante
+     * que o arquivo chegou a sair: no iOS o compartilhamento pode ser
+     * cancelado, e o download pode falhar. Registrar a data aqui silenciaria o
+     * lembrete por 14 dias sem existir backup algum.
+     */
+    async gerarConteudo(hoje: DataISO): Promise<string> {
+      return JSON.stringify(await serializar(db, hoje), null, 2)
+    },
+
+    /** Registra a data da exportacao (RN-59). Chamado apos o arquivo sair. */
+    async registrarExportacao(hoje: DataISO): Promise<void> {
       await repos.configuracoes.registrarExportacao(hoje)
-      return JSON.stringify(documento, null, 2)
+    },
+
+    /** Gera e registra numa so chamada. Mantido para uso em teste. */
+    async exportar(hoje: DataISO): Promise<string> {
+      const conteudo = await this.gerarConteudo(hoje)
+      await this.registrarExportacao(hoje)
+      return conteudo
     },
 
     /**

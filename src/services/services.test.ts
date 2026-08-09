@@ -40,7 +40,7 @@ function daCompetencia(
   mes: Awaited<ReturnType<Harness['projecao']['projetarMes']>>,
   competencia: string,
 ) {
-  const todas = [...mes.atrasados, ...mes.aVencer, ...mes.pagos, ...mes.ignorados]
+  const todas = [...mes.faltaPagar, ...mes.jaResolvido, ...mes.ignorados]
   const encontrada = todas.find((o) => o.competencia === competencia)
   if (encontrada === undefined) {
     throw new Error(`nenhuma ocorrencia na competencia ${competencia}`)
@@ -71,9 +71,9 @@ describe('projection-service', () => {
 
     const mes = await app.projecao.projetarMes('2026-08', HOJE)
 
-    expect(mes.atrasados.length).toBeGreaterThanOrEqual(2)
-    expect(mes.atrasados.map((o) => o.competencia)).toContain('2026-06')
-    expect(mes.atrasados.map((o) => o.competencia)).toContain('2026-07')
+    expect(mes.faltaPagar.length).toBeGreaterThanOrEqual(2)
+    expect(mes.faltaPagar.map((o) => o.competencia)).toContain('2026-06')
+    expect(mes.faltaPagar.map((o) => o.competencia)).toContain('2026-07')
   })
 
   it('separa em atrasado, a vencer, pago e ignorado', async () => {
@@ -82,8 +82,8 @@ describe('projection-service', () => {
 
     const mes = await app.projecao.projetarMes('2026-08', HOJE)
 
-    expect(mes.atrasados.map((o) => o.nome)).toContain('Aluguel')
-    expect(mes.aVencer.map((o) => o.nome)).toContain('Internet')
+    expect(mes.faltaPagar.map((o) => o.nome)).toContain('Aluguel')
+    expect(mes.faltaPagar.map((o) => o.nome)).toContain('Internet')
   })
 
   it('projeta os proximos meses', async () => {
@@ -108,9 +108,9 @@ describe('payment-service', () => {
     await app.pagamento.registrarPagamento(alvo, '2026-08-11', 180_000)
 
     const depois = await app.projecao.projetarMes('2026-08', HOJE)
-    expect(depois.pagos).toHaveLength(1)
-    expect(depois.pagos[0]?.origem).toBe('real')
-    expect(depois.pagos[0]?.dataPagamento).toBe('2026-08-11')
+    expect(depois.jaResolvido).toHaveLength(1)
+    expect(depois.jaResolvido[0]?.origem).toBe('real')
+    expect(depois.jaResolvido[0]?.dataPagamento).toBe('2026-08-11')
     expect(await app.repos.ocorrencias.listar()).toHaveLength(1)
   })
 
@@ -145,7 +145,7 @@ describe('payment-service', () => {
 
     const depois = await app.projecao.projetarMes('2026-08', HOJE)
     expect(depois.resumo.aPagarCentavos).toBe(21_000)
-    expect(depois.pagos).toHaveLength(0)
+    expect(depois.jaResolvido).toHaveLength(0)
   })
 
   it('adia o vencimento de uma ocorrencia isolada', async () => {
@@ -155,7 +155,7 @@ describe('payment-service', () => {
     await app.pagamento.adiarVencimento(daCompetencia(mes, '2026-08'), '2026-08-25')
 
     const depois = await app.projecao.projetarMes('2026-08', HOJE)
-    expect(depois.aVencer[0]?.dataVencimento).toBe('2026-08-25')
+    expect(depois.faltaPagar[0]?.dataVencimento).toBe('2026-08-25')
   })
 
   it('ignora no mes sem afetar os demais meses', async () => {
@@ -183,10 +183,10 @@ describe('payment-service', () => {
     await app.pagamento.registrarPagamento(daCompetencia(comAjuste, '2026-08'), '2026-08-11', 190_000)
 
     const pago = await app.projecao.projetarMes('2026-08', HOJE)
-    await app.pagamento.desfazerPagamento(pago.pagos[0]!)
+    await app.pagamento.desfazerPagamento(pago.jaResolvido[0]!)
 
     const depois = await app.projecao.projetarMes('2026-08', HOJE)
-    expect(depois.pagos).toHaveLength(0)
+    expect(depois.jaResolvido).toHaveLength(0)
     expect(depois.resumo.aPagarCentavos).toBe(190_000)
   })
 
@@ -216,8 +216,8 @@ describe('payment-service', () => {
     })
 
     const mes = await app.projecao.projetarMes('2026-08', HOJE)
-    await app.pagamento.registrarPagamento(mes.aVencer[0]!, '2026-08-18', 40_000)
-    await app.pagamento.registrarPagamento(mes.aVencer[0]!, '2026-08-18', 40_000)
+    await app.pagamento.registrarPagamento(mes.faltaPagar[0]!, '2026-08-18', 40_000)
+    await app.pagamento.registrarPagamento(mes.faltaPagar[0]!, '2026-08-18', 40_000)
 
     expect(await app.repos.ocorrencias.listar()).toHaveLength(1)
   })
@@ -263,9 +263,9 @@ describe('rule-service', () => {
     await app.regras.removerRegra(regra.id)
 
     const depois = await app.projecao.projetarMes('2026-08', HOJE)
-    expect(depois.pagos).toHaveLength(1)
-    expect(depois.pagos[0]?.valorPagoCentavos).toBe(180_000)
-    expect(depois.aVencer).toHaveLength(0)
+    expect(depois.jaResolvido).toHaveLength(1)
+    expect(depois.jaResolvido[0]?.valorPagoCentavos).toBe(180_000)
+    expect(depois.faltaPagar).toHaveLength(0)
   })
 
   it('cria cartao e parcelamento vinculado', async () => {
@@ -312,7 +312,7 @@ describe('backup-service', () => {
 
     const depois = await app.projecao.projetarMes('2026-08', HOJE)
     expect(depois.resumo).toEqual(antes.resumo)
-    expect(depois.pagos).toEqual(antes.pagos)
+    expect(depois.jaResolvido).toEqual(antes.jaResolvido)
   })
 
   it('produz um resumo do conteudo antes de aplicar', async () => {

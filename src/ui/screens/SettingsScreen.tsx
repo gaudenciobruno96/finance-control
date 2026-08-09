@@ -39,16 +39,46 @@ export function SettingsScreen() {
 
   const exportar = () => {
     void executar(async () => {
-      const conteudo = await backup.exportar(agora)
+      const conteudo = await backup.gerarConteudo(agora)
       const blob = new Blob([conteudo], { type: 'application/json' })
-      const url = URL.createObjectURL(blob)
+      const nome = `orcamento-${agora}.json`
 
-      const link = document.createElement('a')
-      link.href = url
-      link.download = `orcamento-${agora}.json`
-      link.click()
+      // No iOS a folha de compartilhamento e o caminho natural: salva no
+      // iCloud Drive, manda por e-mail, o que o usuario preferir.
+      const arquivo =
+        typeof File === 'function'
+          ? new File([blob], nome, { type: 'application/json' })
+          : null
 
-      URL.revokeObjectURL(url)
+      if (
+        arquivo !== null &&
+        typeof navigator !== 'undefined' &&
+        navigator.canShare?.({ files: [arquivo] }) === true
+      ) {
+        await navigator.share({ files: [arquivo], title: nome })
+      } else {
+        const url = URL.createObjectURL(blob)
+        const link = document.createElement('a')
+        link.href = url
+        link.download = nome
+        link.rel = 'noopener'
+
+        // O elemento precisa estar no documento para o clique valer em alguns
+        // navegadores, e a URL so pode ser revogada DEPOIS de o download
+        // comecar: revogar logo apos o clique aborta a transferencia.
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        setTimeout(() => URL.revokeObjectURL(url), 60_000)
+      }
+
+      // Registrar a exportacao SO depois de o arquivo sair.
+      //
+      // Antes a data era gravada dentro de `exportar`, antes mesmo de o
+      // download acontecer: se ele falhasse, o lembrete de backup calava por
+      // 14 dias sem existir arquivo nenhum -- exatamente a falha que o
+      // lembrete existe para evitar.
+      await backup.registrarExportacao(agora)
     })
   }
 
@@ -151,6 +181,10 @@ export function SettingsScreen() {
           accept="application/json,.json"
           onChange={(e) => {
             const arquivo = e.target.files?.[0]
+            // Limpar o campo permite escolher o MESMO arquivo de novo: sem
+            // isso, cancelar a confirmacao e reselecionar nao dispara evento
+            // algum, e a importacao parece morta.
+            e.target.value = ''
             if (arquivo !== undefined) void escolherArquivo(arquivo)
           }}
         />

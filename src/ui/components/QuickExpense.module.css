@@ -1,0 +1,44 @@
+.caixa {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-3);
+  padding: var(--espaco-4);
+  background: var(--cor-superficie);
+  border-radius: var(--raio);
+}
+
+.tipos { display: flex; gap: var(--espaco-4); flex-wrap: wrap; }
+.tipos label {
+  display: flex;
+  align-items: center;
+  gap: var(--espaco-2);
+  min-height: var(--toque-minimo);
+  font-size: 0.9375rem;
+}
+
+.rotulo { font-size: 0.875rem; color: var(--cor-texto-suave); }
+
+.entrada {
+  min-height: var(--toque-minimo);
+  padding: var(--espaco-2) var(--espaco-3);
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio);
+  background: var(--cor-superficie-alta);
+}
+
+.acoes { display: flex; gap: var(--espaco-2); }
+.acoes button {
+  flex: 1;
+  min-height: var(--toque-minimo);
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio);
+}
+
+.salvar {
+  background: var(--cor-acento);
+  color: #fff;
+  border: none !important;
+  font-weight: var(--peso-forte);
+}
+
+.salvar:disabled { opacity: 0.5; }

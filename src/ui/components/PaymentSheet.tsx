@@ -39,9 +39,22 @@ export function PaymentSheet({
   onFechar,
 }: PaymentSheetProps) {
   const [data, setData] = useState<DataISO>(ocorrencia.dataPagamento ?? hoje)
-  const [valor, setValor] = useState<Centavos>(
+
+  // Dois valores SEPARADOS, deliberadamente.
+  //
+  // Antes ambos os campos compartilhavam um unico estado: corrigir a previsao
+  // da conta de luz em 'Outras acoes' sobrescrevia silenciosamente o valor do
+  // pagamento, e confirmar registrava o numero errado.
+  //
+  // Sao grandezas independentes -- quanto se espera pagar e quanto se pagou --
+  // e precisam de estados independentes.
+  const [valorPago, setValorPago] = useState<Centavos>(
     ocorrencia.valorPagoCentavos ?? ocorrencia.valorPrevistoCentavos,
   )
+  const [valorPrevisto, setValorPrevisto] = useState<Centavos>(
+    ocorrencia.valorPrevistoCentavos,
+  )
+
   const [vencimento, setVencimento] = useState<DataISO>(ocorrencia.dataVencimento)
 
   const jaPago = ocorrencia.dataPagamento !== null
@@ -83,14 +96,14 @@ export function PaymentSheet({
             <MoneyInput
               id="pagamento-valor"
               rotulo="Valor pago"
-              valorCentavos={valor}
-              onChange={setValor}
+              valorCentavos={valorPago}
+              onChange={setValorPago}
             />
 
             <button
               type="button"
               className={estilos.confirmar}
-              onClick={() => onPagar(data, valor)}
+              onClick={() => onPagar(data, valorPago)}
               data-testid="confirmar-pagamento"
             >
               {jaPago ? 'Atualizar pagamento' : 'Confirmar pagamento'}
@@ -106,12 +119,12 @@ export function PaymentSheet({
               id="ajuste-valor"
               rotulo="Corrigir o valor previsto"
               descricao="Para contas de valor variável, como luz e água."
-              valorCentavos={valor}
-              onChange={setValor}
+              valorCentavos={valorPrevisto}
+              onChange={setValorPrevisto}
             />
             <button
               type="button"
-              onClick={() => onAjustarValor(valor)}
+              onClick={() => onAjustarValor(valorPrevisto)}
               data-testid="ajustar-valor"
             >
               Salvar sem marcar como pago

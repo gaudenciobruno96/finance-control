@@ -68,7 +68,7 @@ export function criarParcelamentoRepository(db: BancoFinanceiro) {
       if (p.cartaoId !== null) {
         const cartao = await db.cartoes.get(p.cartaoId)
         if (cartao === undefined) {
-          throw new ErroDeDominio('COMPETENCIA_INVALIDA', 'repositorio')
+          throw new ErroDeDominio('REFERENCIA_INEXISTENTE', 'repositorio')
         }
       }
 
@@ -166,10 +166,32 @@ export function criarAncoraRepository(db: BancoFinanceiro) {
   return {
     listar: (): Promise<AncoraSaldo[]> => db.ancoras.toArray(),
 
-    /** RN-48: ancoras acumulam, nao substituem. */
+    /**
+     * RN-48: ancoras acumulam entre datas distintas.
+     *
+     * RN-50 (revista): declarar o saldo de uma data que ja tem ancora
+     * SUBSTITUI a anterior, em vez de acumular.
+     *
+     * A versao original mantinha as duas e escolhia "a mais recente" ordenando
+     * pelo indice de data -- que, em empate, desempata pela chave primaria.
+     * Como o identificador e um UUID aleatorio, a vencedora era a de maior
+     * UUID, nao a gravada por ultimo. Corrigir um saldo digitado errado
+     * funcionava em cerca de metade das vezes, sem nada indicar o problema.
+     *
+     * Substituir elimina o empate na origem, e corresponde ao que o usuario
+     * espera: declarar de novo o saldo de hoje e correcao, nao um segundo
+     * registro.
+     */
     salvar: async (a: AncoraSaldo, hoje: DataISO): Promise<void> => {
       validarAncora(a, hoje)
-      await db.ancoras.put(a)
+
+      await db.transaction('rw', db.ancoras, async () => {
+        const mesmaData = await db.ancoras.where('data').equals(a.data).toArray()
+        for (const existente of mesmaData) {
+          if (existente.id !== a.id) await db.ancoras.delete(existente.id)
+        }
+        await db.ancoras.put(a)
+      })
     },
 
     remover: async (id: string): Promise<void> => {
@@ -178,7 +200,8 @@ export function criarAncoraRepository(db: BancoFinanceiro) {
 
     /**
      * RN-49: a ancora vigente e a de maior data que nao ultrapassa a data
-     * pedida. RN-50: havendo empate de data, a gravada por ultimo prevalece.
+     * pedida. Como nao ha duas ancoras na mesma data, nao ha empate a
+     * desempatar.
      */
     vigenteEm: async (data: DataISO): Promise<AncoraSaldo | null> => {
       const candidatas = await db.ancoras.where('data').belowOrEqual(data).toArray()
@@ -186,7 +209,7 @@ export function criarAncoraRepository(db: BancoFinanceiro) {
 
       let vigente = candidatas[0] as AncoraSaldo
       for (const a of candidatas) {
-        if (comparar(a.data, vigente.data) >= 0) vigente = a
+        if (comparar(a.data, vigente.data) > 0) vigente = a
       }
       return vigente
     },

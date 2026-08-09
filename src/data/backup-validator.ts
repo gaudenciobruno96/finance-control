@@ -188,10 +188,44 @@ function validarParcelamentos(
   return null
 }
 
+const TIPOS_DE_MOVIMENTO = new Set(['entrada', 'saida'])
+const TIPOS_DE_GERADOR = new Set(['regra', 'parcelamento', 'cartao', 'avulso'])
+
 function validarOcorrencias(lista: readonly unknown[]): string | null {
   for (const item of lista) {
     if (!ehObjeto(item)) return 'Ha um lancamento malformado no arquivo.'
     if (!ehTexto(item['id'])) return 'Ha um lancamento sem identificador.'
+
+    // O tipo define o SINAL do movimento na curva de saldo.
+    //
+    // Sem esta verificacao, um lancamento que perdeu o campo `tipo` importava
+    // como valido, e o projetor -- que trata como saida tudo que nao e
+    // 'entrada' -- transformava silenciosamente uma receita em despesa.
+    if (!ehTexto(item['tipo']) || !TIPOS_DE_MOVIMENTO.has(item['tipo'])) {
+      return 'Ha um lancamento sem indicacao de entrada ou saida.'
+    }
+
+    if (!ehTexto(item['nome']) || item['nome'] === '') {
+      return 'Ha um lancamento sem descricao.'
+    }
+
+    if (typeof item['ignorado'] !== 'boolean') {
+      return 'Ha um lancamento com marcacao de ignorado invalida.'
+    }
+
+    // A origem e o identificador precisam ser coerentes entre si: um registro
+    // nao avulso sem gerador fica fora do indice composto que sustenta a
+    // idempotencia do pagamento, e cada confirmacao criaria uma duplicata.
+    if (!ehTexto(item['geradorTipo']) || !TIPOS_DE_GERADOR.has(item['geradorTipo'])) {
+      return 'Ha um lancamento com origem desconhecida.'
+    }
+
+    const avulso = item['geradorTipo'] === 'avulso'
+    const temGerador = ehTexto(item['geradorId'])
+    if (avulso === temGerador) {
+      return 'Ha um lancamento cuja origem nao corresponde ao seu identificador.'
+    }
+
     if (!ehCentavosValido(item['valorPrevistoCentavos'])) {
       return 'Ha um lancamento com valor previsto invalido.'
     }

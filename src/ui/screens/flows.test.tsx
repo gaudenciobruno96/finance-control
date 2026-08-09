@@ -106,7 +106,11 @@ describe('fluxo: marcar como pago', () => {
     expect(ocorrencias).toHaveLength(1)
     expect(ocorrencias[0]?.dataPagamento).not.toBeNull()
 
-    expect(await screen.findByLabelText('Pago')).toBeInTheDocument()
+    // A secao de resolvidos vem recolhida: o que importa na tela e o que
+    // falta, nao o que ja foi feito.
+    expect(await screen.findByTestId('ja-resolvido')).toHaveTextContent(
+      'Já resolvido (1)',
+    )
   })
 
   /**
@@ -125,11 +129,14 @@ describe('fluxo: marcar como pago', () => {
     await usuario.click(await screen.findByTestId('confirmar-pagamento'))
 
     // A folha fechar é o sinal de que a escrita concluiu; a reprojeção vem em
-    // seguida e move o item para a seção 'Pago'.
+    // seguida e move o item para os resolvidos.
     await waitFor(() => {
       expect(screen.queryByTestId('payment-sheet')).not.toBeInTheDocument()
     })
-    const secaoPaga = await screen.findByLabelText('Pago')
+
+    // Os resolvidos vêm recolhidos; abrir é o próprio comportamento esperado.
+    await usuario.click(await screen.findByTestId('ja-resolvido'))
+    const secaoPaga = await screen.findByLabelText('Já resolvido')
 
     await usuario.click(within(secaoPaga).getByText('Aluguel'))
 

@@ -17,6 +17,19 @@ import estilos from './RegistrationsScreen.module.css'
 
 type Aba = 'regras' | 'parcelamentos' | 'cartoes'
 
+/**
+ * Converte a entrada de um campo numerico.
+ *
+ * Campo vazio produz NaN em vez de 0: zero seria um valor plausivel que
+ * passaria pelas validacoes e gravaria dia 0, enquanto NaN e barrado pelo
+ * guarda do formulario antes de chegar ao dominio.
+ */
+function paraInteiro(texto: string): number {
+  if (texto.trim() === '') return Number.NaN
+  const n = Number(texto)
+  return Number.isInteger(n) ? n : Number.NaN
+}
+
 export function RegistrationsScreen() {
   const [aba, setAba] = useState<Aba>('regras')
 
@@ -186,7 +199,11 @@ function FormularioRegra({
   const [estimativa, setEstimativa] = useState(false)
   const [dia, setDia] = useState(10)
 
-  const valido = nome.trim() !== '' && valor > 0
+  // O guarda cobre TODOS os campos: antes olhava so nome e valor, e um campo
+  // numerico limpo enviava NaN ao dominio, que respondia com a mensagem
+  // generica de 'dado invalido' em vez de apontar o campo.
+  const valido =
+    nome.trim() !== '' && valor > 0 && Number.isInteger(dia) && dia >= 1 && dia <= 31
 
   return (
     <form
@@ -254,8 +271,8 @@ function FormularioRegra({
         type="number"
         min={1}
         max={31}
-        value={dia}
-        onChange={(e) => setDia(Number(e.target.value))}
+        value={Number.isInteger(dia) ? dia : ''}
+        onChange={(e) => setDia(paraInteiro(e.target.value))}
       />
 
       <label className={estilos.caixa}>
@@ -387,7 +404,15 @@ function PainelParcelamentos() {
         className={estilos.formulario}
         onSubmit={(e) => {
           e.preventDefault()
-          if (nome.trim() === '' || valor <= 0 || primeiro === '') return
+          if (
+            nome.trim() === '' ||
+            valor <= 0 ||
+            primeiro === '' ||
+            !Number.isInteger(parcelas) ||
+            parcelas < 1
+          ) {
+            return
+          }
           void executar(async () => {
             await regras.criarParcelamento({
               nome: nome.trim(),
@@ -408,7 +433,7 @@ function PainelParcelamentos() {
         <MoneyInput id="parc-valor" rotulo="Valor da parcela" valorCentavos={valor} onChange={setValor} />
 
         <label className={estilos.rotulo} htmlFor="parc-qtd">Quantidade de parcelas</label>
-        <input id="parc-qtd" data-testid="parc-qtd" className={estilos.entradaTexto} type="number" min={1} max={360} value={parcelas} onChange={(e) => setParcelas(Number(e.target.value))} />
+        <input id="parc-qtd" data-testid="parc-qtd" className={estilos.entradaTexto} type="number" min={1} max={360} value={Number.isInteger(parcelas) ? parcelas : ''} onChange={(e) => setParcelas(paraInteiro(e.target.value))} />
 
         <label className={estilos.rotulo} htmlFor="parc-primeiro">Primeiro vencimento</label>
         <input id="parc-primeiro" data-testid="parc-primeiro" className={estilos.entradaTexto} type="date" value={primeiro} onChange={(e) => setPrimeiro(e.target.value)} />
@@ -466,7 +491,13 @@ function PainelCartoes() {
         className={estilos.formulario}
         onSubmit={(e) => {
           e.preventDefault()
-          if (nome.trim() === '') return
+          if (
+            nome.trim() === '' ||
+            !Number.isInteger(fechamento) ||
+            !Number.isInteger(vencimento)
+          ) {
+            return
+          }
           void executar(async () => {
             await regras.criarCartao({
               nome: nome.trim(),
@@ -483,10 +514,10 @@ function PainelCartoes() {
         <input id="cartao-nome" data-testid="cartao-nome" className={estilos.entradaTexto} value={nome} onChange={(e) => setNome(e.target.value)} />
 
         <label className={estilos.rotulo} htmlFor="cartao-fechamento">Dia de fechamento</label>
-        <input id="cartao-fechamento" data-testid="cartao-fechamento" className={estilos.entradaTexto} type="number" min={1} max={31} value={fechamento} onChange={(e) => setFechamento(Number(e.target.value))} />
+        <input id="cartao-fechamento" data-testid="cartao-fechamento" className={estilos.entradaTexto} type="number" min={1} max={31} value={Number.isInteger(fechamento) ? fechamento : ''} onChange={(e) => setFechamento(paraInteiro(e.target.value))} />
 
         <label className={estilos.rotulo} htmlFor="cartao-vencimento">Dia de vencimento</label>
-        <input id="cartao-vencimento" data-testid="cartao-vencimento" className={estilos.entradaTexto} type="number" min={1} max={31} value={vencimento} onChange={(e) => setVencimento(Number(e.target.value))} />
+        <input id="cartao-vencimento" data-testid="cartao-vencimento" className={estilos.entradaTexto} type="number" min={1} max={31} value={Number.isInteger(vencimento) ? vencimento : ''} onChange={(e) => setVencimento(paraInteiro(e.target.value))} />
 
         <MoneyInput
           id="cartao-gasto"

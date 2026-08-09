@@ -22,6 +22,10 @@ export type CodigoInvariante =
   | 'VIGENCIA_INVERTIDA'
   | 'QUANTIDADE_PARCELAS_INVALIDA'
   | 'ANCORA_FUTURA'
+  | 'REFERENCIA_INEXISTENTE'
+  | 'GERADOR_INCONSISTENTE'
+  | 'PAGAMENTO_INCOMPLETO'
+  | 'TIPO_INVALIDO'
 
 /**
  * Mensagens fixas por codigo. Sao constantes deliberadamente: uma mensagem
@@ -38,6 +42,10 @@ const MENSAGENS: Record<CodigoInvariante, string> = {
   VIGENCIA_INVERTIDA: 'fim da vigencia nao pode ser anterior ao inicio',
   QUANTIDADE_PARCELAS_INVALIDA: 'quantidade de parcelas deve ser inteiro maior ou igual a 1',
   ANCORA_FUTURA: 'ancora de saldo nao pode ter data futura',
+  REFERENCIA_INEXISTENTE: 'o registro referenciado nao existe',
+  GERADOR_INCONSISTENTE: 'origem do lancamento inconsistente com seu identificador',
+  PAGAMENTO_INCOMPLETO: 'pagamento precisa ter data e valor juntos, ou nenhum dos dois',
+  TIPO_INVALIDO: 'tipo de movimento deve ser entrada ou saida',
 }
 
 export class ErroDeDominio extends Error {

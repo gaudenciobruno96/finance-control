@@ -40,3 +40,27 @@
   border-radius: var(--raio);
   color: var(--cor-texto-suave);
 }
+
+.rodapeLista { padding: 0 var(--espaco-4) var(--espaco-4); }
+
+.anotar {
+  width: 100%;
+  min-height: var(--toque-minimo);
+  border: 1px dashed var(--cor-borda);
+  border-radius: var(--raio);
+  color: var(--cor-acento);
+  font-weight: var(--peso-forte);
+}
+
+.resolvido {
+  padding: 0 var(--espaco-4) var(--espaco-4);
+}
+
+.resolvido > summary {
+  min-height: var(--toque-minimo);
+  display: flex;
+  align-items: center;
+  color: var(--cor-texto-suave);
+  font-size: 0.875rem;
+  cursor: pointer;
+}

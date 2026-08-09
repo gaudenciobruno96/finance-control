@@ -11,6 +11,12 @@ import type {
   Regra,
 } from '../domain/types.js'
 import { VERSAO_SCHEMA, type BancoFinanceiro, type Configuracao } from './db.js'
+import {
+  validarCartao,
+  validarOcorrencia,
+  validarParcelamento,
+  validarRegra,
+} from './invariants.js'
 
 export interface DocumentoBackup {
   readonly versaoSchema: number
@@ -62,6 +68,18 @@ export async function escrever(
   db: BancoFinanceiro,
   doc: DocumentoBackup,
 ): Promise<void> {
+  // Segunda barreira, antes da escrita em lote.
+  //
+  // `bulkPut` nao passa pelos repositorios, e portanto contorna as invariantes
+  // de escrita. Validar aqui garante que nenhum caminho -- nem mesmo um
+  // arquivo que atravessasse o validador -- grave um registro invalido.
+  //
+  // Uma falha aqui aborta a transacao inteira: o banco fica como estava.
+  for (const r of doc.regras) validarRegra(r)
+  for (const c of doc.cartoes) validarCartao(c)
+  for (const p of doc.parcelamentos) validarParcelamento(p)
+  for (const o of doc.ocorrencias) validarOcorrencia(o)
+
   await db.transaction(
     'rw',
     [db.regras, db.parcelamentos, db.cartoes, db.ocorrencias, db.ancoras, db.configuracoes],

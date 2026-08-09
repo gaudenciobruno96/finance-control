@@ -74,6 +74,7 @@ export function expandirFaturas(
         idReal: null,
         situacao: 'previsto',
         ehComponenteDeFatura: false,
+        cartaoId: cartao.id,
         numeroParcela: null,
         geradorTipo: 'cartao',
         geradorId: cartao.id,

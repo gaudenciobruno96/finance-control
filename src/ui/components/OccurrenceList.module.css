@@ -72,3 +72,24 @@
 .componenteValor {
   font-variant-numeric: tabular-nums;
 }
+
+.cabecalho {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--espaco-2);
+  margin-bottom: var(--espaco-2);
+}
+
+.total {
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--peso-forte);
+}
+
+.alerta { color: var(--cor-saida); }
+
+.vazio {
+  font-size: 0.875rem;
+  color: var(--cor-texto-suave);
+  padding: var(--espaco-2) 0;
+}

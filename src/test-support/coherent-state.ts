@@ -71,6 +71,7 @@ function ocorrenciaNaCompetencia(
         idReal: null,
         situacao: r.ignorado ? ('ignorado' as const) : ('previsto' as const),
         ehComponenteDeFatura: r.ehComponenteDeFatura,
+        cartaoId: null,
         numeroParcela: null,
         geradorTipo: 'regra' as const,
         geradorId,

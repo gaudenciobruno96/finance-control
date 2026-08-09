@@ -42,7 +42,19 @@ export type AjusteFimDeSemana = 'nenhum' | 'antecipa' | 'posterga'
 
 export type TipoGerador = 'regra' | 'parcelamento' | 'cartao' | 'avulso'
 
-export type SituacaoOcorrencia = 'previsto' | 'pago' | 'atrasado' | 'ignorado'
+/**
+ * Situacao derivada de uma ocorrencia.
+ *
+ * `atrasado` vale APENAS para saidas: e vocabulario de divida. Um salario que
+ * ainda nao foi confirmado nao esta atrasado -- esta `a_confirmar`, e o app
+ * presume que caiu (RN-90).
+ */
+export type SituacaoOcorrencia =
+  | 'previsto'
+  | 'pago'
+  | 'atrasado'
+  | 'a_confirmar'
+  | 'ignorado'
 
 export type OrigemOcorrencia = 'virtual' | 'real'
 
@@ -152,6 +164,16 @@ export interface OcorrenciaResolvida {
   readonly situacao: SituacaoOcorrencia
   /** Verdadeiro para parcela vinculada a cartao (RN-18). */
   readonly ehComponenteDeFatura: boolean
+  /**
+   * Cartao ao qual a ocorrencia pertence.
+   *
+   * Preenchido tanto na fatura (o proprio cartao) quanto na parcela vinculada
+   * a ele. Sem este campo, a interface so conseguia agrupar componentes de
+   * fatura por competencia -- e com dois cartoes cada fatura listava as
+   * parcelas de ambos, exibindo um detalhamento que nao batia com o proprio
+   * total.
+   */
+  readonly cartaoId: string | null
   readonly numeroParcela: number | null
 
   readonly geradorTipo: TipoGerador

@@ -154,7 +154,7 @@ async function executar(app: Harness, cmd: Comando): Promise<void> {
 
     case 'registrarPagamento': {
       const mes = await app.projecao.projetarMes(COMPETENCIA, HOJE)
-      const alvo = escolher([...mes.aVencer, ...mes.atrasados], cmd.indice)
+      const alvo = escolher([...mes.faltaPagar], cmd.indice)
       if (alvo === null) return
       await app.pagamento.registrarPagamento(alvo, '2026-08-14', cmd.valor)
       return
@@ -162,7 +162,7 @@ async function executar(app: Harness, cmd: Comando): Promise<void> {
 
     case 'desfazerPagamento': {
       const mes = await app.projecao.projetarMes(COMPETENCIA, HOJE)
-      const alvo = escolher(mes.pagos, cmd.indice)
+      const alvo = escolher(mes.jaResolvido, cmd.indice)
       if (alvo === null) return
       await app.pagamento.desfazerPagamento(alvo)
       return
@@ -170,7 +170,7 @@ async function executar(app: Harness, cmd: Comando): Promise<void> {
 
     case 'ajustarValor': {
       const mes = await app.projecao.projetarMes(COMPETENCIA, HOJE)
-      const alvo = escolher([...mes.aVencer, ...mes.atrasados], cmd.indice)
+      const alvo = escolher([...mes.faltaPagar], cmd.indice)
       if (alvo === null) return
       await app.pagamento.ajustarValorPrevisto(alvo, cmd.valor)
       return
@@ -178,7 +178,7 @@ async function executar(app: Harness, cmd: Comando): Promise<void> {
 
     case 'adiarVencimento': {
       const mes = await app.projecao.projetarMes(COMPETENCIA, HOJE)
-      const alvo = escolher([...mes.aVencer, ...mes.atrasados], cmd.indice)
+      const alvo = escolher([...mes.faltaPagar], cmd.indice)
       if (alvo === null) return
       await app.pagamento.adiarVencimento(alvo, `2026-08-${String(cmd.dia).padStart(2, '0')}`)
       return
@@ -186,7 +186,7 @@ async function executar(app: Harness, cmd: Comando): Promise<void> {
 
     case 'ignorarNoMes': {
       const mes = await app.projecao.projetarMes(COMPETENCIA, HOJE)
-      const alvo = escolher([...mes.aVencer, ...mes.atrasados], cmd.indice)
+      const alvo = escolher([...mes.faltaPagar], cmd.indice)
       if (alvo === null) return
       await app.pagamento.ignorarNoMes(alvo)
       return

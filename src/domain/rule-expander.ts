@@ -56,6 +56,7 @@ export function expandirRegras(
         idReal: null,
         situacao: 'previsto',
         ehComponenteDeFatura: false,
+        cartaoId: null,
         numeroParcela: null,
         geradorTipo: 'regra',
         geradorId: regra.id,

@@ -48,6 +48,7 @@ export function expandirParcelamentos(
         idReal: null,
         situacao: 'previsto',
         ehComponenteDeFatura: p.cartaoId !== null,
+        cartaoId: p.cartaoId,
         numeroParcela: n,
         geradorTipo: 'parcelamento',
         geradorId: p.id,

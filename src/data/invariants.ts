@@ -63,6 +63,10 @@ export function validarCartao(c: Cartao): void {
 }
 
 export function validarOcorrencia(o: Ocorrencia): void {
+  // O tipo define o SINAL do movimento na curva. Um registro sem tipo valido
+  // seria tratado como saida pelo projetor, e uma entrada viraria despesa.
+  exigir(o.tipo === 'entrada' || o.tipo === 'saida', 'TIPO_INVALIDO')
+
   exigir(ehCentavosValido(o.valorPrevistoCentavos), 'VALOR_NAO_INTEIRO')
   exigir(o.valorPrevistoCentavos > 0, 'VALOR_NAO_POSITIVO')
   exigir(ehCompetenciaValida(o.competencia), 'COMPETENCIA_INVALIDA')
@@ -73,7 +77,7 @@ export function validarOcorrencia(o: Ocorrencia): void {
   // meio-registrado que corromperia a curva de saldo.
   const temData = o.dataPagamento !== null
   const temValor = o.valorPagoCentavos !== null
-  exigir(temData === temValor, 'VALOR_NAO_INTEIRO')
+  exigir(temData === temValor, 'PAGAMENTO_INCOMPLETO')
 
   if (temData) {
     exigir(ehDataValida(o.dataPagamento as DataISO), 'DATA_INVALIDA')
@@ -82,9 +86,9 @@ export function validarOcorrencia(o: Ocorrencia): void {
 
   // Invariante 4: avulsa nao tem gerador; as demais tem.
   if (o.geradorTipo === 'avulso') {
-    exigir(o.geradorId === null, 'COMPETENCIA_INVALIDA')
+    exigir(o.geradorId === null, 'GERADOR_INCONSISTENTE')
   } else {
-    exigir(o.geradorId !== null, 'COMPETENCIA_INVALIDA')
+    exigir(o.geradorId !== null, 'GERADOR_INCONSISTENTE')
   }
 }
 

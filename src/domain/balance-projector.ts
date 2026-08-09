@@ -141,8 +141,16 @@ export function projetarCurva(
       continue
     }
 
-    // RN-33 e RN-34: vencido e nao pago dentro da janela e empurrado para o
-    // inicio da curva. A divida existe e precisa afundar o saldo de hoje.
+    // RN-90: entrada vencida e nao confirmada presume-se RECEBIDA, e portanto
+    // ja refletida no saldo declarado -- exatamente como um pagamento antigo.
+    //
+    // Empurra-la para hoje como se fosse dinheiro a entrar inflaria o saldo
+    // com um salario que ja caiu e ja foi gasto.
+    if (o.tipo === 'entrada') continue
+
+    // RN-33 e RN-34: SAIDA vencida e nao paga dentro da janela e empurrada
+    // para o inicio da curva. A divida existe e precisa afundar o saldo de
+    // hoje.
     if (comparar(data, limiteDeAtraso) >= 0 && comparar(data, hoje) < 0) {
       acumular(inicio, valor)
     }

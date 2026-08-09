@@ -12,6 +12,7 @@ function item(over: Partial<OcorrenciaResolvida> = {}): OcorrenciaResolvida {
     idReal: null,
     situacao: 'previsto',
     ehComponenteDeFatura: false,
+    cartaoId: null,
     numeroParcela: null,
     geradorTipo: 'regra',
     geradorId: 'r1',

@@ -20,12 +20,22 @@ export { chaveDe }
  * caminho de escrita esquecer de atualiza-la.
  */
 export function derivarSituacao(
-  o: Pick<Ocorrencia, 'ignorado' | 'dataPagamento' | 'dataVencimento'>,
+  o: Pick<Ocorrencia, 'ignorado' | 'dataPagamento' | 'dataVencimento' | 'tipo'>,
   hoje: DataISO,
 ): SituacaoOcorrencia {
   if (o.ignorado) return 'ignorado'
   if (o.dataPagamento !== null) return 'pago'
-  if (comparar(o.dataVencimento, hoje) < 0) return 'atrasado'
+
+  if (comparar(o.dataVencimento, hoje) < 0) {
+    // RN-90: "atrasado" e vocabulario de divida e vale apenas para saidas.
+    //
+    // Um salario cuja data ja passou e que voce nao confirmou nao esta
+    // atrasado -- provavelmente caiu e voce nao teve motivo para registrar.
+    // Rotula-lo como atrasado enchia a lista de dividas com os proprios
+    // salarios de todos os meses anteriores, esvaziando o sentido da secao.
+    return o.tipo === 'entrada' ? 'a_confirmar' : 'atrasado'
+  }
+
   return 'previsto'
 }
 
@@ -44,6 +54,7 @@ function realParaResolvida(
     // usuario ajustar seu valor. Por isso sao herdadas da virtual quando ela
     // existe.
     ehComponenteDeFatura: base?.ehComponenteDeFatura ?? false,
+    cartaoId: base?.cartaoId ?? null,
     numeroParcela: base?.numeroParcela ?? null,
     geradorTipo: real.geradorTipo,
     geradorId: real.geradorId,

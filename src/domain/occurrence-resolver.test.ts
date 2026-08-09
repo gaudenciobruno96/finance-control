@@ -42,32 +42,64 @@ describe('occurrence-resolver', () => {
   describe('derivarSituacao (RN-28)', () => {
     it('ignorado tem precedencia sobre tudo', () => {
       expect(
-        derivarSituacao({ ignorado: true, dataPagamento: '2026-08-01', dataVencimento: '2026-08-10' }, HOJE),
+        derivarSituacao({ tipo: 'saida', ignorado: true, dataPagamento: '2026-08-01', dataVencimento: '2026-08-10' }, HOJE),
       ).toBe('ignorado')
     })
 
     it('com data de pagamento e pago', () => {
       expect(
-        derivarSituacao({ ignorado: false, dataPagamento: '2026-08-09', dataVencimento: '2026-08-10' }, HOJE),
+        derivarSituacao({ tipo: 'saida', ignorado: false, dataPagamento: '2026-08-09', dataVencimento: '2026-08-10' }, HOJE),
       ).toBe('pago')
     })
 
     it('vencido sem pagamento e atrasado', () => {
       expect(
-        derivarSituacao({ ignorado: false, dataPagamento: null, dataVencimento: '2026-08-10' }, HOJE),
+        derivarSituacao({ tipo: 'saida', ignorado: false, dataPagamento: null, dataVencimento: '2026-08-10' }, HOJE),
       ).toBe('atrasado')
     })
 
     it('a vencer e previsto', () => {
       expect(
-        derivarSituacao({ ignorado: false, dataPagamento: null, dataVencimento: '2026-08-20' }, HOJE),
+        derivarSituacao({ tipo: 'saida', ignorado: false, dataPagamento: null, dataVencimento: '2026-08-20' }, HOJE),
       ).toBe('previsto')
     })
 
     it('vencendo hoje ainda e previsto, nao atrasado', () => {
       expect(
-        derivarSituacao({ ignorado: false, dataPagamento: null, dataVencimento: HOJE }, HOJE),
+        derivarSituacao(
+          { tipo: 'saida', ignorado: false, dataPagamento: null, dataVencimento: HOJE },
+          HOJE,
+        ),
       ).toBe('previsto')
+    })
+
+    /**
+     * RN-90 — o defeito que este teste previne.
+     *
+     * "Atrasado" e vocabulario de divida. Um salario cuja data ja passou e que
+     * o usuario nao confirmou nao esta atrasado: provavelmente caiu e nao
+     * houve motivo para registrar. Rotula-lo como atrasado enchia a lista de
+     * dividas com os proprios salarios de todos os meses anteriores.
+     */
+    it('entrada vencida e a confirmar, nunca atrasada', () => {
+      const vencida = { ignorado: false, dataPagamento: null, dataVencimento: '2026-08-10' }
+
+      expect(derivarSituacao({ ...vencida, tipo: 'entrada' }, HOJE)).toBe('a_confirmar')
+      expect(derivarSituacao({ ...vencida, tipo: 'saida' }, HOJE)).toBe('atrasado')
+    })
+
+    it('entrada confirmada e paga, como qualquer outra', () => {
+      expect(
+        derivarSituacao(
+          {
+            tipo: 'entrada',
+            ignorado: false,
+            dataPagamento: '2026-08-05',
+            dataVencimento: '2026-08-05',
+          },
+          HOJE,
+        ),
+      ).toBe('pago')
     })
   })
 
@@ -116,6 +148,7 @@ describe('occurrence-resolver', () => {
         idReal: null,
         situacao: 'previsto',
         ehComponenteDeFatura: true,
+        cartaoId: 'c1',
         numeroParcela: 3,
         geradorTipo: 'parcelamento',
         geradorId: 'p1',

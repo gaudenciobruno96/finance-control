@@ -1,18 +1,31 @@
 /**
  * UI-02 — Tela do mes (RF-22 a RF-25).
  *
+ * Desenhada em torno de UMA pergunta: quanto sobra depois de pagar tudo.
+ *
  * A competencia vive na rota (RN-85), o que permite voltar pelo gesto do iOS e
  * recarregar sem perder o mes em que se estava.
  */
 
 import { useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router'
-import { competenciaDe, somarMeses } from '../../domain/calendar.js'
-import type { Centavos, Competencia, DataISO, OcorrenciaResolvida } from '../../domain/types.js'
+import { useLiveQuery } from 'dexie-react-hooks'
+import { useSearchParams } from 'react-router'
+import {
+  competenciaDe,
+  ehCompetenciaValida,
+  somarMeses,
+} from '../../domain/calendar.js'
+import type {
+  Centavos,
+  Competencia,
+  DataISO,
+  OcorrenciaResolvida,
+} from '../../domain/types.js'
 import { MonthSummary } from '../components/MonthSummary.js'
 import { BalanceCurve } from '../components/BalanceCurve.js'
 import { OccurrenceList } from '../components/OccurrenceList.js'
 import { PaymentSheet } from '../components/PaymentSheet.js'
+import { QuickExpense } from '../components/QuickExpense.js'
 import { useAgora } from '../hooks/useAgora.js'
 import { useApp } from '../hooks/useApp.js'
 import { useAcao } from '../hooks/useErro.js'
@@ -32,31 +45,51 @@ function rotularCompetencia(c: Competencia): string {
 export function MonthScreen() {
   const agora = useAgora()
   const [params, setParams] = useSearchParams()
-  const navegar = useNavigate()
 
-  const competencia = params.get('mes') ?? competenciaDe(agora)
+  // Valida antes de usar: um `?mes=` vazio ou malformado chegaria ao dominio,
+  // que lancaria dentro do querier do useLiveQuery e derrubaria o app inteiro
+  // na fronteira de erro, exigindo recarregar.
+  const parametro = params.get('mes')
+  const competencia =
+    parametro !== null && ehCompetenciaValida(parametro)
+      ? parametro
+      : competenciaDe(agora)
+
   const mes = useMonthProjection(competencia)
-
-  const { pagamento } = useApp()
+  const { pagamento, regras, repos } = useApp()
   const executar = useAcao()
-  const [selecionada, setSelecionada] = useState<OcorrenciaResolvida | null>(null)
 
-  const irPara = (c: Competencia) => setParams({ mes: c })
+  const ancora = useLiveQuery(() => repos.ancoras.vigenteEm(agora), [repos, agora])
+
+  const [selecionada, setSelecionada] = useState<OcorrenciaResolvida | null>(null)
+  const [editandoSaldo, setEditandoSaldo] = useState(false)
+  const [saldoEmEdicao, setSaldoEmEdicao] = useState<Centavos>(0)
+  const [lancando, setLancando] = useState(false)
+
+  const irPara = (c: Competencia) => {
+    if (ehCompetenciaValida(c)) setParams({ mes: c })
+  }
 
   if (mes === undefined) {
     return <p className={estilos.carregando}>Carregando…</p>
   }
 
-  const componentesDeFatura = [...mes.aVencer, ...mes.atrasados, ...mes.pagos].filter(
-    (o) => o.ehComponenteDeFatura,
-  )
-  const semComponentes = (lista: readonly OcorrenciaResolvida[]) =>
-    lista.filter((o) => !o.ehComponenteDeFatura)
-
   const fechar = () => setSelecionada(null)
 
   const acao = (operacao: () => Promise<void>) => {
     void executar(operacao).then(fechar)
+  }
+
+  const abrirEdicaoDeSaldo = () => {
+    setSaldoEmEdicao(ancora?.saldoCentavos ?? 0)
+    setEditandoSaldo(true)
+  }
+
+  const salvarSaldo = () => {
+    void executar(async () => {
+      await regras.definirAncora(agora, saldoEmEdicao, agora)
+      setEditandoSaldo(false)
+    })
   }
 
   return (
@@ -75,8 +108,8 @@ export function MonthScreen() {
           <span className={estilos.mesAtual} data-testid="mes-atual">
             {rotularCompetencia(competencia)}
           </span>
-          {/* Tocar no titulo abre o seletor nativo de mes, que permite saltar
-              para qualquer competencia sem toques repetidos (RN-77). */}
+          {/* Tocar no titulo abre o seletor nativo, permitindo saltar meses
+              sem toques repetidos (RN-77). Um valor vazio e ignorado. */}
           <input
             type="month"
             className={estilos.inputMes}
@@ -98,9 +131,17 @@ export function MonthScreen() {
       </header>
 
       <MonthSummary
-        resumo={mes.resumo}
-        saldoRelativo={mes.curva.saldoRelativo}
-        onDeclararSaldo={() => navegar('/ajustes')}
+        sobraCentavos={mes.resumo.saldoFinalProjetadoCentavos}
+        saldoAtualCentavos={ancora?.saldoCentavos ?? null}
+        dataDoSaldo={ancora?.data ?? null}
+        aindaEntraCentavos={mes.totalAindaEntraCentavos}
+        faltaPagarCentavos={mes.totalFaltaPagarCentavos}
+        editandoSaldo={editandoSaldo}
+        saldoEmEdicao={saldoEmEdicao}
+        onAbrirEdicao={abrirEdicaoDeSaldo}
+        onMudarSaldo={setSaldoEmEdicao}
+        onSalvarSaldo={salvarSaldo}
+        onCancelarEdicao={() => setEditandoSaldo(false)}
       />
 
       <div className={estilos.curva}>
@@ -108,41 +149,72 @@ export function MonthScreen() {
       </div>
 
       <OccurrenceList
-        titulo="Atrasado"
-        ocorrencias={semComponentes(mes.atrasados)}
-        componentesDeFatura={componentesDeFatura}
+        titulo="Falta pagar"
+        total={mes.totalFaltaPagarCentavos}
+        ocorrencias={mes.faltaPagar}
+        componentesDeFatura={mes.componentesDeFatura}
         onSelecionar={setSelecionada}
+        vazio="Nada a pagar neste mês."
       />
+
+      <div className={estilos.rodapeLista}>
+        {lancando ? (
+          <QuickExpense
+            competencia={competencia}
+            hoje={agora}
+            onCancelar={() => setLancando(false)}
+            onSalvar={(dados) => {
+              void executar(async () => {
+                await pagamento.lancarAvulso(dados)
+                setLancando(false)
+              })
+            }}
+          />
+        ) : (
+          <button
+            type="button"
+            className={estilos.anotar}
+            onClick={() => setLancando(true)}
+            data-testid="anotar-conta"
+          >
+            + Anotar uma conta
+          </button>
+        )}
+      </div>
+
       <OccurrenceList
-        titulo="A vencer"
-        ocorrencias={semComponentes(mes.aVencer)}
-        componentesDeFatura={componentesDeFatura}
-        onSelecionar={setSelecionada}
-      />
-      <OccurrenceList
-        titulo="Pago"
-        ocorrencias={semComponentes(mes.pagos)}
-        componentesDeFatura={componentesDeFatura}
-        onSelecionar={setSelecionada}
-      />
-      <OccurrenceList
-        titulo="Ignorado neste mês"
-        ocorrencias={semComponentes(mes.ignorados)}
-        componentesDeFatura={componentesDeFatura}
+        titulo="Ainda entra"
+        total={mes.totalAindaEntraCentavos}
+        ocorrencias={mes.aindaEntra}
+        componentesDeFatura={mes.componentesDeFatura}
         onSelecionar={setSelecionada}
       />
 
-      {/* Ao fim da lista, proporcional a frequencia de uso (RN-78). */}
-      <div className={estilos.rodape}>
-        <button
-          type="button"
-          className={estilos.avulso}
-          onClick={() => navegar(`/avulso?mes=${competencia}`)}
-          data-testid="lancar-avulso"
-        >
-          + Lançar entrada ou saída avulsa
-        </button>
-      </div>
+      {mes.jaResolvido.length > 0 && (
+        <details className={estilos.resolvido}>
+          <summary data-testid="ja-resolvido">
+            Já resolvido ({mes.jaResolvido.length})
+          </summary>
+          <OccurrenceList
+            titulo="Já resolvido"
+            ocorrencias={mes.jaResolvido}
+            componentesDeFatura={mes.componentesDeFatura}
+            onSelecionar={setSelecionada}
+          />
+        </details>
+      )}
+
+      {mes.ignorados.length > 0 && (
+        <details className={estilos.resolvido}>
+          <summary>Ignorado neste mês ({mes.ignorados.length})</summary>
+          <OccurrenceList
+            titulo="Ignorado neste mês"
+            ocorrencias={mes.ignorados}
+            componentesDeFatura={mes.componentesDeFatura}
+            onSelecionar={setSelecionada}
+          />
+        </details>
+      )}
 
       {selecionada !== null && (
         <PaymentSheet
@@ -152,9 +224,7 @@ export function MonthScreen() {
           onPagar={(data: DataISO, valor: Centavos) =>
             acao(() => pagamento.registrarPagamento(selecionada, data, valor))
           }
-          onDesfazerPagamento={() =>
-            acao(() => pagamento.desfazerPagamento(selecionada))
-          }
+          onDesfazerPagamento={() => acao(() => pagamento.desfazerPagamento(selecionada))}
           onAjustarValor={(valor: Centavos) =>
             acao(() => pagamento.ajustarValorPrevisto(selecionada, valor))
           }
