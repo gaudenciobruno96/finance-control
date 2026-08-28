@@ -471,7 +471,7 @@ import { readFileSync } from 'node:fs'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { createMcpExpressApp } from '@modelcontextprotocol/sdk/server/express.js'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
-import express, { type Express } from 'express'
+import type { Express, NextFunction, Request, Response } from 'express'
 
 import { criarMiddlewareDeAuth, lerSegredo } from './auth.js'
 
@@ -549,13 +549,17 @@ export function criarApp(segredo: string): Express {
     res.status(200).json({ vivo: true, versao: VERSAO })
   })
 
-  // `express.json()` fica na rota, nao global: `createMcpExpressApp` ja monta
-  // middlewares proprios, e empilhar um parser global por cima corre o risco
-  // de consumir o corpo duas vezes.
+  // Sem `express.json()` aqui: `createMcpExpressApp` ja o monta globalmente
+  // (verificado no SDK), entao o corpo chega parseado. Um segundo parser seria
+  // codigo morto.
   //
-  // A autenticacao vem ANTES do transporte: nada do protocolo MCP roda para
+  // Consequencia que exige o tratamento de erro mais abaixo: o parser global
+  // roda ANTES desta cadeia, entao um corpo malformado estoura no parser sem
+  // passar pela autenticacao.
+  //
+  // A autenticacao vem antes do transporte: nada do protocolo MCP roda para
   // quem nao passou pelo cadeado.
-  app.post('/mcp', express.json(), criarMiddlewareDeAuth(segredo), async (req, res) => {
+  app.post('/mcp', criarMiddlewareDeAuth(segredo), async (req, res) => {
     // Modo stateless: sem sessao em memoria. O Railway reinicia e escala o
     // processo quando quer, e sessao guardada aqui se perderia no meio de uma
     // conversa.
@@ -569,6 +573,20 @@ export function criarApp(segredo: string): Express {
 
     await criarServidorMcp().connect(transporte)
     await transporte.handleRequest(req, res, req.body)
+  })
+
+  // Middleware de erro, registrado DEPOIS das rotas.
+  //
+  // O parser global do SDK roda antes da autenticacao, entao um corpo
+  // malformado de um chamador nao autenticado estoura fora deste handler --
+  // um try/catch dentro dele nao alcancaria. Sem isto, o erro cai no handler
+  // padrao do Express, que fora de producao devolve stack e caminho de arquivo
+  // para quem nao tem o segredo.
+  //
+  // A resposta nao carrega stack, caminho, mensagem original, nem qualquer
+  // sinal de o chamador ter se autenticado ou nao.
+  app.use((_erro: unknown, _req: Request, res: Response, _proximo: NextFunction) => {
+    res.status(400).json({ erro: 'requisicao invalida' })
   })
 
   return app
