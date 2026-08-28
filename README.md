@@ -89,6 +89,17 @@ Os geradores de domínio ficam em `src/test-support/` e produzem entidades que s
 
 ---
 
+## Consulta por IA
+
+`mcp/` traz um servidor MCP somente-leitura que expõe o orçamento a um
+assistente de IA, reusando o mesmo domínio e os mesmos serviços do app. Permite
+perguntar o que vence na semana, comparar gastos entre meses e simular o efeito
+de uma despesa nova.
+
+Configuração e uso: [`mcp/README.md`](mcp/README.md)
+
+---
+
 ## Documentação do processo
 
 O projeto é conduzido pelo workflow AI-DLC. Toda decisão, pergunta e aprovação está registrada:
