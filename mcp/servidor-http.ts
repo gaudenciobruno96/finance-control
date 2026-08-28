@@ -89,12 +89,31 @@ function statusDoErro(err: unknown): number {
  * Express, que sem `NODE_ENV=production` devolve uma pagina HTML com stack
  * trace e caminho de arquivo para quem nao tem o segredo.
  *
- * A resposta aqui e sempre a mesma forma fixa: nunca `err.stack`, nunca
+ * A resposta ao cliente e sempre a mesma forma fixa: nunca `err.stack`, nunca
  * `err.message` (a mensagem original do body-parser pode descrever a
  * localizacao exata do erro de sintaxe, informacao interna que nao precisa
  * sair). O status HTTP e preservado quando o erro declara um (400 para corpo
  * malformado, por exemplo) porque isso e publico e nao depende do segredo;
  * cai para 500 quando o erro nao diz nada sobre si mesmo.
+ *
+ * O Express 5 encaminha automaticamente promessas rejeitadas de handlers
+ * assincronos para este middleware -- entao nao e so o SyntaxError do parser
+ * que passa por aqui, e sim qualquer falha do handler de `/mcp`
+ * (`connect`, `handleRequest`, o que vier no Projeto 1). Responder sem
+ * registrar apagaria o rastro que o handler padrao do Express deixava antes
+ * (`console.error(err.stack)`, ver `express/lib/application.js`), e este
+ * arquivo e a fundacao de transporte de todas as ferramentas financeiras que
+ * vem a seguir -- um defeito nelas precisa aparecer no log do Railway, nao
+ * so sumir num JSON generico. Por isso o log ANTES de responder.
+ *
+ * Restricao que sobrevive a este log: NUNCA registrar `req` (nem
+ * `req.headers`, que carrega o segredo, nem `req.body`, que no Projeto 1 vai
+ * carregar valores financeiros). Stack e mensagem do erro sao aceitaveis --
+ * com uma ressalva que o Projeto 1 precisa revisitar quando o corpo trouxer
+ * dados reais: a MENSAGEM de um erro de parsing pode citar um fragmento da
+ * entrada (o SyntaxError do body-parser inclui o trecho de JSON que falhou).
+ * Aceitavel agora, porque o corpo do spike nao carrega nada sensivel; deixa
+ * de ser aceitavel no dia em que carregar.
  */
 function tratarErroDeCorpo(
   err: unknown,
@@ -102,6 +121,8 @@ function tratarErroDeCorpo(
   res: Response,
   next: NextFunction,
 ): void {
+  console.error('erro nao tratado em /mcp:', err)
+
   if (res.headersSent) {
     next(err)
     return

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Server } from 'node:http'
 import { criarApp, responderPing } from './servidor-http.js'
 
@@ -145,5 +145,32 @@ describe('criarApp', () => {
     })
 
     semNadaInterno(await r.text())
+  })
+
+  it('registra o erro de corpo malformado no servidor sem vazar o segredo', async () => {
+    const base = await subir()
+    const espiao = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    try {
+      // Header de autorizacao presente de proposito: se o log fosse
+      // descuidado e incluisse a requisicao inteira (req.headers), o
+      // segredo apareceria aqui. Sem o header, o teste nao provaria nada.
+      const r = await fetch(`${base}/mcp`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${SEGREDO}`,
+        },
+        body: '{ isto nao e json valido',
+      })
+      await r.text()
+
+      expect(espiao).toHaveBeenCalled()
+
+      const registrado = espiao.mock.calls.map((chamada) => chamada.join(' ')).join('\n')
+      expect(registrado).not.toContain(SEGREDO)
+    } finally {
+      espiao.mockRestore()
+    }
   })
 })
