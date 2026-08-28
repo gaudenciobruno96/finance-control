@@ -60,7 +60,7 @@
   - `async function criarAppDoBackup(doc: DocumentoBackup): Promise<AppEmMemoria>`
   - `const ORCAMENTO_SIMPLES: DocumentoBackup` e `const ORCAMENTO_SEM_ANCORA: DocumentoBackup` em `mcp/fixtures/orcamento-simples.ts`
 
-- [ ] **Step 1: Instalar as dependências novas**
+- [x] **Step 1: Instalar as dependências novas**
 
 ```bash
 npm install @modelcontextprotocol/sdk zod
@@ -74,7 +74,7 @@ npm uninstall fake-indexeddb
 npm install fake-indexeddb
 ```
 
-- [ ] **Step 2: Criar `mcp/tsconfig.json`**
+- [x] **Step 2: Criar `mcp/tsconfig.json`**
 
 ```json
 {
@@ -87,7 +87,7 @@ npm install fake-indexeddb
 }
 ```
 
-- [ ] **Step 3: Ligar `mcp/` ao ferramental**
+- [x] **Step 3: Ligar `mcp/` ao ferramental**
 
 Em `package.json`, substituir o script `typecheck` e acrescentar `mcp`:
 
@@ -142,7 +142,7 @@ E acrescentar um bloco novo ao final do array de configuração, antes do fecham
 
 **Atenção:** o grupo `mcp` precisa ser acrescentado *dentro* dos blocos existentes, não num bloco novo que também case com `src/domain/**`. Dois blocos configurando a mesma regra para o mesmo arquivo fazem o último vencer, e a fronteira de camadas seria silenciosamente desligada.
 
-- [ ] **Step 4: Criar o fixture**
+- [x] **Step 4: Criar o fixture**
 
 Crie `mcp/fixtures/orcamento-simples.ts`:
 
@@ -224,7 +224,7 @@ export const ORCAMENTO_SEM_ANCORA: DocumentoBackup = {
 }
 ```
 
-- [ ] **Step 5: Escrever o teste que falha**
+- [x] **Step 5: Escrever o teste que falha**
 
 Crie `mcp/app-em-memoria.test.ts`:
 
@@ -300,7 +300,7 @@ describe('criarAppDoBackup', () => {
 })
 ```
 
-- [ ] **Step 6: Rodar o teste e confirmar que falha**
+- [x] **Step 6: Rodar o teste e confirmar que falha**
 
 ```bash
 npm test -- mcp/app-em-memoria.test.ts
@@ -308,7 +308,7 @@ npm test -- mcp/app-em-memoria.test.ts
 
 Esperado: FAIL, com erro de módulo não encontrado (`./app-em-memoria.js`).
 
-- [ ] **Step 7: Implementar `mcp/app-em-memoria.ts`**
+- [x] **Step 7: Implementar `mcp/app-em-memoria.ts`**
 
 ```ts
 /**
@@ -382,7 +382,7 @@ export async function criarAppDoBackup(
 }
 ```
 
-- [ ] **Step 8: Rodar os testes e confirmar que passam**
+- [x] **Step 8: Rodar os testes e confirmar que passam**
 
 ```bash
 npm test -- mcp/app-em-memoria.test.ts
@@ -390,7 +390,7 @@ npm test -- mcp/app-em-memoria.test.ts
 
 Esperado: 4 testes PASS.
 
-- [ ] **Step 9: Confirmar que a fronteira de lint ficou de pé**
+- [x] **Step 9: Confirmar que a fronteira de lint ficou de pé**
 
 ```bash
 npm run lint
@@ -404,7 +404,7 @@ import { criarAppDoBackup } from '../../mcp/app-em-memoria.js'
 
 Rode `npm run lint` de novo. Esperado: FAIL com a mensagem `MSG_MCP`. **Remova a linha** e confirme que volta a passar. Uma regra de fronteira nunca verificada é uma regra que não existe.
 
-- [ ] **Step 10: Rodar a verificação completa**
+- [x] **Step 10: Rodar a verificação completa**
 
 ```bash
 npm run verify
@@ -412,7 +412,7 @@ npm run verify
 
 Esperado: lint, typecheck, os 309 testes existentes e os 4 novos, todos passando.
 
-- [ ] **Step 11: Commit**
+- [x] **Step 11: Commit**
 
 ```bash
 git add mcp/ package.json package-lock.json vitest.config.ts eslint.config.js
@@ -436,7 +436,7 @@ git commit -m "Monta o app em memoria a partir do backup"
   - `function item(o: OcorrenciaResolvida): ItemFormatado`
   - `function ponto(p: PontoCurva): { readonly data: string; readonly saldoCentavos: number; readonly saldo: string }`
 
-- [ ] **Step 1: Escrever o teste que falha**
+- [x] **Step 1: Escrever o teste que falha**
 
 Crie `mcp/formatacao.test.ts`:
 
@@ -512,7 +512,7 @@ describe('ponto', () => {
 })
 ```
 
-- [ ] **Step 2: Rodar e confirmar que falha**
+- [x] **Step 2: Rodar e confirmar que falha**
 
 ```bash
 npm test -- mcp/formatacao.test.ts
@@ -520,7 +520,7 @@ npm test -- mcp/formatacao.test.ts
 
 Esperado: FAIL, módulo `./formatacao.js` não encontrado.
 
-- [ ] **Step 3: Implementar `mcp/formatacao.ts`**
+- [x] **Step 3: Implementar `mcp/formatacao.ts`**
 
 ```ts
 /**
@@ -597,7 +597,7 @@ export function ponto(p: PontoCurva): {
 }
 ```
 
-- [ ] **Step 4: Rodar e confirmar que passa**
+- [x] **Step 4: Rodar e confirmar que passa**
 
 ```bash
 npm test -- mcp/formatacao.test.ts
@@ -605,7 +605,7 @@ npm test -- mcp/formatacao.test.ts
 
 Esperado: 7 testes PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add mcp/formatacao.ts mcp/formatacao.test.ts
@@ -629,7 +629,7 @@ git commit -m "Formata valores em centavos e texto para o assistente"
   - `interface FonteBackup { readonly obter: () => Promise<DocumentoBackup>; readonly obterSemCache: () => Promise<DocumentoBackup> }`
   - `function criarFonteGitHub(cfg: Configuracao, buscar?: typeof fetch): FonteBackup`
 
-- [ ] **Step 1: Escrever o teste que falha**
+- [x] **Step 1: Escrever o teste que falha**
 
 Crie `mcp/fonte-github.test.ts`:
 
@@ -789,7 +789,7 @@ describe('criarFonteGitHub', () => {
 })
 ```
 
-- [ ] **Step 2: Rodar e confirmar que falha**
+- [x] **Step 2: Rodar e confirmar que falha**
 
 ```bash
 npm test -- mcp/fonte-github.test.ts
@@ -797,7 +797,7 @@ npm test -- mcp/fonte-github.test.ts
 
 Esperado: FAIL, módulos `./configuracao.js` e `./fonte-github.js` não encontrados.
 
-- [ ] **Step 3: Implementar `mcp/configuracao.ts`**
+- [x] **Step 3: Implementar `mcp/configuracao.ts`**
 
 ```ts
 /**
@@ -848,7 +848,7 @@ export function lerConfiguracao(env: Record<string, string | undefined>): Config
 }
 ```
 
-- [ ] **Step 4: Implementar `mcp/fonte-github.ts`**
+- [x] **Step 4: Implementar `mcp/fonte-github.ts`**
 
 ```ts
 /**
@@ -950,7 +950,7 @@ export function criarFonteGitHub(
 }
 ```
 
-- [ ] **Step 5: Rodar e confirmar que passa**
+- [x] **Step 5: Rodar e confirmar que passa**
 
 ```bash
 npm test -- mcp/fonte-github.test.ts
@@ -958,7 +958,7 @@ npm test -- mcp/fonte-github.test.ts
 
 Esperado: 10 testes PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add mcp/configuracao.ts mcp/fonte-github.ts mcp/fonte-github.test.ts
@@ -977,7 +977,7 @@ git commit -m "Le o backup do GitHub com cache por sha"
 - Consumes: `AppEmMemoria` de `mcp/app-em-memoria.js`; `dinheiro`, `item`, `ponto` de `mcp/formatacao.js`; `competenciaDe` de `src/domain/calendar.js`
 - Produces: `async function situacaoDoMes(app: AppEmMemoria, args: { competencia?: string; hoje: string }): Promise<SituacaoDoMes>`, com `SituacaoDoMes` exportado
 
-- [ ] **Step 1: Escrever o teste que falha**
+- [x] **Step 1: Escrever o teste que falha**
 
 Crie `mcp/tools/situacao-do-mes.test.ts`:
 
@@ -1066,7 +1066,7 @@ describe('situacaoDoMes', () => {
 })
 ```
 
-- [ ] **Step 2: Rodar e confirmar que falha**
+- [x] **Step 2: Rodar e confirmar que falha**
 
 ```bash
 npm test -- mcp/tools/situacao-do-mes.test.ts
@@ -1074,7 +1074,7 @@ npm test -- mcp/tools/situacao-do-mes.test.ts
 
 Esperado: FAIL, módulo `./situacao-do-mes.js` não encontrado.
 
-- [ ] **Step 3: Implementar `mcp/tools/situacao-do-mes.ts`**
+- [x] **Step 3: Implementar `mcp/tools/situacao-do-mes.ts`**
 
 ```ts
 /**
@@ -1143,7 +1143,7 @@ export async function situacaoDoMes(
 }
 ```
 
-- [ ] **Step 4: Rodar e confirmar que passa**
+- [x] **Step 4: Rodar e confirmar que passa**
 
 ```bash
 npm test -- mcp/tools/situacao-do-mes.test.ts
@@ -1151,7 +1151,7 @@ npm test -- mcp/tools/situacao-do-mes.test.ts
 
 Esperado: 7 testes PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add mcp/tools/situacao-do-mes.ts mcp/tools/situacao-do-mes.test.ts
@@ -1172,7 +1172,7 @@ git commit -m "Ferramenta de situacao do mes"
 **Atenção ao fixture nos testes:** as regras de `ORCAMENTO_SIMPLES` são `vigenteDe: '2026-01'` e não há pagamento registrado em janeiro nem fevereiro. Consultando em março, existe dívida atrasada legítima de Aluguel e Luz desses meses — `projetarMes` varre 12 meses para trás e traz toda saída atrasada anterior. Asserção por `nome` puro colide com essa dívida real; restrinja também por `competencia` quando quiser falar de um item específico do mês corrente.
 - Produces: `async function oQueVence(app: AppEmMemoria, args: { dias?: number; hoje: string }): Promise<OQueVence>`, com `OQueVence` exportado
 
-- [ ] **Step 1: Escrever o teste que falha**
+- [x] **Step 1: Escrever o teste que falha**
 
 Crie `mcp/tools/o-que-vence.test.ts`:
 
@@ -1279,7 +1279,7 @@ describe('oQueVence', () => {
 })
 ```
 
-- [ ] **Step 2: Rodar e confirmar que falha**
+- [x] **Step 2: Rodar e confirmar que falha**
 
 ```bash
 npm test -- mcp/tools/o-que-vence.test.ts
@@ -1287,7 +1287,7 @@ npm test -- mcp/tools/o-que-vence.test.ts
 
 Esperado: FAIL, módulo `./o-que-vence.js` não encontrado.
 
-- [ ] **Step 3: Implementar `mcp/tools/o-que-vence.ts`**
+- [x] **Step 3: Implementar `mcp/tools/o-que-vence.ts`**
 
 ```ts
 /**
@@ -1402,7 +1402,7 @@ export async function oQueVence(
 }
 ```
 
-- [ ] **Step 4: Rodar e confirmar que passa**
+- [x] **Step 4: Rodar e confirmar que passa**
 
 ```bash
 npm test -- mcp/tools/o-que-vence.test.ts
@@ -1410,7 +1410,7 @@ npm test -- mcp/tools/o-que-vence.test.ts
 
 Esperado: 7 testes PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add mcp/tools/o-que-vence.ts mcp/tools/o-que-vence.test.ts
@@ -1429,7 +1429,7 @@ git commit -m "Ferramenta de vencimentos na janela"
 - Consumes: `AppEmMemoria` de `mcp/app-em-memoria.js`; `dinheiro` de `mcp/formatacao.js`; `competenciaDe`, `somarMeses` de `src/domain/calendar.js`; `media` de `src/domain/money.js`
 - Produces: `async function historicoDeGastos(app: AppEmMemoria, args: { meses?: number; nome?: string; hoje: string }): Promise<HistoricoDeGastos>`, com `HistoricoDeGastos` e `GastoPorNome` exportados
 
-- [ ] **Step 1: Escrever o teste que falha**
+- [x] **Step 1: Escrever o teste que falha**
 
 Crie `mcp/tools/historico-de-gastos.test.ts`:
 
@@ -1585,7 +1585,7 @@ describe('historicoDeGastos', () => {
 })
 ```
 
-- [ ] **Step 2: Rodar e confirmar que falha**
+- [x] **Step 2: Rodar e confirmar que falha**
 
 ```bash
 npm test -- mcp/tools/historico-de-gastos.test.ts
@@ -1593,7 +1593,7 @@ npm test -- mcp/tools/historico-de-gastos.test.ts
 
 Esperado: FAIL, módulo `./historico-de-gastos.js` não encontrado.
 
-- [ ] **Step 3: Implementar `mcp/tools/historico-de-gastos.ts`**
+- [x] **Step 3: Implementar `mcp/tools/historico-de-gastos.ts`**
 
 ```ts
 /**
@@ -1690,7 +1690,7 @@ export async function historicoDeGastos(
 }
 ```
 
-- [ ] **Step 4: Rodar e confirmar que passa**
+- [x] **Step 4: Rodar e confirmar que passa**
 
 ```bash
 npm test -- mcp/tools/historico-de-gastos.test.ts
@@ -1698,7 +1698,7 @@ npm test -- mcp/tools/historico-de-gastos.test.ts
 
 Esperado: 8 testes PASS. Se `media` arredondar diferente do esperado, verifique a implementação em `src/domain/money.ts` e ajuste o valor esperado no teste — nunca a função do domínio.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add mcp/tools/historico-de-gastos.ts mcp/tools/historico-de-gastos.test.ts
@@ -1721,7 +1721,7 @@ git commit -m "Ferramenta de historico de gastos por nome"
 
 **Nota de assinatura:** esta é a única ferramenta que recebe o `DocumentoBackup` em vez de um `AppEmMemoria`. Ela precisa construir **dois** apps descartáveis — um com o cenário, outro sem — e nunca pode tocar o app em cache. Receber um app pronto tornaria esse vazamento possível.
 
-- [ ] **Step 1: Escrever o teste que falha**
+- [x] **Step 1: Escrever o teste que falha**
 
 Crie `mcp/tools/simular-cenario.test.ts`:
 
@@ -1900,7 +1900,7 @@ describe('simularCenario', () => {
 })
 ```
 
-- [ ] **Step 2: Rodar e confirmar que falha**
+- [x] **Step 2: Rodar e confirmar que falha**
 
 ```bash
 npm test -- mcp/tools/simular-cenario.test.ts
@@ -1908,7 +1908,7 @@ npm test -- mcp/tools/simular-cenario.test.ts
 
 Esperado: FAIL, módulo `./simular-cenario.js` não encontrado.
 
-- [ ] **Step 3: Implementar `mcp/tools/simular-cenario.ts`**
+- [x] **Step 3: Implementar `mcp/tools/simular-cenario.ts`**
 
 ```ts
 /**
@@ -2044,7 +2044,7 @@ export async function simularCenario(
 }
 ```
 
-- [ ] **Step 4: Rodar e confirmar que passa**
+- [x] **Step 4: Rodar e confirmar que passa**
 
 ```bash
 npm test -- mcp/tools/simular-cenario.test.ts
@@ -2052,7 +2052,7 @@ npm test -- mcp/tools/simular-cenario.test.ts
 
 Esperado: 9 testes PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add mcp/tools/simular-cenario.ts mcp/tools/simular-cenario.test.ts
@@ -2074,7 +2074,7 @@ git commit -m "Ferramenta de simulacao de cenario"
 
 **Decisão de cache tomada durante a execução da Task 3:** as três ferramentas de consulta compartilham um `AppEmMemoria` reusado enquanto o backup remoto não muda. Reconstruir o banco Dexie é o custo dominante de uma consulta — maior que o download e muito maior que a desserialização — e sem esse reuso o cache por SHA da fonte não economizaria nada que importe. O reuso se apoia na identidade da referência que `obter()` devolve: mesmo SHA, mesmo objeto. `simular_cenario` fica de fora por construção — ela usa `obterSemCache()` e constrói seus próprios bancos descartáveis, porque escreve neles.
 
-- [ ] **Step 1: Implementar `mcp/server.ts`**
+- [x] **Step 1: Implementar `mcp/server.ts`**
 
 Esta tarefa não tem teste unitário próprio: o servidor é apenas registro e ligação, e toda a lógica já está coberta. A verificação é o Step 3, com o servidor rodando de verdade.
 
@@ -2324,7 +2324,7 @@ server.registerTool(
 await server.connect(new StdioServerTransport())
 ```
 
-- [ ] **Step 2: Verificar tipos e lint**
+- [x] **Step 2: Verificar tipos e lint**
 
 ```bash
 npm run lint && npm run typecheck
@@ -2334,7 +2334,7 @@ Esperado: sem erros.
 
 O schema zod de `lancamentos` foi escrito para produzir exatamente o formato de `LancamentoHipotetico`, então o handler passa o valor direto, sem cast. Se o compilador acusar divergência, o schema está errado — corrija o schema para casar com o tipo, nunca o contrário, e jamais silencie com `as never`: o cast esconderia justamente o campo que ficou fora.
 
-- [ ] **Step 3: Subir o servidor de verdade**
+- [x] **Step 3: Subir o servidor de verdade**
 
 Gere um token fine-grained no GitHub com escopo `Contents: Read`, restrito ao repositório do backup. **Não reuse o token de escrita que o app usa.**
 
@@ -2352,7 +2352,7 @@ npm run mcp
 
 Esperado: também sobe sem erro — a configuração só é lida na primeira chamada de ferramenta. Encerre com Ctrl+C.
 
-- [ ] **Step 4: Registrar no Claude Code**
+- [x] **Step 4: Registrar no Claude Code**
 
 ```bash
 claude mcp add financas --env FINANCE_GITHUB_TOKEN=ghp_seu_token --env FINANCE_GITHUB_REPO=usuario/repo --env FINANCE_BACKUP_PATH=caminho/backup.json -- npx tsx /caminho/absoluto/para/finance-control/mcp/server.ts
@@ -2360,7 +2360,7 @@ claude mcp add financas --env FINANCE_GITHUB_TOKEN=ghp_seu_token --env FINANCE_G
 
 Verifique com uma pergunta real ao assistente, como "o que vence essa semana?". Confirme que o número devolvido bate com a tela do app aberta no navegador. **Essa conferência é o critério de conclusão do plano** — testes provam consistência interna; só a comparação com a tela prova que o servidor está lendo o backup certo.
 
-- [ ] **Step 5: Escrever `mcp/README.md`**
+- [x] **Step 5: Escrever `mcp/README.md`**
 
 ```markdown
 # MCP de consulta financeira
@@ -2427,7 +2427,7 @@ aperto continuam corretos, mas o nível está deslocado. `situacao_do_mes` sinal
 isso em `saldoRelativo` e `avisoSaldoRelativo`.
 ```
 
-- [ ] **Step 6: Apontar o README principal para ele**
+- [x] **Step 6: Apontar o README principal para ele**
 
 Acrescente ao final de `README.md`, antes da seção "Documentação do processo":
 
@@ -2444,7 +2444,7 @@ de uma despesa nova.
 Configuração e uso: [`mcp/README.md`](mcp/README.md)
 ```
 
-- [ ] **Step 7: Rodar a verificação completa**
+- [x] **Step 7: Rodar a verificação completa**
 
 ```bash
 npm run verify
@@ -2452,7 +2452,7 @@ npm run verify
 
 Esperado: lint, typecheck, os 309 testes originais e os ~45 novos, todos passando.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add mcp/server.ts mcp/README.md README.md
@@ -2463,7 +2463,7 @@ git commit -m "Servidor MCP com as quatro ferramentas"
 
 ## Verificação final
 
-- [ ] `npm run verify` passa inteiro
-- [ ] Nenhum arquivo dentro de `src/` foi modificado: confirmar com `git diff main --stat -- src/` (esperado: saída vazia)
-- [ ] A regra de fronteira foi testada na prática (Task 1, Step 9), não apenas escrita
+- [x] `npm run verify` passa inteiro
+- [x] Nenhum arquivo dentro de `src/` foi modificado: confirmar com `git diff main --stat -- src/` (esperado: saída vazia)
+- [x] A regra de fronteira foi testada na prática (Task 1, Step 9), não apenas escrita
 - [ ] Uma pergunta real ao assistente devolve número idêntico ao da tela do app

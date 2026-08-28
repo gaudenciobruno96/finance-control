@@ -630,3 +630,26 @@
 **Context**: CONSTRUCTION — Task 1 de 8. Achado registrado tambem no ledger .superpowers/sdd/2026-08-28-mcp-consulta-financeira/progress.md. Observacao alheia a este trabalho: o teste pre-existente src/ui/screens/flows.test.tsx falha por drift da data do sistema (hoje 2026-08-28 contra janela fixa da fixture), confirmado por git stash como independente destas mudancas.
 
 ---
+## Tasks 2 a 8 — Servidor MCP concluido
+**Timestamp**: 2026-08-28T17:36:00Z
+**User Input**: Duas decisoes sobre achados que contradiziam o plano: "Corrigir o parse agora + cachear o app na Task 8" e "Projetar todos os meses da janela"
+**AI Response**: "Oito tarefas implementadas em TDD, cada uma por subagente proprio, com revisao de conformidade e qualidade apos cada uma. 63 testes novos em mcp/, todos passando. Entregue: mcp/app-em-memoria.ts (monta o app a partir do backup), mcp/configuracao.ts e mcp/fonte-github.ts (leitura do backup no GitHub com cache por sha), mcp/formatacao.ts, mcp/cache-do-app.ts, as quatro ferramentas em mcp/tools/, mcp/server.ts e a documentacao. Nenhum arquivo de src/ foi modificado."
+**Context**: CONSTRUCTION — Tasks 2 a 8 de 8. Ledger completo em .superpowers/sdd/2026-08-28-mcp-consulta-financeira/progress.md.
+
+---
+
+## Defeitos do plano encontrados pela execucao
+**Timestamp**: 2026-08-28T17:36:00Z
+**User Input**: (nenhum — registro de achados)
+**AI Response**: "Seis defeitos no plano, todos semanticos e nenhum deles pego pela revisao do proprio plano, que verificara consistencia de tipos e ausencia de placeholders. (1) encerrar() so fechava a conexao sem deletar o banco, vazando um banco por app criado. (2) Assercao de moeda com espaco ASCII, quando o Intl em pt-BR emite espaco estreito U+202F. (3) O cache por sha comparava depois de desserializar, entao nao evitava trabalho algum. (4) o_que_vence projetava so as duas pontas da janela, fazendo contas de meses intermediarios sumirem em silencio. (5) simular_cenario reimplementava saldoRelativo como doc.ancoras.length === 0, divergindo do dominio quando a ancora e posterior ao hoje consultado. (6) O dia do aperto era reportado so para o cenario com os lancamentos, contra o que a spec pedia. Os defeitos 4 e 5 eram os mais graves: o primeiro omitia contas, o segundo faria o assistente afirmar saldo absoluto sobre uma curva que so tem forma."
+**Context**: Licao de processo. Dois implementadores pararam para perguntar em vez de ajustar a implementacao para casar com um teste errado, e as revisoes por tarefa e a revisao final ampla pegaram o que os testes nao pegavam.
+
+---
+
+## Revisao final e estado de merge
+**Timestamp**: 2026-08-28T17:36:00Z
+**User Input**: (nenhum — registro de conclusao)
+**AI Response**: "Revisao ampla do branch inteiro (17 commits) apontou quatro itens bloqueantes, corrigidos numa unica onda junto de mais seis menores. Re-revisao escopada confirmou os dez enderecados, sem quebra nova. Estado: pronto para merge, com uma verificacao pendente do usuario — registrar o servidor no Claude Code com o token real e comparar uma resposta com a tela do app aberta. Tres achados menores ficaram parqueados: a prosa do aviso de saldo relativo pode afirmar 'nao ha ancora cadastrada' num caso em que ha ancora, apenas posterior ao mes exibido; uma chamada concorrente que chegue durante uma construcao em andamento com documento diferente recebe o app do documento anterior; e a ordem de atribuicao do memo em cache-do-app.ts seria fragil se as funcoes que ele chama passassem a lancar sincronamente."
+**Context**: CONSTRUCTION concluida. Branch mcp-consulta-financeira, 17 commits a partir de d9f008c.
+
+---
