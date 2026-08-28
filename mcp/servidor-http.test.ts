@@ -1,0 +1,103 @@
+import { afterEach, describe, expect, it } from 'vitest'
+import type { Server } from 'node:http'
+import { criarApp, responderPing } from './servidor-http.js'
+
+const SEGREDO = 'segredo-de-teste-suficientemente-longo'
+
+describe('responderPing', () => {
+  it('devolve pong com a hora do servidor em ISO 8601', () => {
+    const r = responderPing(new Date('2026-08-28T17:00:00.000Z'), '0.1.0')
+
+    expect(r.resposta).toBe('pong')
+    expect(r.horaDoServidor).toBe('2026-08-28T17:00:00.000Z')
+    expect(r.versao).toBe('0.1.0')
+  })
+
+  it('reflete o instante recebido, nao um valor fixo', () => {
+    // A hora e o que prova que o servidor executou codigo agora, e nao
+    // devolveu resposta em cache em algum ponto do caminho.
+    const a = responderPing(new Date('2026-01-01T00:00:00.000Z'), '0.1.0')
+    const b = responderPing(new Date('2026-06-15T12:30:00.000Z'), '0.1.0')
+
+    expect(a.horaDoServidor).not.toBe(b.horaDoServidor)
+  })
+})
+
+describe('criarApp', () => {
+  let servidor: Server | null = null
+
+  afterEach(async () => {
+    if (servidor !== null) {
+      await new Promise<void>((ok) => servidor?.close(() => ok()))
+      servidor = null
+    }
+  })
+
+  /** Sobe o app numa porta efemera e devolve a base da URL. */
+  async function subir(): Promise<string> {
+    const app = criarApp(SEGREDO)
+    return new Promise((ok) => {
+      servidor = app.listen(0, '127.0.0.1', () => {
+        const endereco = servidor?.address()
+        if (endereco === null || endereco === undefined || typeof endereco === 'string') {
+          throw new Error('nao foi possivel obter a porta')
+        }
+        ok(`http://127.0.0.1:${endereco.port}`)
+      })
+    })
+  }
+
+  it('responde ao healthcheck sem exigir autenticacao', async () => {
+    const base = await subir()
+
+    const r = await fetch(`${base}/`)
+
+    expect(r.status).toBe(200)
+  })
+
+  it('o healthcheck nao vaza nada sobre o segredo', async () => {
+    const base = await subir()
+
+    const texto = await (await fetch(`${base}/`)).text()
+
+    expect(texto).not.toContain(SEGREDO)
+  })
+
+  it('recusa o endpoint MCP sem o header', async () => {
+    const base = await subir()
+
+    const r = await fetch(`${base}/mcp`, { method: 'POST' })
+
+    expect(r.status).toBe(401)
+    expect(await r.text()).toBe('')
+  })
+
+  it('recusa o endpoint MCP com o segredo errado', async () => {
+    const base = await subir()
+
+    const r = await fetch(`${base}/mcp`, {
+      method: 'POST',
+      headers: { Authorization: 'Bearer errado' },
+    })
+
+    expect(r.status).toBe(401)
+  })
+
+  it('passa da autenticacao com o segredo certo', async () => {
+    const base = await subir()
+
+    const r = await fetch(`${base}/mcp`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${SEGREDO}`,
+        'Content-Type': 'application/json',
+        Accept: 'application/json, text/event-stream',
+      },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'ping' }),
+    })
+
+    // O que se prova aqui e que NAO foi barrado: o codigo de status do
+    // protocolo MCP depende da negociacao e nao interessa a este teste.
+    expect(r.status).not.toBe(401)
+  })
+})
