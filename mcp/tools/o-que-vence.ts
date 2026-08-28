@@ -5,11 +5,18 @@
  * situacoes vem derivadas do dominio -- atraso nunca e recalculado aqui, e por
  * isso a RN-90 (entrada nao atrasa, fica a confirmar) vale de graca.
  *
- * A janela pode cruzar a virada do mes, entao a consulta cobre a competencia
- * de hoje e a do ultimo dia da janela, sem repetir itens.
+ * A janela pode cruzar a virada do mes, entao a consulta cobre TODAS as
+ * competencias entre hoje e o ultimo dia da janela -- nao so as duas pontas,
+ * senao uma conta de um mes intermediario sumia em silencio -- sem repetir
+ * itens.
  */
 
-import { comparar, competenciaDe, somarDias } from '../../src/domain/calendar.js'
+import {
+  comparar,
+  competenciaDe,
+  intervaloDeCompetencias,
+  somarDias,
+} from '../../src/domain/calendar.js'
 import type { OcorrenciaResolvida } from '../../src/domain/types.js'
 import type { AppEmMemoria } from '../app-em-memoria.js'
 import { dinheiro, item, type Dinheiro, type ItemFormatado } from '../formatacao.js'
@@ -34,7 +41,15 @@ export async function oQueVence(
   const dias = args.dias ?? DIAS_PADRAO
   const ate = somarDias(args.hoje, dias)
 
-  const competencias = [...new Set([competenciaDe(args.hoje), competenciaDe(ate)])]
+  // Todas as competencias da janela, nao apenas as duas pontas.
+  //
+  // Uma saida `previsto` de um mes intermediario nao pertence a competencia de
+  // hoje nem a de `ate`, e ainda nao esta atrasada -- entao `atrasadasDeAntes`
+  // tambem nao a alcanca. Projetar so as pontas a fazia sumir em silencio.
+  const competencias = intervaloDeCompetencias(
+    competenciaDe(args.hoje),
+    competenciaDe(ate),
+  )
 
   const meses = await Promise.all(
     competencias.map((c) => app.projecao.projetarMes(c, args.hoje)),

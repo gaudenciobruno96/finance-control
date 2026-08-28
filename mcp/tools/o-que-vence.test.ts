@@ -105,4 +105,54 @@ describe('oQueVence', () => {
     expect(r.atrasado.some((i) => i.competencia === '2026-03')).toBe(false)
     await app.encerrar()
   })
+
+  it('nao conta duas vezes uma divida antiga quando a janela cruza a virada do mes', async () => {
+    const app = await criarAppDoBackup(ORCAMENTO_SIMPLES)
+
+    // Em 28 de marco, janela de 10 dias cai em 7 de abril: a consulta projeta
+    // marco E abril. O aluguel de fevereiro (regra vigente desde janeiro, sem
+    // baixa) esta atrasado nas DUAS projecoes -- sem a deduplicacao por
+    // chave, apareceria duplicado em `atrasado`.
+    const r = await oQueVence(app, { dias: 10, hoje: '2026-03-28' })
+
+    expect(r.ate).toBe('2026-04-07')
+    const alugueisDeFevereiro = r.atrasado.filter(
+      (i) => i.nome === 'Aluguel' && i.competencia === '2026-02',
+    )
+    expect(alugueisDeFevereiro).toHaveLength(1)
+    await app.encerrar()
+  })
+
+  it('nao perde o mes do meio numa janela de tres meses', async () => {
+    const app = await criarAppDoBackup({
+      ...ORCAMENTO_SIMPLES,
+      ocorrencias: [
+        ...ORCAMENTO_SIMPLES.ocorrencias,
+        {
+          id: 'o-manutencao-fev',
+          geradorTipo: 'avulso',
+          geradorId: null,
+          competencia: '2026-02',
+          tipo: 'saida',
+          nome: 'Manutencao',
+          valorPrevistoCentavos: 35000,
+          dataVencimento: '2026-02-20',
+          dataPagamento: null,
+          valorPagoCentavos: null,
+          ignorado: false,
+          observacao: null,
+        },
+      ],
+    })
+
+    // Janela de 90 dias a partir de 15 de janeiro cobre jan, fev, mar e abr
+    // (ate = 15 de abril). A Manutencao de fevereiro nao pertence nem a
+    // competencia de hoje (janeiro) nem a de `ate` (abril): projetar so as
+    // duas pontas a fazia sumir em silencio.
+    const r = await oQueVence(app, { dias: 90, hoje: '2026-01-15' })
+
+    expect(r.ate).toBe('2026-04-15')
+    expect(r.aPagar.map((i) => i.nome)).toContain('Manutencao')
+    await app.encerrar()
+  })
 })
