@@ -599,3 +599,34 @@
 
 ---
 
+## Nova iniciativa — Servidor MCP de consulta financeira (fora do ciclo AI-DLC das 3 unidades)
+**Timestamp**: 2026-08-28T15:10:00Z
+**User Input**: "Cara, eu criei um aplicativo pra gerenciar minhas financas, minhas contas, meus salarios recebidos e tudo mais. Mas agora eu estava pensando em criar na verdade um MCP, onde eu passo meus gastos e financas pra voce, e voce consegue me dizer, o que eu tenho de gasto, o que que eu tenho que fazer e tudo mais, conectar com a IA ne? Tem algum MCP ja disponivel online, em algum repositorio publico, ou devemos criar o nosso e tudo mais. Que que, que que voce me sugere? inclusive tenho esse app / o app QUE CRIEI EH ESSE AQUI / "C:\Users\Usuario\repos\finance-control" / da uma olhada, as vezes ja tem algum MCP que cobre a maioria... e outra podemos ate fazer um fork e fazer alguns upgrades para dar match com nossa proposta oq acha?"
+**AI Response**: "Pesquisa dos MCPs publicos existentes (Firefly III, Actual Budget, expense-tracker-mcp-server, expense-mcp-server). Conclusao: nenhum serve e fork nao compensa — todos pressupoem ser donos dos dados ou falam com a API de um app inteiro diferente. Recomendacao de construir servidor proprio como casca fina sobre src/domain/ e src/services/, aproveitando que o dominio e puro e que o backup no GitHub ja e um canal de leitura fora do navegador."
+**Context**: Inicio de nova iniciativa. Conduzida pelo workflow superpowers (brainstorming -> spec -> plano -> execucao por subagentes), escolhido explicitamente pelo usuario, e nao pelo ciclo AI-DLC. Registrado aqui para manter a trilha do repositorio completa.
+
+---
+
+## Decisoes de design do MCP
+**Timestamp**: 2026-08-28T15:25:00Z
+**User Input**: Respostas as perguntas de brainstorming: escopo "So leitura, por enquanto"; fonte de dados "O backup no GitHub privado"; local do codigo "Dentro do finance-control, em mcp/"; ferramentas da v1 "situacao_do_mes, o_que_vence, historico_de_gastos, simular_cenario"
+**AI Response**: "Desenho apresentado em tres secoes (arquitetura e fluxo de dados; as quatro ferramentas; estrutura, seguranca e testes), aprovadas uma a uma. Decisao central: montar a aplicacao inteira em memoria no processo do servidor MCP, via Dexie sobre fake-indexeddb, a partir do DocumentoBackup, reusando dominio e servicos sem duplicar matematica. Somente-leitura por construcao: banco volatil e nenhuma funcao de escrita no GitHub."
+**Context**: INCEPTION equivalente. Spec gravada em docs/superpowers/specs/2026-08-28-mcp-consulta-financeira-design.md, commit 9b0c61f, branch mcp-consulta-financeira.
+
+---
+
+## Aprovacao da spec e do plano
+**Timestamp**: 2026-08-28T15:40:00Z
+**User Input**: "Ta ok! Bora" / "Entao bora!!! Pode escrever o plano" / "1"
+**AI Response**: "Spec commitada (9b0c61f). Plano de implementacao escrito em docs/superpowers/plans/2026-08-28-mcp-consulta-financeira.md com 8 tarefas em TDD, commit e285463. Usuario escolheu execucao dirigida por subagentes (uma subagente implementadora por tarefa, revisao apos cada uma, revisao ampla ao final)."
+**Context**: CONSTRUCTION equivalente. Nenhum arquivo de src/ e modificado por este trabalho — restricao global do plano, verificavel por `git diff main --stat -- src/`.
+
+---
+
+## Task 1 — Fundacao: app em memoria a partir do backup
+**Timestamp**: 2026-08-28T16:00:00Z
+**User Input**: "Corrigir agora, o achado governa" (decisao sobre achado da revisao que contradizia o plano)
+**AI Response**: "Task 1 implementada e commitada (5b72b3a): mcp/app-em-memoria.ts, mcp/fixtures/orcamento-simples.ts, mcp/app-em-memoria.test.ts, mcp/tsconfig.json, mais a ligacao ao ferramental (package.json, vitest.config.ts, eslint.config.js). Revisao aprovou a conformidade com a spec e confirmou que a regra de fronteira nova foi acrescentada DENTRO dos blocos existentes, sem desligar silenciosamente a fronteira de camadas. Um achado Important marcado como plan-mandated: encerrar() chamava apenas db.close(), sem db.delete(), vazando bancos no registro global do fake-indexeddb. Escalado ao usuario porque o defeito estava no plano; usuario decidiu que o achado governa. Plano corrigido e correcao despachada."
+**Context**: CONSTRUCTION — Task 1 de 8. Achado registrado tambem no ledger .superpowers/sdd/2026-08-28-mcp-consulta-financeira/progress.md. Observacao alheia a este trabalho: o teste pre-existente src/ui/screens/flows.test.tsx falha por drift da data do sistema (hoje 2026-08-28 contra janela fixa da fixture), confirmado por git stash como independente destas mudancas.
+
+---

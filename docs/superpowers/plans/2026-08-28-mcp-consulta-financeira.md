@@ -16,6 +16,7 @@
 - **A data corrente nunca é lida do relógio dentro de uma função de lógica.** `hoje: DataISO` entra como parâmetro em toda ferramenta. Só `mcp/server.ts` tem permissão de consultar o relógio, e apenas para preencher o default.
 - **Imports internos levam a extensão `.js`** (`from '../src/domain/money.js'`), seguindo o padrão do repositório.
 - **Nenhum valor monetário vai para `stderr` ou log.** Mensagem de erro nomeia a operação que falhou, nunca o dado.
+- **Nunca assere texto de moeda com espaço ASCII literal.** `Intl.NumberFormat` em pt-BR separa o símbolo do número com espaço estreito sem quebra (U+202F), e a escolha varia com a versão do ICU. Use `toMatch(/^R\$\s?1\.234,56$/u)` — `\s` em JavaScript casa os dois. É o que `src/domain/money.test.ts` já faz.
 - **O servidor não tem função que faça `PUT` ou `POST` no GitHub.** Somente-leitura é estrutural, não uma promessa.
 - Branch de trabalho: `mcp-consulta-financeira`. Spec de referência: `docs/superpowers/specs/2026-08-28-mcp-consulta-financeira-design.md`.
 
@@ -446,14 +447,15 @@ import type { OcorrenciaResolvida } from '../src/domain/types.js'
 
 describe('dinheiro', () => {
   it('devolve os centavos intactos junto do texto', () => {
-    expect(dinheiro(123456)).toEqual({
-      valorCentavos: 123456,
-      valor: 'R$ 1.234,56',
-    })
+    // `Intl.NumberFormat` em pt-BR separa simbolo e numero com espaco
+    // ESTREITO sem quebra (U+202F), nao com espaco ASCII. `\s` em JavaScript
+    // casa os dois, e por isso `src/domain/money.test.ts` ja assere assim.
+    expect(dinheiro(123456).valorCentavos).toBe(123456)
+    expect(dinheiro(123456).valor).toMatch(/^R\$\s?1\.234,56$/u)
   })
 
   it('formata zero', () => {
-    expect(dinheiro(0).valor).toBe('R$ 0,00')
+    expect(dinheiro(0).valor).toMatch(/^R\$\s?0,00$/u)
   })
 
   it('formata negativo', () => {
@@ -484,7 +486,7 @@ describe('item', () => {
 
   it('usa o valor pago quando existe', () => {
     expect(item(base).valorCentavos).toBe(24590)
-    expect(item(base).valor).toBe('R$ 245,90')
+    expect(item(base).valor).toMatch(/^R\$\s?245,90$/u)
   })
 
   it('cai para o previsto quando nao ha pagamento', () => {
@@ -969,7 +971,8 @@ describe('situacaoDoMes', () => {
     const r = await situacaoDoMes(app, { competencia: '2026-03', hoje: '2026-03-20' })
 
     expect(r.jaResolvido.valorCentavos).toBe(24590)
-    expect(r.jaResolvido.valor).toBe('R$ 245,90')
+    // Espaco estreito (U+202F) do Intl: `\s` casa ASCII e nao-quebravel.
+    expect(r.jaResolvido.valor).toMatch(/^R\$\s?245,90$/u)
     await app.encerrar()
   })
 
