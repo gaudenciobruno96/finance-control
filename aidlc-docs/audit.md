@@ -653,3 +653,18 @@
 **Context**: CONSTRUCTION concluida. Branch mcp-consulta-financeira, 17 commits a partir de d9f008c.
 
 ---
+## Virada de rumo — MCP hospedado substitui o app
+**Timestamp**: 2026-08-28T18:10:00Z
+**User Input**: "nao tenho esse repo de backup" / "mas seguinte, estou pensando em deixar esse mcp com um banco num projeto do railways... e ter alguma forma de ter um claude rodando hospedando sem precisar ter meu PC ligado, é possivel? /braimstorm" / "entao eu queria apenas o MCP, o app na vdd vai ser o claude no celular... eu quero remover tudo que eh do APP, tela backend, só quero o MCP conectado no meu claude no celular e eh isso" / "Não, começo do zero" / "Faz sentido" / "pode seguir"
+**AI Response**: "Brainstorming conduzido. Decisoes: o Claude no celular vira a interface; nao havera PWA, tela nem IndexedDB; Postgres no Railway vira a fonte da verdade; o MCP passa a escrever, nao so ler; nao ha dados a preservar. Levantado que src/domain/ atravessa a virada intacto e e o ativo real. Registrados os tres custos aceitos: lancar por conversa erra em silencio, perde-se a visao de conjunto, e some o acesso offline. Escopo grande demais para uma spec: decomposto em quatro projetos, comecando por um spike de viabilidade. Verificado por pesquisa que custom connectors aceitam static_headers, o que dispensa implementar um servidor OAuth 2.1 completo — o item mais caro do projeto."
+**Context**: Nova INCEPTION. O trabalho anterior (MCP somente-leitura sobre backup do GitHub) permanece em main e sera removido no Projeto 3. Motivo imediato da virada: o usuario nunca configurou o repositorio de backup, entao o MCP entregue nao tinha fonte de dados.
+
+---
+
+## Spike de MCP remoto — desenho e plano
+**Timestamp**: 2026-08-28T18:10:00Z
+**User Input**: "Faz sentido" (aprovacao do desenho) / "pode seguir" (aprovacao para escrever o plano)
+**AI Response**: "Spec gravada em docs/superpowers/specs/2026-08-28-mcp-remoto-spike-design.md, commit eff5a55. Plano em docs/superpowers/plans/2026-08-28-mcp-remoto-spike.md, com tres tarefas: autenticacao por header em tempo constante, servidor Streamable HTTP com a ferramenta ping, e deploy no Railway com conexao ao Claude. APIs do SDK 1.30.0 verificadas no node_modules antes de escrever o plano, em vez de assumidas de memoria — pratica adotada apos os seis defeitos semanticos que a execucao anterior revelou. Criterio de sucesso do spike nao e teste verde: e a resposta chegar no celular com o computador desligado."
+**Context**: Projeto 0 de 4. Branch mcp-remoto-spike. Decisao de seguranca registrada: o servidor recusa subir sem FINANCE_MCP_SEGREDO, invertendo de proposito a decisao do servidor stdio (que sobe e falha na primeira chamada), porque subir sem segredo publicaria um endpoint aberto na internet.
+
+---
