@@ -716,7 +716,10 @@ describe('criarFonteGitHub', () => {
   })
 
   it('reaproveita o documento quando o sha nao mudou', async () => {
-    const buscar = vi.fn().mockResolvedValue(respostaGitHub(ORCAMENTO_SIMPLES, 'sha1'))
+    // mockImplementation, nao mockResolvedValue: o corpo de uma Response so
+    // pode ser lido UMA vez, entao reusar a mesma instancia entre chamadas
+    // falha com "body already read". Cada chamada precisa de uma Response nova.
+    const buscar = vi.fn().mockImplementation(() => respostaGitHub(ORCAMENTO_SIMPLES, 'sha1'))
     const fonte = criarFonteGitHub(CFG, buscar as unknown as typeof fetch)
 
     const a = await fonte.obter()
@@ -724,6 +727,29 @@ describe('criarFonteGitHub', () => {
 
     expect(b).toBe(a)
     expect(buscar).toHaveBeenCalledTimes(2)
+  })
+
+  it('nao decodifica de novo quando o sha se repete', async () => {
+    // Prova por comportamento, sem espionar JSON.parse: a segunda resposta traz
+    // o MESMO sha com conteudo impossivel de desserializar. Se o decode for
+    // pulado, nada lanca; se nao for, o JSON.parse estoura.
+    const buscar = vi
+      .fn()
+      .mockImplementationOnce(() => respostaGitHub(ORCAMENTO_SIMPLES, 'sha1'))
+      .mockImplementationOnce(
+        () =>
+          new Response(
+            JSON.stringify({ content: 'ISSO-NAO-E-JSON', sha: 'sha1', encoding: 'base64' }),
+            { status: 200, headers: { 'content-type': 'application/json' } },
+          ),
+      )
+    const fonte = criarFonteGitHub(CFG, buscar as unknown as typeof fetch)
+
+    const a = await fonte.obter()
+    const b = await fonte.obter()
+
+    expect(b).toBe(a)
+    expect(b.regras).toHaveLength(3)
   })
 
   it('devolve documento novo quando o sha muda', async () => {
@@ -871,7 +897,8 @@ export function criarFonteGitHub(
   let shaEmCache: string | null = null
   let docEmCache: DocumentoBackup | null = null
 
-  async function baixar(): Promise<{ doc: DocumentoBackup; sha: string }> {
+  /** Baixa o envelope da API. Nao decodifica: o sha ainda vai ser comparado. */
+  async function baixarEnvelope(): Promise<RespostaConteudo> {
     const resposta = await buscar(url(cfg), {
       method: 'GET',
       headers: {
@@ -890,26 +917,34 @@ export function criarFonteGitHub(
       )
     }
 
-    const corpo = (await resposta.json()) as RespostaConteudo
-    const texto = Buffer.from(corpo.content, 'base64').toString('utf-8')
+    return (await resposta.json()) as RespostaConteudo
+  }
 
-    return { doc: JSON.parse(texto) as DocumentoBackup, sha: corpo.sha }
+  function decodificar(corpo: RespostaConteudo): DocumentoBackup {
+    const texto = Buffer.from(corpo.content, 'base64').toString('utf-8')
+    return JSON.parse(texto) as DocumentoBackup
   }
 
   return {
     async obter(): Promise<DocumentoBackup> {
-      const { doc, sha } = await baixar()
+      const corpo = await baixarEnvelope()
 
-      if (sha === shaEmCache && docEmCache !== null) return docEmCache
+      // A comparacao vem ANTES do decode: e o decode que o cache existe para
+      // evitar. Compara-lo depois faria o trabalho caro de qualquer forma, e o
+      // cache so trocaria a referencia devolvida.
+      //
+      // A identidade da referencia devolvida tambem importa fora daqui: o
+      // servidor reusa o app em memoria enquanto receber o MESMO objeto.
+      if (corpo.sha === shaEmCache && docEmCache !== null) return docEmCache
 
-      shaEmCache = sha
+      const doc = decodificar(corpo)
+      shaEmCache = corpo.sha
       docEmCache = doc
       return doc
     },
 
     async obterSemCache(): Promise<DocumentoBackup> {
-      const { doc } = await baixar()
-      return doc
+      return decodificar(await baixarEnvelope())
     },
   }
 }
@@ -2021,6 +2056,8 @@ git commit -m "Ferramenta de simulacao de cenario"
 - Consumes: tudo produzido nas tarefas 1–7
 - Produces: executável `npm run mcp`, servindo quatro ferramentas por stdio
 
+**Decisão de cache tomada durante a execução da Task 3:** as três ferramentas de consulta compartilham um `AppEmMemoria` reusado enquanto o backup remoto não muda. Reconstruir o banco Dexie é o custo dominante de uma consulta — maior que o download e muito maior que a desserialização — e sem esse reuso o cache por SHA da fonte não economizaria nada que importe. O reuso se apoia na identidade da referência que `obter()` devolve: mesmo SHA, mesmo objeto. `simular_cenario` fica de fora por construção — ela usa `obterSemCache()` e constrói seus próprios bancos descartáveis, porque escreve neles.
+
 - [ ] **Step 1: Implementar `mcp/server.ts`**
 
 Esta tarefa não tem teste unitário próprio: o servidor é apenas registro e ligação, e toda a lógica já está coberta. A verificação é o Step 3, com o servidor rodando de verdade.
@@ -2038,7 +2075,8 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { z } from 'zod'
 
-import { criarAppDoBackup } from './app-em-memoria.js'
+import type { DocumentoBackup } from '../src/data/backup-serializer.js'
+import { criarAppDoBackup, type AppEmMemoria } from './app-em-memoria.js'
 import { lerConfiguracao } from './configuracao.js'
 import { criarFonteGitHub, type FonteBackup } from './fonte-github.js'
 import { historicoDeGastos } from './tools/historico-de-gastos.js'
@@ -2087,6 +2125,36 @@ function criarAcesso(): () => FonteBackup {
 
 const acesso = criarAcesso()
 
+/**
+ * App em memoria reusado enquanto o backup nao mudar.
+ *
+ * Reconstruir o banco Dexie a cada chamada e o custo real de uma consulta --
+ * bem maior que o download ou a desserializacao. `obter()` devolve a MESMA
+ * referencia de documento enquanto o sha remoto se repete, entao comparar por
+ * identidade responde "mudou?" sem que este modulo precise conhecer sha algum.
+ *
+ * O app anterior e encerrado ao ser trocado, nunca abandonado: o fake-indexeddb
+ * guarda bancos nao deletados pelo resto do processo.
+ */
+function criarAcessoAoApp(): () => Promise<AppEmMemoria> {
+  let docDoApp: DocumentoBackup | null = null
+  let appEmCache: AppEmMemoria | null = null
+
+  return async () => {
+    const doc = await acesso().obter()
+
+    if (doc === docDoApp && appEmCache !== null) return appEmCache
+
+    if (appEmCache !== null) await appEmCache.encerrar()
+
+    appEmCache = await criarAppDoBackup(doc)
+    docDoApp = doc
+    return appEmCache
+  }
+}
+
+const obterApp = criarAcessoAoApp()
+
 const server = new McpServer({
   name: 'financas',
   version: '1.0.0',
@@ -2107,18 +2175,13 @@ server.registerTool(
     },
   },
   async ({ competencia, hoje }) => {
-    const doc = await acesso().obter()
-    const app = await criarAppDoBackup(doc)
-    try {
-      return json(
-        await situacaoDoMes(app, {
-          ...(competencia === undefined ? {} : { competencia }),
-          hoje: hoje ?? hojeDoSistema(),
-        }),
-      )
-    } finally {
-      await app.encerrar()
-    }
+    const app = await obterApp()
+    return json(
+      await situacaoDoMes(app, {
+        ...(competencia === undefined ? {} : { competencia }),
+        hoje: hoje ?? hojeDoSistema(),
+      }),
+    )
   },
 )
 
@@ -2136,18 +2199,13 @@ server.registerTool(
     },
   },
   async ({ dias, hoje }) => {
-    const doc = await acesso().obter()
-    const app = await criarAppDoBackup(doc)
-    try {
-      return json(
-        await oQueVence(app, {
-          ...(dias === undefined ? {} : { dias }),
-          hoje: hoje ?? hojeDoSistema(),
-        }),
-      )
-    } finally {
-      await app.encerrar()
-    }
+    const app = await obterApp()
+    return json(
+      await oQueVence(app, {
+        ...(dias === undefined ? {} : { dias }),
+        hoje: hoje ?? hojeDoSistema(),
+      }),
+    )
   },
 )
 
@@ -2166,19 +2224,14 @@ server.registerTool(
     },
   },
   async ({ meses, nome, hoje }) => {
-    const doc = await acesso().obter()
-    const app = await criarAppDoBackup(doc)
-    try {
-      return json(
-        await historicoDeGastos(app, {
-          ...(meses === undefined ? {} : { meses }),
-          ...(nome === undefined ? {} : { nome }),
-          hoje: hoje ?? hojeDoSistema(),
-        }),
-      )
-    } finally {
-      await app.encerrar()
-    }
+    const app = await obterApp()
+    return json(
+      await historicoDeGastos(app, {
+        ...(meses === undefined ? {} : { meses }),
+        ...(nome === undefined ? {} : { nome }),
+        hoje: hoje ?? hojeDoSistema(),
+      }),
+    )
   },
 )
 
