@@ -9,7 +9,7 @@ describe('criarAppDoBackup', () => {
     const regras = await app.repos.regras.listar()
     expect(regras.map((r) => r.nome).sort()).toEqual(['Aluguel', 'Luz', 'Salario'])
 
-    app.encerrar()
+    await app.encerrar()
   })
 
   it('monta o servico de projecao sobre os dados carregados', async () => {
@@ -23,7 +23,7 @@ describe('criarAppDoBackup', () => {
     expect(mes.totalJaResolvidoCentavos).toBe(24590)
     expect(mes.saldoRelativo).toBe(false)
 
-    app.encerrar()
+    await app.encerrar()
   })
 
   it('isola bancos entre chamadas', async () => {
@@ -37,8 +37,8 @@ describe('criarAppDoBackup', () => {
     expect(await a.repos.regras.listar()).toHaveLength(3)
     expect(await b.repos.regras.listar()).toHaveLength(0)
 
-    a.encerrar()
-    b.encerrar()
+    await a.encerrar()
+    await b.encerrar()
   })
 
   it('migra documento de schema anterior', async () => {
@@ -64,6 +64,6 @@ describe('criarAppDoBackup', () => {
     expect(p).toBeDefined()
     expect(p).not.toHaveProperty('cartaoId')
 
-    app.encerrar()
+    await app.encerrar()
   })
 })

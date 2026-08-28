@@ -27,7 +27,7 @@ export interface AppEmMemoria {
   readonly db: BancoFinanceiro
   readonly repos: Repositorios
   readonly projecao: ProjectionService
-  readonly encerrar: () => void
+  readonly encerrar: () => Promise<void>
 }
 
 /**
@@ -57,6 +57,13 @@ export async function criarAppDoBackup(
     db,
     repos,
     projecao: criarProjectionService(repos),
-    encerrar: () => db.close(),
+    // close() sozinho apenas derruba a conexao: o fake-indexeddb guarda o
+    // banco no registro global pelo resto do processo. Como simular_cenario
+    // cria dois apps por chamada, faltar o delete() vazaria dois bancos por
+    // simulacao. Mesmo par que `src/test-support/app-harness.ts` usa.
+    encerrar: async () => {
+      db.close()
+      await db.delete()
+    },
   }
 }

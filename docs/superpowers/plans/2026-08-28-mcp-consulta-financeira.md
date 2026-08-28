@@ -55,7 +55,7 @@
 **Interfaces:**
 - Consumes: `criarBanco`, `BancoFinanceiro`, `VERSAO_SCHEMA` de `src/data/db.js`; `criarRepositorios`, `Repositorios` de `src/data/repositories.js`; `escrever`, `migrarDocumento`, `DocumentoBackup` de `src/data/backup-serializer.js`; `criarProjectionService`, `ProjectionService` de `src/services/projection-service.js`
 - Produces:
-  - `interface AppEmMemoria { readonly db: BancoFinanceiro; readonly repos: Repositorios; readonly projecao: ProjectionService; readonly encerrar: () => void }`
+  - `interface AppEmMemoria { readonly db: BancoFinanceiro; readonly repos: Repositorios; readonly projecao: ProjectionService; readonly encerrar: () => Promise<void> }`
   - `async function criarAppDoBackup(doc: DocumentoBackup): Promise<AppEmMemoria>`
   - `const ORCAMENTO_SIMPLES: DocumentoBackup` e `const ORCAMENTO_SEM_ANCORA: DocumentoBackup` em `mcp/fixtures/orcamento-simples.ts`
 
@@ -239,7 +239,7 @@ describe('criarAppDoBackup', () => {
     const regras = await app.repos.regras.listar()
     expect(regras.map((r) => r.nome).sort()).toEqual(['Aluguel', 'Luz', 'Salario'])
 
-    app.encerrar()
+    await app.encerrar()
   })
 
   it('monta o servico de projecao sobre os dados carregados', async () => {
@@ -253,7 +253,7 @@ describe('criarAppDoBackup', () => {
     expect(mes.totalJaResolvidoCentavos).toBe(24590)
     expect(mes.saldoRelativo).toBe(false)
 
-    app.encerrar()
+    await app.encerrar()
   })
 
   it('isola bancos entre chamadas', async () => {
@@ -267,8 +267,8 @@ describe('criarAppDoBackup', () => {
     expect(await a.repos.regras.listar()).toHaveLength(3)
     expect(await b.repos.regras.listar()).toHaveLength(0)
 
-    a.encerrar()
-    b.encerrar()
+    await a.encerrar()
+    await b.encerrar()
   })
 
   it('migra documento de schema anterior', async () => {
@@ -294,7 +294,7 @@ describe('criarAppDoBackup', () => {
     expect(p).toBeDefined()
     expect(p).not.toHaveProperty('cartaoId')
 
-    app.encerrar()
+    await app.encerrar()
   })
 })
 ```
@@ -339,7 +339,7 @@ export interface AppEmMemoria {
   readonly db: BancoFinanceiro
   readonly repos: Repositorios
   readonly projecao: ProjectionService
-  readonly encerrar: () => void
+  readonly encerrar: () => Promise<void>
 }
 
 /**
@@ -369,7 +369,14 @@ export async function criarAppDoBackup(
     db,
     repos,
     projecao: criarProjectionService(repos),
-    encerrar: () => db.close(),
+    // close() sozinho apenas derruba a conexao: o fake-indexeddb guarda o
+    // banco no registro global pelo resto do processo. Como simular_cenario
+    // cria dois apps por chamada, faltar o delete() vazaria dois bancos por
+    // simulacao. Mesmo par que `src/test-support/app-harness.ts` usa.
+    encerrar: async () => {
+      db.close()
+      await db.delete()
+    },
   }
 }
 ```
@@ -953,7 +960,7 @@ describe('situacaoDoMes', () => {
     const r = await situacaoDoMes(app, { hoje: '2026-03-20' })
 
     expect(r.competencia).toBe('2026-03')
-    app.encerrar()
+    await app.encerrar()
   })
 
   it('devolve totais em centavos e em texto', async () => {
@@ -963,7 +970,7 @@ describe('situacaoDoMes', () => {
 
     expect(r.jaResolvido.valorCentavos).toBe(24590)
     expect(r.jaResolvido.valor).toBe('R$ 245,90')
-    app.encerrar()
+    await app.encerrar()
   })
 
   it('lista o aluguel nao pago como pendente', async () => {
@@ -973,7 +980,7 @@ describe('situacaoDoMes', () => {
 
     expect(r.faltaPagar.map((i) => i.nome)).toContain('Aluguel')
     expect(r.faltaPagar.every((i) => i.tipo === 'saida')).toBe(true)
-    app.encerrar()
+    await app.encerrar()
   })
 
   it('marca saldoRelativo quando nao ha ancora', async () => {
@@ -983,7 +990,7 @@ describe('situacaoDoMes', () => {
 
     expect(r.saldoRelativo).toBe(true)
     expect(r.avisoSaldoRelativo).toMatch(/ancora|âncora/i)
-    app.encerrar()
+    await app.encerrar()
   })
 
   it('nao emite aviso quando ha ancora', async () => {
@@ -993,7 +1000,7 @@ describe('situacaoDoMes', () => {
 
     expect(r.saldoRelativo).toBe(false)
     expect(r.avisoSaldoRelativo).toBeNull()
-    app.encerrar()
+    await app.encerrar()
   })
 
   it('expoe o dia de saldo minimo', async () => {
@@ -1003,7 +1010,7 @@ describe('situacaoDoMes', () => {
 
     expect(r.diaMinimo.data).toMatch(/^2026-03-\d{2}$/)
     expect(typeof r.diaMinimo.saldoCentavos).toBe('number')
-    app.encerrar()
+    await app.encerrar()
   })
 
   it('fecha a identidade saldo + entra - sai = sobra', async () => {
@@ -1016,7 +1023,7 @@ describe('situacaoDoMes', () => {
         r.entraApos.valorCentavos -
         r.saiApos.valorCentavos,
     ).toBe(r.sobra.valorCentavos)
-    app.encerrar()
+    await app.encerrar()
   })
 })
 ```
@@ -1144,7 +1151,7 @@ describe('oQueVence', () => {
 
     expect(r.atrasado.map((i) => i.nome)).toContain('Aluguel')
     expect(r.aPagar.map((i) => i.nome)).not.toContain('Aluguel')
-    app.encerrar()
+    await app.encerrar()
   })
 
   it('inclui o que vence dentro da janela', async () => {
@@ -1155,7 +1162,7 @@ describe('oQueVence', () => {
 
     expect(r.aPagar.map((i) => i.nome)).toContain('Aluguel')
     expect(r.atrasado).toHaveLength(0)
-    app.encerrar()
+    await app.encerrar()
   })
 
   it('exclui o que vence depois da janela', async () => {
@@ -1164,7 +1171,7 @@ describe('oQueVence', () => {
     const r = await oQueVence(app, { dias: 1, hoje: '2026-03-08' })
 
     expect(r.aPagar.map((i) => i.nome)).not.toContain('Aluguel')
-    app.encerrar()
+    await app.encerrar()
   })
 
   it('nunca rotula entrada como atrasada (RN-90)', async () => {
@@ -1175,7 +1182,7 @@ describe('oQueVence', () => {
 
     expect(r.atrasado.every((i) => i.tipo === 'saida')).toBe(true)
     expect(r.aConfirmar.map((i) => i.nome)).toContain('Salario')
-    app.encerrar()
+    await app.encerrar()
   })
 
   it('usa 7 dias por padrao', async () => {
@@ -1185,7 +1192,7 @@ describe('oQueVence', () => {
 
     expect(r.dias).toBe(7)
     expect(r.ate).toBe('2026-03-15')
-    app.encerrar()
+    await app.encerrar()
   })
 
   it('soma os totais de cada grupo', async () => {
@@ -1199,7 +1206,7 @@ describe('oQueVence', () => {
     expect(r.totalAPagar.valorCentavos).toBe(
       r.aPagar.reduce((t, i) => t + i.valorCentavos, 0),
     )
-    app.encerrar()
+    await app.encerrar()
   })
 
   it('nao exclui o item ignorado da contagem por engano', async () => {
@@ -1227,7 +1234,7 @@ describe('oQueVence', () => {
     const r = await oQueVence(app, { dias: 7, hoje: '2026-03-20' })
 
     expect(r.atrasado.map((i) => i.nome)).not.toContain('Aluguel')
-    app.encerrar()
+    await app.encerrar()
   })
 })
 ```
@@ -1424,7 +1431,7 @@ describe('historicoDeGastos', () => {
     // 200,00 + 300,00 + 400,00
     expect(luz?.total.valorCentavos).toBe(90000)
     expect(luz?.media.valorCentavos).toBe(30000)
-    app.encerrar()
+    await app.encerrar()
   })
 
   it('devolve a serie mensal em ordem cronologica', async () => {
@@ -1439,7 +1446,7 @@ describe('historicoDeGastos', () => {
       '2026-03',
     ])
     expect(luz?.meses.map((m) => m.total.valorCentavos)).toEqual([20000, 30000, 40000])
-    app.encerrar()
+    await app.encerrar()
   })
 
   it('exclui entradas: salario nao e gasto', async () => {
@@ -1448,7 +1455,7 @@ describe('historicoDeGastos', () => {
     const r = await historicoDeGastos(app, { meses: 6, hoje: '2026-03-20' })
 
     expect(r.itens.map((i) => i.nome)).not.toContain('Salario')
-    app.encerrar()
+    await app.encerrar()
   })
 
   it('exclui o que nao foi pago', async () => {
@@ -1458,7 +1465,7 @@ describe('historicoDeGastos', () => {
 
     // O aluguel e recorrente mas nunca teve pagamento registrado.
     expect(r.itens.map((i) => i.nome)).not.toContain('Aluguel')
-    app.encerrar()
+    await app.encerrar()
   })
 
   it('filtra por nome sem diferenciar maiuscula', async () => {
@@ -1468,7 +1475,7 @@ describe('historicoDeGastos', () => {
 
     expect(r.itens).toHaveLength(1)
     expect(r.itens[0]?.nome).toBe('Luz')
-    app.encerrar()
+    await app.encerrar()
   })
 
   it('respeita a janela de meses', async () => {
@@ -1481,7 +1488,7 @@ describe('historicoDeGastos', () => {
     expect(luz?.total.valorCentavos).toBe(40000)
     expect(r.de).toBe('2026-03')
     expect(r.ate).toBe('2026-03')
-    app.encerrar()
+    await app.encerrar()
   })
 
   it('ordena do maior gasto para o menor', async () => {
@@ -1509,7 +1516,7 @@ describe('historicoDeGastos', () => {
     const r = await historicoDeGastos(app, { meses: 6, hoje: '2026-03-20' })
 
     expect(r.itens[0]?.nome).toBe('Aluguel')
-    app.encerrar()
+    await app.encerrar()
   })
 
   it('devolve lista vazia quando nao ha gasto pago na janela', async () => {
@@ -1519,7 +1526,7 @@ describe('historicoDeGastos', () => {
 
     expect(r.itens).toEqual([])
     expect(r.totalGeral.valorCentavos).toBe(0)
-    app.encerrar()
+    await app.encerrar()
   })
 })
 ```
@@ -1977,8 +1984,8 @@ export async function simularCenario(
     }
   } finally {
     // Encerra mesmo se a projecao lancar: bancos abertos vazam entre chamadas.
-    base.encerrar()
-    cenario.encerrar()
+    await base.encerrar()
+    await cenario.encerrar()
   }
 }
 ```
@@ -2107,7 +2114,7 @@ server.registerTool(
         }),
       )
     } finally {
-      app.encerrar()
+      await app.encerrar()
     }
   },
 )
@@ -2136,7 +2143,7 @@ server.registerTool(
         }),
       )
     } finally {
-      app.encerrar()
+      await app.encerrar()
     }
   },
 )
@@ -2167,7 +2174,7 @@ server.registerTool(
         }),
       )
     } finally {
-      app.encerrar()
+      await app.encerrar()
     }
   },
 )
