@@ -117,6 +117,28 @@ describe('criarFonteGitHub', () => {
     expect(b.regras).toHaveLength(3)
   })
 
+  it('nao decodifica de novo quando o sha se repete', async () => {
+    const buscar = vi
+      .fn()
+      .mockImplementationOnce(() => respostaGitHub(ORCAMENTO_SIMPLES, 'sha1'))
+      // Mesmo sha, conteudo impossivel de desserializar: se o decode
+      // acontecer, este teste falha, que e exatamente o que se quer provar.
+      .mockImplementationOnce(
+        () =>
+          new Response(
+            JSON.stringify({ content: 'ISSO-NAO-E-JSON', sha: 'sha1', encoding: 'base64' }),
+            { status: 200, headers: { 'content-type': 'application/json' } },
+          ),
+      )
+    const fonte = criarFonteGitHub(CFG, buscar as unknown as typeof fetch)
+
+    const a = await fonte.obter()
+    const b = await fonte.obter()
+
+    expect(b).toBe(a)
+    expect(b.regras).toHaveLength(3)
+  })
+
   it('explica o 404 sem citar o token', async () => {
     // Token distinto do CFG padrao: 'tok' e substring da propria palavra
     // "token" que aparece legitimamente na mensagem generica de orientacao,

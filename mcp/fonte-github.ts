@@ -7,7 +7,9 @@
  *
  * O cache e chaveado pelo SHA do arquivo remoto. A chamada de rede acontece
  * sempre -- e barata e resolve a pergunta "mudou?" -- mas a desserializacao e
- * a reconstrucao do banco sao evitadas quando o SHA se repete.
+ * a reconstrucao do banco sao evitadas quando o SHA se repete: o download do
+ * envelope e a decodificacao do conteudo sao passos separados, e o SHA e
+ * comparado entre um e outro.
  */
 
 import type { DocumentoBackup } from '../src/data/backup-serializer.js'
@@ -44,7 +46,8 @@ export function criarFonteGitHub(
   let shaEmCache: string | null = null
   let docEmCache: DocumentoBackup | null = null
 
-  async function baixar(): Promise<{ doc: DocumentoBackup; sha: string }> {
+  /** Baixa o envelope da API. Nao decodifica: o sha ainda vai ser comparado. */
+  async function baixarEnvelope(): Promise<RespostaConteudo> {
     const resposta = await buscar(url(cfg), {
       method: 'GET',
       headers: {
@@ -63,26 +66,31 @@ export function criarFonteGitHub(
       )
     }
 
-    const corpo = (await resposta.json()) as RespostaConteudo
-    const texto = Buffer.from(corpo.content, 'base64').toString('utf-8')
+    return (await resposta.json()) as RespostaConteudo
+  }
 
-    return { doc: JSON.parse(texto) as DocumentoBackup, sha: corpo.sha }
+  function decodificar(corpo: RespostaConteudo): DocumentoBackup {
+    const texto = Buffer.from(corpo.content, 'base64').toString('utf-8')
+    return JSON.parse(texto) as DocumentoBackup
   }
 
   return {
     async obter(): Promise<DocumentoBackup> {
-      const { doc, sha } = await baixar()
+      const corpo = await baixarEnvelope()
 
-      if (sha === shaEmCache && docEmCache !== null) return docEmCache
+      // A comparacao vem ANTES do decode: e o decode que o cache existe para
+      // evitar. Compara-lo depois faria o trabalho caro de qualquer forma e o
+      // cache so trocaria a referencia devolvida.
+      if (corpo.sha === shaEmCache && docEmCache !== null) return docEmCache
 
-      shaEmCache = sha
+      const doc = decodificar(corpo)
+      shaEmCache = corpo.sha
       docEmCache = doc
       return doc
     },
 
     async obterSemCache(): Promise<DocumentoBackup> {
-      const { doc } = await baixar()
-      return doc
+      return decodificar(await baixarEnvelope())
     },
   }
 }
