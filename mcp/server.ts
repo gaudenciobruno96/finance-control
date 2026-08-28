@@ -10,8 +10,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { z } from 'zod'
 
-import type { DocumentoBackup } from '../src/data/backup-serializer.js'
-import { criarAppDoBackup, type AppEmMemoria } from './app-em-memoria.js'
+import { criarAcessoAoApp } from './cache-do-app.js'
 import { lerConfiguracao } from './configuracao.js'
 import { criarFonteGitHub, type FonteBackup } from './fonte-github.js'
 import { historicoDeGastos } from './tools/historico-de-gastos.js'
@@ -63,32 +62,20 @@ const acesso = criarAcesso()
 /**
  * App em memoria reusado enquanto o backup nao mudar.
  *
- * Reconstruir o banco Dexie a cada chamada e o custo real de uma consulta --
- * bem maior que o download ou a desserializacao. `obter()` devolve a MESMA
- * referencia de documento enquanto o sha remoto se repete, entao comparar por
- * identidade responde "mudou?" sem que este modulo precise conhecer sha algum.
+ * A logica de cache/memoizacao vive em `cache-do-app.ts`, nao aqui: este
+ * modulo chama `server.connect(...)` no topo (linha final do arquivo), entao
+ * nada daqui pode ser importado por um teste sem tambem conectar um
+ * transporte de verdade.
  *
- * O app anterior e encerrado ao ser trocado, nunca abandonado: o fake-indexeddb
- * guarda bancos nao deletados pelo resto do processo.
+ * `{ obter: () => acesso().obter() }` preserva a leitura preguicosa da
+ * configuracao (comentario de `criarAcesso` acima): `acesso()` so roda
+ * quando `obterApp()` e chamado pela primeira vez, nunca no import deste
+ * modulo.
  */
-function criarAcessoAoApp(): () => Promise<AppEmMemoria> {
-  let docDoApp: DocumentoBackup | null = null
-  let appEmCache: AppEmMemoria | null = null
-
-  return async () => {
-    const doc = await acesso().obter()
-
-    if (doc === docDoApp && appEmCache !== null) return appEmCache
-
-    if (appEmCache !== null) await appEmCache.encerrar()
-
-    appEmCache = await criarAppDoBackup(doc)
-    docDoApp = doc
-    return appEmCache
-  }
-}
-
-const obterApp = criarAcessoAoApp()
+const obterApp = criarAcessoAoApp({
+  obter: () => acesso().obter(),
+  obterSemCache: () => acesso().obterSemCache(),
+})
 
 const server = new McpServer({
   name: 'financas',
@@ -177,7 +164,9 @@ server.registerTool(
     description:
       'Projeta o efeito de gastos hipoteticos, comparando mes a mes com e sem ' +
       'eles. Nada e gravado: a simulacao roda num banco descartavel. Use para ' +
-      'responder se cabe assumir uma despesa nova ou um parcelamento.',
+      'responder se cabe assumir uma despesa nova ou um parcelamento. Quando ' +
+      'saldoRelativo for verdadeiro (no mes ou na resposta), NAO afirme um ' +
+      'saldo absoluto: leia avisoSaldoRelativo.',
     inputSchema: {
       lancamentos: z
         .array(
@@ -207,16 +196,22 @@ server.registerTool(
             z.object({
               tipo: z.literal('avulso'),
               ocorrencia: z.object({
-                geradorTipo: z.literal('avulso'),
-                geradorId: z.null(),
+                // Cinco campos mecanicos de um lancamento HIPOTETICO: um
+                // avulso simulado ja nasce nao pago e nao ignorado, e so
+                // pode ter vindo de 'avulso' (nunca de uma regra ou
+                // parcelamento que nao existe de verdade). Default poupa o
+                // modelo de preencher cinco valores com exatamente uma
+                // resposta sensata cada.
+                geradorTipo: z.literal('avulso').default('avulso'),
+                geradorId: z.null().default(null),
                 competencia: COMPETENCIA,
                 tipo: z.enum(['entrada', 'saida']),
                 nome: z.string(),
                 valorPrevistoCentavos: z.number().int(),
                 dataVencimento: DATA,
-                dataPagamento: DATA.nullable(),
-                valorPagoCentavos: z.number().int().nullable(),
-                ignorado: z.boolean(),
+                dataPagamento: DATA.nullable().default(null),
+                valorPagoCentavos: z.number().int().nullable().default(null),
+                ignorado: z.boolean().default(false),
                 observacao: z.string().nullable(),
               }),
             }),

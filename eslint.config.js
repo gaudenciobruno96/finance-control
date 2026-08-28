@@ -135,4 +135,29 @@ export default tseslint.config(
       ],
     },
   },
+
+  // ---------------------------------------------------------------
+  // Resto de src/ que os quatro blocos acima nao cobrem: os arquivos soltos
+  // na raiz de src/ (main.tsx, vite-env.d.ts) e src/test-support/, o lugar
+  // mais provavel de alguem tentar importar uma fixture de mcp/. Bloco
+  // estreito de proposito -- so a regra do mcp, nada de camada -- para nao
+  // sobrescrever as opcoes dos blocos de dominio/data/services acima (flat
+  // config SUBSTITUI as opcoes de uma regra por `files`, nao mescla).
+  // ---------------------------------------------------------------
+  {
+    files: ['src/*.{ts,tsx}', 'src/test-support/**/*.ts'],
+    rules: {
+      '@typescript-eslint/no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['**/mcp', '**/mcp/**'],
+              message: MSG_MCP,
+            },
+          ],
+        },
+      ],
+    },
+  },
 )

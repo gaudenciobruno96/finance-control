@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { ORCAMENTO_SIMPLES } from '../fixtures/orcamento-simples.js'
+import {
+  ORCAMENTO_ANCORA_FUTURA,
+  ORCAMENTO_SIMPLES,
+} from '../fixtures/orcamento-simples.js'
 import { simularCenario, type LancamentoHipotetico } from './simular-cenario.js'
 
 const GELADEIRA: LancamentoHipotetico = {
@@ -157,7 +160,69 @@ describe('simularCenario', () => {
       hoje: '2026-03-20',
     })
 
+    // O gasto absurdo so entra no cenario COM a hipotese: sem ela, o
+    // orcamento simples nunca fica negativo na janela.
     expect(r.primeiroMesNegativoComCenario).toBe('2026-04')
+    expect(r.primeiroMesNegativoSemCenario).toBeNull()
+  })
+
+  it('expoe o dia de saldo minimo dos dois cenarios, nao so do com-cenario', async () => {
+    const r = await simularCenario(ORCAMENTO_SIMPLES, {
+      lancamentos: [
+        {
+          tipo: 'regra',
+          regra: {
+            tipo: 'saida',
+            nome: 'Absurdo',
+            valorCentavos: 900000,
+            valorEhEstimativa: false,
+            diaDoMes: 2,
+            ajusteFimDeSemana: 'nenhum',
+            vigenteDe: '2026-04',
+            vigenteAte: null,
+          },
+        },
+      ],
+      ate: '2026-04',
+      hoje: '2026-03-20',
+    })
+
+    const abril = r.meses.find((m) => m.competencia === '2026-04')
+
+    // O gasto absurdo do dia 2 afunda o saldo COM cenario logo no inicio do
+    // mes -- bem abaixo de qualquer minimo que o cenario SEM ele alcance.
+    expect(abril?.diaMinimoComCenario.data).toBe('2026-04-02')
+    expect(abril?.diaMinimoSemCenario.data).not.toBe(abril?.diaMinimoComCenario.data)
+    expect(abril?.diaMinimoComCenario.saldoCentavos).toBeLessThan(
+      abril?.diaMinimoSemCenario.saldoCentavos ?? 0,
+    )
+  })
+
+  it('marca saldoRelativo por mes quando a ancora ainda nao vigorou naquele mes', async () => {
+    // Ancora cadastrada em 2026-06-01: para marco e abril ela ainda esta no
+    // futuro, entao a curva desses meses parte de zero (RN-30) -- mesmo
+    // efeito pratico de nao ter ancora nenhuma, mesmo com ancoras.length > 0.
+    const r = await simularCenario(ORCAMENTO_ANCORA_FUTURA, {
+      lancamentos: [],
+      ate: '2026-03',
+      hoje: '2026-03-20',
+    })
+
+    expect(r.meses.map((m) => m.saldoRelativo)).toEqual([true])
+    expect(r.saldoRelativo).toBe(true)
+    expect(r.avisoSaldoRelativo).toMatch(/ancora|âncora/i)
+  })
+
+  it('saldoRelativo e falso quando a ancora ja vigora no mes', async () => {
+    const r = await simularCenario(ORCAMENTO_SIMPLES, {
+      lancamentos: [],
+      ate: '2026-03',
+      hoje: '2026-03-20',
+    })
+
+    expect(r.meses.every((m) => !m.saldoRelativo)).toBe(true)
+    expect(r.saldoRelativo).toBe(false)
+    expect(r.avisoSaldoRelativo).toBeNull()
   })
 
   it('recusa janela maior que 24 meses', async () => {
@@ -168,5 +233,19 @@ describe('simularCenario', () => {
         hoje: '2026-03-20',
       }),
     ).rejects.toThrow(/24/)
+  })
+
+  it('recusa "ate" anterior a competencia de hoje, com mensagem acionavel', async () => {
+    const chamada = simularCenario(ORCAMENTO_SIMPLES, {
+      lancamentos: [],
+      ate: '2026-01',
+      hoje: '2026-03-20',
+    })
+
+    await expect(chamada).rejects.toThrow(/anterior/i)
+    // Nomeia os dois valores em jogo -- e o que torna o erro acionavel em
+    // vez de um ErroDeDominio [calendar] cru.
+    await expect(chamada).rejects.toThrow(/2026-01/)
+    await expect(chamada).rejects.toThrow(/2026-03/)
   })
 })

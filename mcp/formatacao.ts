@@ -59,14 +59,29 @@ export function item(o: OcorrenciaResolvida): ItemFormatado {
   }
 }
 
-export function ponto(p: PontoCurva): {
+export interface PontoFormatado {
   readonly data: string
   readonly saldoCentavos: number
   readonly saldo: string
-} {
+}
+
+export function ponto(p: PontoCurva): PontoFormatado {
   return {
     data: p.data,
     saldoCentavos: p.saldoCentavos,
     saldo: formatarBRL(p.saldoCentavos),
   }
 }
+
+/**
+ * Texto pronto para o assistente repetir quando o saldo devolvido e relativo.
+ *
+ * Compartilhado entre `situacao_do_mes` e `simular_cenario`: as duas
+ * ferramentas herdam o mesmo risco de RN-30 (sem ancora, ou com ancora fora
+ * do mes exibido, o saldo tem forma mas nao tem nivel), e um assistente que
+ * le so uma delas nao pode ficar sem a mesma defesa.
+ */
+export const AVISO_SALDO_RELATIVO =
+  'Nao ha ancora de saldo cadastrada. Os valores de saldo sao RELATIVOS: a ' +
+  'forma da curva e o dia de aperto estao corretos, mas o nivel esta ' +
+  'deslocado. Nao afirme um saldo absoluto a partir deles.'

@@ -62,8 +62,19 @@ describe('situacaoDoMes', () => {
 
     const r = await situacaoDoMes(app, { competencia: '2026-03', hoje: '2026-03-20' })
 
-    expect(r.diaMinimo.data).toMatch(/^2026-03-\d{2}$/)
-    expect(typeof r.diaMinimo.saldoCentavos).toBe('number')
+    // A ancora de 1.200,00 vale para 01/03, mas as regras de aluguel e luz
+    // vigoram desde 2026-01 e so tem ocorrencia PAGA registrada em marco --
+    // o aluguel e a luz de janeiro e fevereiro ficam "atrasado" e sao
+    // empurrados para o inicio da curva (RN-33/34), afundando o piso do mes
+    // bem abaixo da ancora. E um numero determinado pelo fixture, nao um
+    // "primeiro dia por acaso": um retorno que devolvesse o primeiro dia do
+    // mes com o saldo da ancora, sem somar os atrasados, passaria na data
+    // mas falharia no valor.
+    expect(r.diaMinimo.data).toBe('2026-03-01')
+    expect(r.diaMinimo.saldoCentavos).toBe(-284000)
+    // `\s` casa tanto o espaco ASCII quanto o nao-quebravel que o Intl usa
+    // (NBSP ou o espaco estreito U+202F, dependendo do ICU do ambiente).
+    expect(r.diaMinimo.saldo).toMatch(/^-R\$\s?2\.840,00$/u)
     await app.encerrar()
   })
 

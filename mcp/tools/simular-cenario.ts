@@ -13,12 +13,22 @@
  * ou um valor fracionado antes de ele virar projecao.
  */
 
-import { competenciaDe, intervaloDeCompetencias } from '../../src/domain/calendar.js'
+import {
+  compararCompetencias,
+  competenciaDe,
+  intervaloDeCompetencias,
+} from '../../src/domain/calendar.js'
 import type { Ocorrencia, Parcelamento, Regra } from '../../src/domain/types.js'
 import type { DocumentoBackup } from '../../src/data/backup-serializer.js'
 import { novoId } from '../../src/data/ids.js'
 import { criarAppDoBackup, type AppEmMemoria } from '../app-em-memoria.js'
-import { dinheiro, ponto, type Dinheiro } from '../formatacao.js'
+import {
+  AVISO_SALDO_RELATIVO,
+  dinheiro,
+  ponto,
+  type Dinheiro,
+  type PontoFormatado,
+} from '../formatacao.js'
 
 export type LancamentoHipotetico =
   | { readonly tipo: 'regra'; readonly regra: Omit<Regra, 'id'> }
@@ -30,11 +40,14 @@ export interface MesComparado {
   readonly semCenario: Dinheiro
   readonly comCenario: Dinheiro
   readonly diferenca: Dinheiro
-  readonly diaMinimoComCenario: {
-    readonly data: string
-    readonly saldoCentavos: number
-    readonly saldo: string
-  }
+  readonly diaMinimoSemCenario: PontoFormatado
+  readonly diaMinimoComCenario: PontoFormatado
+  /**
+   * Mesmo campo que `situacao_do_mes` devolve por mes (RN-30): sem ancora
+   * vigente ATE este mes, a curva parte de zero e o nivel do saldo esta
+   * deslocado, mesmo que a forma e o dia de aperto continuem corretos.
+   */
+  readonly saldoRelativo: boolean
 }
 
 export interface Simulacao {
@@ -43,7 +56,14 @@ export interface Simulacao {
   readonly meses: readonly MesComparado[]
   readonly primeiroMesNegativoSemCenario: string | null
   readonly primeiroMesNegativoComCenario: string | null
+  /**
+   * Saldo relativo do PRIMEIRO mes da janela (`de`), nao um "ou" entre todos
+   * os meses -- e o mes em que o leitor ancora a leitura da simulacao
+   * inteira. Cada `MesComparado` carrega o proprio valor para quem olha um
+   * mes especifico da janela.
+   */
   readonly saldoRelativo: boolean
+  readonly avisoSaldoRelativo: string | null
 }
 
 /**
@@ -78,6 +98,17 @@ export async function simularCenario(
   },
 ): Promise<Simulacao> {
   const de = competenciaDe(args.hoje)
+
+  // Guarda antes de chamar intervaloDeCompetencias: sem isso, um `ate`
+  // anterior a `hoje` escapa como ErroDeDominio [calendar] cru, sem dizer
+  // qual argumento corrigir.
+  if (compararCompetencias(args.ate, de) < 0) {
+    throw new Error(
+      `A competencia final (${args.ate}) e anterior a competencia de hoje ` +
+        `(${de}). Informe um "ate" igual ou posterior a competencia atual.`,
+    )
+  }
+
   const competencias = intervaloDeCompetencias(de, args.ate)
 
   if (competencias.length > MAXIMO_DE_MESES) {
@@ -96,6 +127,9 @@ export async function simularCenario(
     const meses: MesComparado[] = []
     let negativoSem: string | null = null
     let negativoCom: string | null = null
+    // undefined ate o primeiro mes ser processado; depois disso, fixo -- e o
+    // valor do mes `de` que decide o topo da resposta.
+    let saldoRelativoDoPrimeiroMes: boolean | undefined
 
     for (const c of competencias) {
       const [sem, com] = await Promise.all([
@@ -105,15 +139,22 @@ export async function simularCenario(
 
       if (negativoSem === null && sem.sobraCentavos < 0) negativoSem = c
       if (negativoCom === null && com.sobraCentavos < 0) negativoCom = c
+      saldoRelativoDoPrimeiroMes ??= sem.saldoRelativo
 
       meses.push({
         competencia: c,
         semCenario: dinheiro(sem.sobraCentavos),
         comCenario: dinheiro(com.sobraCentavos),
         diferenca: dinheiro(com.sobraCentavos - sem.sobraCentavos),
+        diaMinimoSemCenario: ponto(sem.curva.diaMinimo),
         diaMinimoComCenario: ponto(com.curva.diaMinimo),
+        // sem e com partem do mesmo documento e da mesma ancora -- o
+        // lancamento hipotetico nunca muda se ha ancora vigente ou nao.
+        saldoRelativo: sem.saldoRelativo,
       })
     }
+
+    const saldoRelativo = saldoRelativoDoPrimeiroMes ?? false
 
     return {
       de,
@@ -121,7 +162,8 @@ export async function simularCenario(
       meses,
       primeiroMesNegativoSemCenario: negativoSem,
       primeiroMesNegativoComCenario: negativoCom,
-      saldoRelativo: doc.ancoras.length === 0,
+      saldoRelativo,
+      avisoSaldoRelativo: saldoRelativo ? AVISO_SALDO_RELATIVO : null,
     }
   } finally {
     // Encerra mesmo se a projecao lancar: bancos abertos vazam entre chamadas.

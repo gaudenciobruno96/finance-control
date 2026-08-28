@@ -73,3 +73,16 @@ export const ORCAMENTO_SEM_ANCORA: DocumentoBackup = {
   ...ORCAMENTO_SIMPLES,
   ancoras: [],
 }
+
+/**
+ * Mesmo orcamento, com ancora datada no futuro (1o de junho). Exercita o
+ * OUTRO caminho de saldo relativo do RN-30: ha uma ancora cadastrada, mas
+ * ela nao vigora ainda para um mes como marco -- `ancoraForaDoFuturo` fica
+ * falso e o saldo desse mes e relativo mesmo com `ancoras.length > 0`. E o
+ * caso que `doc.ancoras.length === 0` (a formula errada) confundia com "tem
+ * ancora, saldo absoluto".
+ */
+export const ORCAMENTO_ANCORA_FUTURA: DocumentoBackup = {
+  ...ORCAMENTO_SIMPLES,
+  ancoras: [{ id: 'a-futura', data: '2026-06-01', saldoCentavos: 120000 }],
+}

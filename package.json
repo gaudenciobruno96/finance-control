@@ -40,7 +40,7 @@
     "@modelcontextprotocol/sdk": "^1.30.0",
     "dexie": "4.4.4",
     "dexie-react-hooks": "4.4.0",
-    "fake-indexeddb": "^6.2.5",
+    "fake-indexeddb": "6.2.5",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "react-router": "8.3.0",
