@@ -1,6 +1,22 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Server } from 'node:http'
+import { format } from 'node:util'
 import { criarApp, responderPing } from './servidor-http.js'
+
+/**
+ * Reconstroi o texto que `console.error` de fato imprimiria.
+ *
+ * `chamada.join(' ')` NAO serve: `Array.prototype.join` converte cada
+ * argumento via `String(x)`, que para um `Error` chama `toString()` e
+ * devolve so `nome: mensagem` -- as propriedades proprias extras (como
+ * `err.body`, que o body-parser anexa ao erro de parse) ficam de fora. O
+ * `console.error` real usa `util.format` por baixo, que ao formatar um
+ * `Error` imprime o stack e, depois dele, as propriedades proprias
+ * enumeraveis. So `format` reproduz isso fielmente.
+ */
+function textoRegistrado(espiao: { mock: { calls: unknown[][] } }): string {
+  return espiao.mock.calls.map((chamada) => format(...chamada)).join('\n')
+}
 
 const SEGREDO = 'segredo-de-teste-suficientemente-longo'
 
@@ -167,8 +183,35 @@ describe('criarApp', () => {
 
       expect(espiao).toHaveBeenCalled()
 
-      const registrado = espiao.mock.calls.map((chamada) => chamada.join(' ')).join('\n')
+      const registrado = textoRegistrado(espiao)
       expect(registrado).not.toContain(SEGREDO)
+    } finally {
+      espiao.mockRestore()
+    }
+  })
+
+  it('registra o erro de corpo malformado sem vazar o corpo da requisicao', async () => {
+    const base = await subir()
+    const espiao = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const SENTINELA = 'SENTINELA-NAO-DEVE-VAZAR-9271'
+
+    try {
+      // O body-parser, ao falhar o parse, anexa o corpo cru inteiro como
+      // propriedade `body` do erro (`http-errors` muta o SyntaxError
+      // original). Registrar o objeto `err` inteiro vazaria isso mesmo sem
+      // nunca tocar em `req.body` diretamente -- por isso a sentinela vai no
+      // CORPO malformado, nao no header.
+      const r = await fetch(`${base}/mcp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: `{ "valor": "${SENTINELA}"`,
+      })
+      await r.text()
+
+      expect(espiao).toHaveBeenCalled()
+
+      const registrado = textoRegistrado(espiao)
+      expect(registrado).not.toContain(SENTINELA)
     } finally {
       espiao.mockRestore()
     }

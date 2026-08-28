@@ -108,12 +108,27 @@ function statusDoErro(err: unknown): number {
  *
  * Restricao que sobrevive a este log: NUNCA registrar `req` (nem
  * `req.headers`, que carrega o segredo, nem `req.body`, que no Projeto 1 vai
- * carregar valores financeiros). Stack e mensagem do erro sao aceitaveis --
- * com uma ressalva que o Projeto 1 precisa revisitar quando o corpo trouxer
- * dados reais: a MENSAGEM de um erro de parsing pode citar um fragmento da
- * entrada (o SyntaxError do body-parser inclui o trecho de JSON que falhou).
- * Aceitavel agora, porque o corpo do spike nao carrega nada sensivel; deixa
- * de ser aceitavel no dia em que carregar.
+ * carregar valores financeiros) -- e, pelo mesmo motivo, NUNCA registrar o
+ * objeto `err` inteiro. Parece contraintuitivo, mas o `body-parser`, ao
+ * falhar o parse, chama `createError(400, err, { body: str, ... })` e o
+ * `http-errors` MUTA o `SyntaxError` original no lugar, anexando `err.body`
+ * com o corpo cru inteiro da requisicao. `console.error` de um `Error`
+ * imprime o stack e, depois dele, todas as propriedades proprias
+ * enumeraveis -- inclusive esse `body`. Por isso registramos so o `stack`
+ * (string montada pelo runtime com nome, mensagem e quadros de pilha; nao
+ * inclui propriedades proprias como `err.body`), nunca o `err` em si.
+ *
+ * Mesmo assim, uma ressalva que o Projeto 1 precisa revisitar quando o corpo
+ * trouxer dados reais: a MENSAGEM do erro (que faz parte do stack) ainda
+ * pode citar um trecho pequeno da entrada -- o SyntaxError de JSON indica a
+ * posicao e o token que falhou. Aceitavel no spike, porque o corpo e so um
+ * `ping` de schema vazio; deixa de ser aceitavel no dia em que carregar
+ * valores financeiros.
+ *
+ * Ponto menor para o Projeto 1, nao endereçado aqui: um chamador nao
+ * autenticado pode disparar este log a vontade e controla o tamanho de cada
+ * linha (o corpo cru entra no stack via a mensagem do parser) -- vale
+ * considerar truncar a mensagem ou limitar o tamanho do corpo aceito.
  */
 function tratarErroDeCorpo(
   err: unknown,
@@ -121,7 +136,10 @@ function tratarErroDeCorpo(
   res: Response,
   next: NextFunction,
 ): void {
-  console.error('erro nao tratado em /mcp:', err)
+  console.error(
+    'erro nao tratado em /mcp:',
+    err instanceof Error ? err.stack : 'erro nao-Error',
+  )
 
   if (res.headersSent) {
     next(err)
