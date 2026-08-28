@@ -14,6 +14,10 @@ const MSG_DATA =
 const MSG_SERVICES =
   'src/services/ nao pode importar de ui. A orquestracao nao conhece apresentacao.'
 
+const MSG_MCP =
+  'Nenhuma camada de src/ pode importar de mcp/. A dependencia e de mao ' +
+  'unica: o servidor MCP consome o app, o app nunca consome o servidor.'
+
 export default tseslint.config(
   {
     ignores: ['dist/**', 'node_modules/**', 'aidlc-docs/**', 'docs/**'],
@@ -63,6 +67,10 @@ export default tseslint.config(
               ],
               message: MSG_DOMINIO,
             },
+            {
+              group: ['**/mcp', '**/mcp/**'],
+              message: MSG_MCP,
+            },
           ],
         },
       ],
@@ -80,6 +88,10 @@ export default tseslint.config(
               group: ['**/services', '**/services/**', '**/ui', '**/ui/**'],
               message: MSG_DATA,
             },
+            {
+              group: ['**/mcp', '**/mcp/**'],
+              message: MSG_MCP,
+            },
           ],
         },
       ],
@@ -96,6 +108,27 @@ export default tseslint.config(
             {
               group: ['**/ui', '**/ui/**'],
               message: MSG_SERVICES,
+            },
+            {
+              group: ['**/mcp', '**/mcp/**'],
+              message: MSG_MCP,
+            },
+          ],
+        },
+      ],
+    },
+  },
+
+  {
+    files: ['src/ui/**/*.ts', 'src/ui/**/*.tsx'],
+    rules: {
+      '@typescript-eslint/no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['**/mcp', '**/mcp/**'],
+              message: MSG_MCP,
             },
           ],
         },

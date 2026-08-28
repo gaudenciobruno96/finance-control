@@ -4,7 +4,7 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   test: {
-    include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
+    include: ['src/**/*.test.ts', 'src/**/*.test.tsx', 'mcp/**/*.test.ts'],
 
     // Ambiente padrao `node`: as Unidades 1 e 2 nao dependem de DOM, e montar
     // o jsdom para elas acrescentava dezenas de segundos a cada execucao.
