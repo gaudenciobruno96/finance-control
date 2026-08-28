@@ -1167,7 +1167,9 @@ git commit -m "Ferramenta de situacao do mes"
 - Create: `mcp/tools/o-que-vence.test.ts`
 
 **Interfaces:**
-- Consumes: `AppEmMemoria` de `mcp/app-em-memoria.js`; `dinheiro`, `item` de `mcp/formatacao.js`; `competenciaDe`, `somarDias`, `comparar` de `src/domain/calendar.js`
+- Consumes: `AppEmMemoria` de `mcp/app-em-memoria.js`; `dinheiro`, `item` de `mcp/formatacao.js`; `competenciaDe`, `somarDias`, `comparar`, `intervaloDeCompetencias` de `src/domain/calendar.js`
+
+**Atenção ao fixture nos testes:** as regras de `ORCAMENTO_SIMPLES` são `vigenteDe: '2026-01'` e não há pagamento registrado em janeiro nem fevereiro. Consultando em março, existe dívida atrasada legítima de Aluguel e Luz desses meses — `projetarMes` varre 12 meses para trás e traz toda saída atrasada anterior. Asserção por `nome` puro colide com essa dívida real; restrinja também por `competencia` quando quiser falar de um item específico do mês corrente.
 - Produces: `async function oQueVence(app: AppEmMemoria, args: { dias?: number; hoje: string }): Promise<OQueVence>`, com `OQueVence` exportado
 
 - [ ] **Step 1: Escrever o teste que falha**
@@ -1299,7 +1301,12 @@ Esperado: FAIL, módulo `./o-que-vence.js` não encontrado.
  * de hoje e a do ultimo dia da janela, sem repetir itens.
  */
 
-import { comparar, competenciaDe, somarDias } from '../../src/domain/calendar.js'
+import {
+  comparar,
+  competenciaDe,
+  intervaloDeCompetencias,
+  somarDias,
+} from '../../src/domain/calendar.js'
 import type { OcorrenciaResolvida } from '../../src/domain/types.js'
 import type { AppEmMemoria } from '../app-em-memoria.js'
 import { dinheiro, item, type Dinheiro, type ItemFormatado } from '../formatacao.js'
@@ -1324,7 +1331,16 @@ export async function oQueVence(
   const dias = args.dias ?? DIAS_PADRAO
   const ate = somarDias(args.hoje, dias)
 
-  const competencias = [...new Set([competenciaDe(args.hoje), competenciaDe(ate)])]
+  // Todas as competencias da janela, nao apenas as duas pontas.
+  //
+  // Uma saida `previsto` de um mes intermediario nao pertence a competencia de
+  // hoje nem a de `ate`, e ainda nao esta atrasada -- entao `atrasadasDeAntes`
+  // tambem nao a alcanca. Projetar so as pontas a fazia sumir em silencio, que
+  // e o pior modo de falha num app cujo proposito e nao deixar conta passar.
+  const competencias = intervaloDeCompetencias(
+    competenciaDe(args.hoje),
+    competenciaDe(ate),
+  )
 
   const meses = await Promise.all(
     competencias.map((c) => app.projecao.projetarMes(c, args.hoje)),
