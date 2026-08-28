@@ -100,4 +100,50 @@ describe('criarApp', () => {
     // protocolo MCP depende da negociacao e nao interessa a este teste.
     expect(r.status).not.toBe(401)
   })
+
+  /**
+   * O que uma resposta de erro NAO pode conter, seja qual for o status: nada
+   * que descreva a estrutura interna do servidor. Compartilhado pelos dois
+   * testes de corpo malformado abaixo, autenticado e nao autenticado, porque
+   * a garantia e a mesma nos dois casos.
+   */
+  function semNadaInterno(texto: string): void {
+    expect(texto).not.toContain('SyntaxError')
+    expect(texto).not.toContain('at ') // formato de linha de stack trace do V8
+    expect(texto).not.toMatch(/\.(ts|js):\d+/) // "arquivo.ts:12" ou "arquivo.js:12"
+    expect(texto).not.toMatch(/<html/i)
+  }
+
+  it('POST nao autenticado com JSON malformado nao vaza estrutura interna', async () => {
+    const base = await subir()
+
+    const r = await fetch(`${base}/mcp`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{ isto nao e json valido',
+    })
+
+    // O parser de corpo (montado globalmente por createMcpExpressApp) roda
+    // ANTES do middleware de auth, entao um corpo malformado nunca chega a
+    // criarMiddlewareDeAuth -- o 401 nao e alcancavel aqui. O que a resposta
+    // tem que garantir e nao vazar nada, nao um status especifico: 401
+    // exigiria autenticar antes do parser, que roda mais cedo na cadeia
+    // global do Express e nao da para pular na frente dele.
+    semNadaInterno(await r.text())
+  })
+
+  it('POST autenticado com JSON malformado tambem responde de forma controlada', async () => {
+    const base = await subir()
+
+    const r = await fetch(`${base}/mcp`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${SEGREDO}`,
+      },
+      body: '{ isto nao e json valido',
+    })
+
+    semNadaInterno(await r.text())
+  })
 })

@@ -14,7 +14,7 @@ import { readFileSync } from 'node:fs'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { createMcpExpressApp } from '@modelcontextprotocol/sdk/server/express.js'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
-import express, { type Express } from 'express'
+import type { Express, NextFunction, Request, Response } from 'express'
 
 import { criarMiddlewareDeAuth, lerSegredo } from './auth.js'
 
@@ -69,6 +69,47 @@ function criarServidorMcp(): McpServer {
   return server
 }
 
+function statusDoErro(err: unknown): number {
+  if (typeof err === 'object' && err !== null && 'status' in err) {
+    const status = (err as { status?: unknown }).status
+    if (typeof status === 'number') return status
+  }
+
+  return 500
+}
+
+/**
+ * Middleware de erro do Express (assinatura de 4 parametros -- e assim que o
+ * Express reconhece que e um tratador de erro, nao um middleware normal).
+ *
+ * Existe porque `express.json()`, montado globalmente por
+ * `createMcpExpressApp`, roda ANTES de `criarMiddlewareDeAuth`. Um corpo JSON
+ * malformado estoura no parser antes da autenticacao ter a chance de rodar --
+ * autenticado ou nao. Sem este tratador, o erro cairia no handler padrao do
+ * Express, que sem `NODE_ENV=production` devolve uma pagina HTML com stack
+ * trace e caminho de arquivo para quem nao tem o segredo.
+ *
+ * A resposta aqui e sempre a mesma forma fixa: nunca `err.stack`, nunca
+ * `err.message` (a mensagem original do body-parser pode descrever a
+ * localizacao exata do erro de sintaxe, informacao interna que nao precisa
+ * sair). O status HTTP e preservado quando o erro declara um (400 para corpo
+ * malformado, por exemplo) porque isso e publico e nao depende do segredo;
+ * cai para 500 quando o erro nao diz nada sobre si mesmo.
+ */
+function tratarErroDeCorpo(
+  err: unknown,
+  _req: Request,
+  res: Response,
+  next: NextFunction,
+): void {
+  if (res.headersSent) {
+    next(err)
+    return
+  }
+
+  res.status(statusDoErro(err)).json({ erro: 'requisicao invalida' })
+}
+
 /**
  * Monta o app.
  *
@@ -92,13 +133,19 @@ export function criarApp(segredo: string): Express {
     res.status(200).json({ vivo: true, versao: VERSAO })
   })
 
-  // `express.json()` fica na rota, nao global: `createMcpExpressApp` ja monta
-  // middlewares proprios, e empilhar um parser global por cima corre o risco
-  // de consumir o corpo duas vezes.
+  // `createMcpExpressApp` ja monta `express.json()` globalmente, antes de
+  // qualquer rota registrada aqui -- por isso o corpo ja chega parseado ao
+  // handler, sem precisar (e sem poder, sem duplicar o parser) de outro
+  // `express.json()` nesta rota.
   //
   // A autenticacao vem ANTES do transporte: nada do protocolo MCP roda para
-  // quem nao passou pelo cadeado.
-  app.post('/mcp', express.json(), criarMiddlewareDeAuth(segredo), async (req, res) => {
+  // quem nao passou pelo cadeado. O que ela NAO consegue ficar na frente e do
+  // parser global: um corpo JSON malformado estoura no parser, antes deste
+  // middleware rodar, autenticado ou nao. E por isso que existe
+  // `tratarErroDeCorpo` abaixo -- ele garante que esse erro tambem sai
+  // controlado, sem stack nem estrutura interna, e sem dizer se quem mandou
+  // tinha o segredo certo.
+  app.post('/mcp', criarMiddlewareDeAuth(segredo), async (req, res) => {
     // Modo stateless: sem sessao em memoria. O Railway reinicia e escala o
     // processo quando quer, e sessao guardada aqui se perderia no meio de uma
     // conversa. Omitir `sessionIdGenerator` (em vez de passar `undefined`
@@ -119,6 +166,12 @@ export function criarApp(segredo: string): Express {
     await criarServidorMcp().connect(transporte)
     await transporte.handleRequest(req, res, req.body)
   })
+
+  // Precisa vir depois das rotas: o Express so identifica um middleware como
+  // tratador de erro pela aridade de 4 parametros, e so o alcanca quando algo
+  // antes dele -- rota ou middleware global, como o parser de corpo -- chama
+  // `next(err)` ou rejeita uma promise.
+  app.use(tratarErroDeCorpo)
 
   return app
 }
