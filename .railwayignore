@@ -1,0 +1,11 @@
+# O Railway detecta site estatico quando encontra uma pasta de build pronta,
+# e passa a servir arquivos com Caddy em vez de rodar o servidor MCP --
+# ignorando o startCommand do railway.json.
+#
+# `dist/` e `coverage/` sao ignorados pelo git, entao nunca chegam por um
+# deploy vindo do GitHub. Este arquivo protege o caso do deploy por upload de
+# diretorio, que empacota a pasta como ela esta em disco.
+dist/
+coverage/
+node_modules/
+.superpowers/
