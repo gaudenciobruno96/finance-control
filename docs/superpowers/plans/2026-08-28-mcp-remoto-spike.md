@@ -839,5 +839,5 @@ git commit -m "Publica o servidor MCP remoto no Railway"
 - [x] Nenhum arquivo em `src/` modificado: `git diff main --stat -- src/` (esperado: vazio)
 - [x] `mcp/server.ts`, o servidor stdio, não foi tocado
 - [x] O segredo não aparece em nenhum arquivo do repositório: `git grep -i "FINANCE_MCP_SEGREDO=" -- ':!docs' ':!*.md'` não retorna valor algum
-- [ ] `POST /mcp` sem header devolve 401 no domínio público
-- [ ] O ping responde no celular, com o computador desligado
+- [x] `POST /mcp` sem header devolve 401 no domínio público
+- [x] O ping responde no celular, com o computador desligado

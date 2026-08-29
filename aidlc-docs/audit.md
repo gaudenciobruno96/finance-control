@@ -691,3 +691,18 @@
 **Context**: Registro tambem uma observacao da revisao final que muda o desenho do Projeto 2: o modo stateless impede elicitation do MCP, entao a confirmacao antes de gravar precisa ser desenhada como DUAS chamadas de ferramenta — uma que devolve previa e um token opaco, outra que consome o token — e nao como pergunta interativa. Isso sobrevive a reinicio no meio da conversa, o que elicitation nao sobreviveria.
 
 ---
+## Spike PROVADO — criterio de sucesso cumprido
+**Timestamp**: 2026-08-29T12:25:00Z
+**User Input**: "deu certo / Sim, está online. O ping respondeu agora: Resposta: pong, Hora do servidor: 2026-08-29T12:23:37Z (bate com hoje, então é execução real, não cache), Versão: 0.1.0. Vale notar que esse servidor expõe só a ferramenta ping — nenhuma outra função de finanças está disponível na sessão." / "vc consegue ver nessa sessao msm?"
+**AI Response**: "Criterio de sucesso do Projeto 0 cumprido: o ping respondeu no celular do usuario, alcancando o servidor hospedado no Railway pela infraestrutura da Anthropic, sem a maquina dele participar. O connector ficou disponivel tambem nesta sessao, e a chamada daqui devolveu 12:24:38Z contra 12:23:37Z do celular — um minuto de diferenca entre dois clientes distintos, provando execucao real por chamada em vez de cache. A observacao do usuario de que so existe a ferramenta ping esta correta e e o desenho: a spec determina que as ferramentas financeiras chegam no Projeto 1."
+**Context**: Projeto 0 de 4 CONCLUIDO E VERIFICADO. Plano com todos os checkboxes marcados. Servico: projeto finance-mcp, servico mcp-remoto, dominio mcp-remoto-production.up.railway.app.
+
+---
+
+## Pendencias operacionais herdadas para o Projeto 1
+**Timestamp**: 2026-08-29T12:25:00Z
+**User Input**: (nenhum — registro de estado)
+**AI Response**: "Tres pendencias operacionais ficam abertas ao fim do Projeto 0. (1) O segredo em producao e 1234, escolhido pelo usuario para teste; precisa ser trocado por um valor forte antes de qualquer dado financeiro existir no servidor. (2) O webhook do GitHub App nao esta autorizado, entao git push nao redeploya: os deploys so acontecem por chamada de reconexao via API. O usuario precisa conectar o repositorio pelo painel do Railway para ter deploy continuo. (3) O plano free do Railway estourou com tres projetos e foi preciso apagar dois; um Postgres e mais um recurso e pode nao caber. Alem disso, tres defeitos foram descobertos apenas em producao: Node 18 sem crypto global (corrigido por engines), dist/ empacotado virando site estatico com Caddy (corrigido por .railwayignore), e o fato de que deploy por upload de diretorio ignora o railway.json."
+**Context**: Entradas para o brainstorming do Projeto 1.
+
+---
