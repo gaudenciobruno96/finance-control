@@ -53,7 +53,7 @@
   - `function conferir(cabecalho: string | undefined, segredo: string): boolean`
   - `function criarMiddlewareDeAuth(segredo: string): (req: Request, res: Response, next: NextFunction) => void`
 
-- [ ] **Step 1: Declarar as dependências explicitamente**
+- [x] **Step 1: Declarar as dependências explicitamente**
 
 `express` já está em `node_modules` como dependência transitiva do SDK, mas depender disso implicitamente quebra no dia em que o SDK trocar de servidor HTTP. Declare:
 
@@ -71,7 +71,7 @@ npm install tsx
 
 O Railway instala apenas dependências de produção. Com `tsx` em `devDependencies`, o comando de início não existiria na máquina de deploy.
 
-- [ ] **Step 2: Escrever o teste que falha**
+- [x] **Step 2: Escrever o teste que falha**
 
 Crie `mcp/auth.test.ts`:
 
@@ -213,7 +213,7 @@ describe('criarMiddlewareDeAuth', () => {
 })
 ```
 
-- [ ] **Step 3: Rodar e confirmar que falha**
+- [x] **Step 3: Rodar e confirmar que falha**
 
 ```bash
 npm test -- mcp/auth.test.ts
@@ -221,7 +221,7 @@ npm test -- mcp/auth.test.ts
 
 Esperado: FAIL, módulo `./auth.js` não encontrado.
 
-- [ ] **Step 4: Implementar `mcp/auth.ts`**
+- [x] **Step 4: Implementar `mcp/auth.ts`**
 
 ```ts
 /**
@@ -295,7 +295,7 @@ export function criarMiddlewareDeAuth(
 }
 ```
 
-- [ ] **Step 5: Rodar e confirmar que passa**
+- [x] **Step 5: Rodar e confirmar que passa**
 
 ```bash
 npm test -- mcp/auth.test.ts
@@ -303,7 +303,7 @@ npm test -- mcp/auth.test.ts
 
 Esperado: 15 testes PASS.
 
-- [ ] **Step 6: Verificar tipos**
+- [x] **Step 6: Verificar tipos**
 
 ```bash
 npm run typecheck
@@ -311,7 +311,7 @@ npm run typecheck
 
 Esperado: sem erros. Se `@types/express` não estiver resolvendo, confirme que ele foi instalado no Step 1.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add mcp/auth.ts mcp/auth.test.ts package.json package-lock.json
@@ -334,7 +334,7 @@ git commit -m "Autentica o MCP remoto por header fixo"
   - `function criarApp(segredo: string): Express`
   - `const VERSAO: string`
 
-- [ ] **Step 1: Escrever o teste que falha**
+- [x] **Step 1: Escrever o teste que falha**
 
 Crie `mcp/servidor-http.test.ts`:
 
@@ -444,7 +444,7 @@ describe('criarApp', () => {
 })
 ```
 
-- [ ] **Step 2: Rodar e confirmar que falha**
+- [x] **Step 2: Rodar e confirmar que falha**
 
 ```bash
 npm test -- mcp/servidor-http.test.ts
@@ -452,7 +452,7 @@ npm test -- mcp/servidor-http.test.ts
 
 Esperado: FAIL, módulo `./servidor-http.js` não encontrado.
 
-- [ ] **Step 3: Implementar `mcp/servidor-http.ts`**
+- [x] **Step 3: Implementar `mcp/servidor-http.ts`**
 
 ```ts
 /**
@@ -628,7 +628,7 @@ import { iniciar } from './servidor-http.js'
 iniciar()
 ```
 
-- [ ] **Step 4: Rodar e confirmar que passa**
+- [x] **Step 4: Rodar e confirmar que passa**
 
 ```bash
 npm test -- mcp/servidor-http.test.ts
@@ -638,7 +638,7 @@ Esperado: 7 testes PASS.
 
 Se o teste "passa da autenticacao com o segredo certo" falhar com erro de protocolo em vez de 401, isso é aceitável **apenas** se o status não for 401 — o teste afirma exatamente isso. Não relaxe a asserção para `toBeLessThan(500)` ou similar; se o servidor devolver 500, há um defeito de wiring a investigar.
 
-- [ ] **Step 5: Verificar que o servidor recusa subir sem segredo**
+- [x] **Step 5: Verificar que o servidor recusa subir sem segredo**
 
 Esta é a garantia mais importante do spike e não dá para verificá-la por teste unitário — o bootstrap só roda como ponto de entrada.
 
@@ -656,7 +656,7 @@ FINANCE_MCP_SEGREDO=teste-local npx tsx mcp/main-http.ts
 
 Esperado: imprime a linha de "no ar" e fica escutando. Encerre com Ctrl+C. Registre as duas saídas no relatório.
 
-- [ ] **Step 6: Rodar a verificação completa**
+- [x] **Step 6: Rodar a verificação completa**
 
 ```bash
 npm run lint && npm run typecheck && npx vitest run mcp
@@ -664,7 +664,7 @@ npm run lint && npm run typecheck && npx vitest run mcp
 
 Esperado: sem erros; todos os testes de `mcp/` passando, incluindo os 63 que já existiam.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add mcp/servidor-http.ts mcp/servidor-http.test.ts
@@ -686,7 +686,7 @@ git commit -m "Servidor MCP remoto com a ferramenta ping"
 
 Esta tarefa não tem teste automatizado: o que ela entrega é infraestrutura, e a verificação é a resposta chegar no celular.
 
-- [ ] **Step 1: Acrescentar o script de início**
+- [x] **Step 1: Acrescentar o script de início**
 
 Em `package.json`, junto dos outros scripts:
 
@@ -694,18 +694,19 @@ Em `package.json`, junto dos outros scripts:
 "mcp:http": "tsx mcp/main-http.ts"
 ```
 
-- [ ] **Step 2: Criar `railway.json`**
+- [x] **Step 2: Criar `railway.json`**
 
 ```json
 {
   "$schema": "https://railway.app/railway.schema.json",
   "build": {
-    "builder": "NIXPACKS"
+    "builder": "NIXPACKS",
+    "buildCommand": "echo 'sem build: mcp:http roda via tsx, direto do TypeScript'"
   },
   "deploy": {
     "startCommand": "npm run mcp:http",
     "healthcheckPath": "/",
-    "healthcheckTimeout": 30,
+    "healthcheckTimeout": 120,
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 3
   }
@@ -714,7 +715,11 @@ Em `package.json`, junto dos outros scripts:
 
 `restartPolicyMaxRetries: 3` importa: sem segredo o processo falha no boot, e reinício infinito transformaria um erro de configuração numa conta de consumo.
 
-- [ ] **Step 3: Gerar o segredo**
+`buildCommand` explícito importa por outro motivo: sem ele o Nixpacks encontra o script `build` do repositório e roda `tsc --noEmit && vite build` sobre o PWA inteiro — que este servidor nunca carrega e que o Projeto 3 apaga. Um erro de tipo no frontend derrubaria o deploy de um servidor que não usa frontend. O servidor roda por `tsx`, direto do TypeScript, e não precisa de build próprio.
+
+`healthcheckTimeout: 120` em vez do 30 original: partida fria do Nixpacks é lenta, e 30 segundos reprovava um servidor que teria subido.
+
+- [x] **Step 3: Gerar o segredo**
 
 Gere um segredo forte e aleatório. **Não invente um à mão** e não reuse senha de lugar nenhum:
 
@@ -724,7 +729,7 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
 
 Guarde o valor — ele vai em dois lugares: nas variáveis do Railway e na configuração do connector no Claude. **Não o coloque em nenhum arquivo do repositório.**
 
-- [ ] **Step 4: Criar o serviço no Railway**
+- [x] **Step 4: Criar o serviço no Railway**
 
 Pelo painel do Railway ou pela CLI, num dos projetos existentes ou num novo:
 
@@ -733,13 +738,15 @@ Pelo painel do Railway ou pela CLI, num dos projetos existentes ou num novo:
 3. Gere um domínio público para o serviço.
 4. Defina `FINANCE_MCP_HOST_PERMITIDO` com o hostname do domínio gerado, sem `https://` e sem barra final. É seguro definir: o código inclui `healthcheck.railway.app` automaticamente ao lado do domínio configurado, então esta variável não derruba o healthcheck do próprio Railway.
 
-- [ ] **Step 5: Confirmar que o serviço está no ar**
+- [x] **Step 5: Confirmar que o serviço está no ar**
 
 ```bash
 curl -i https://SEU-DOMINIO.up.railway.app/
 ```
 
-Esperado: `200` e um corpo `{"vivo":true,"versao":"..."}`.
+Esperado: `200` e um corpo exatamente `{"vivo":true}`.
+
+O healthcheck não devolve a versão de propósito: ele responde antes da autenticação, e a spec exige que não exponha dado algum. Se aparecer um campo a mais, algo divergiu do desenho.
 
 E confirme que o cadeado funciona de fora:
 
@@ -751,14 +758,14 @@ Esperado: `401` com corpo vazio.
 
 **Se o segundo comando devolver qualquer coisa diferente de 401, pare.** Um endpoint MCP aberto na internet com finanças atrás dele é o único desfecho inaceitável deste spike.
 
-- [ ] **Step 6: Conectar ao Claude**
+- [x] **Step 6: Conectar ao Claude**
 
 No claude.ai, em Configurações → Connectors → Add custom connector:
 
 - URL: `https://SEU-DOMINIO.up.railway.app/mcp`
 - Autenticação: header fixo, `Authorization` com valor `Bearer <o segredo do Step 3>`
 
-- [ ] **Step 7: O critério de sucesso**
+- [x] **Step 7: O critério de sucesso**
 
 **Do celular, com o computador desligado**, peça ao Claude um ping.
 
@@ -766,7 +773,7 @@ Esperado: ele responde com `pong`, a hora do servidor e a versão. Confira que a
 
 Um teste verde não é o critério. A resposta chegar no celular é.
 
-- [ ] **Step 8: Escrever `mcp/README-remoto.md`**
+- [x] **Step 8: Escrever `mcp/README-remoto.md`**
 
 ```markdown
 # Servidor MCP remoto
@@ -817,7 +824,7 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
 ```
 ```
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 ```bash
 git add railway.json mcp/README-remoto.md package.json
@@ -828,9 +835,9 @@ git commit -m "Publica o servidor MCP remoto no Railway"
 
 ## Verificação final
 
-- [ ] `npm run lint`, `npm run typecheck` e `npx vitest run mcp` passam
-- [ ] Nenhum arquivo em `src/` modificado: `git diff main --stat -- src/` (esperado: vazio)
-- [ ] `mcp/server.ts`, o servidor stdio, não foi tocado
-- [ ] O segredo não aparece em nenhum arquivo do repositório: `git grep -i "FINANCE_MCP_SEGREDO=" -- ':!docs' ':!*.md'` não retorna valor algum
+- [x] `npm run lint`, `npm run typecheck` e `npx vitest run mcp` passam
+- [x] Nenhum arquivo em `src/` modificado: `git diff main --stat -- src/` (esperado: vazio)
+- [x] `mcp/server.ts`, o servidor stdio, não foi tocado
+- [x] O segredo não aparece em nenhum arquivo do repositório: `git grep -i "FINANCE_MCP_SEGREDO=" -- ':!docs' ':!*.md'` não retorna valor algum
 - [ ] `POST /mcp` sem header devolve 401 no domínio público
 - [ ] O ping responde no celular, com o computador desligado

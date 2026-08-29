@@ -668,3 +668,26 @@
 **Context**: Projeto 0 de 4. Branch mcp-remoto-spike. Decisao de seguranca registrada: o servidor recusa subir sem FINANCE_MCP_SEGREDO, invertendo de proposito a decisao do servidor stdio (que sobe e falha na primeira chamada), porque subir sem segredo publicaria um endpoint aberto na internet.
 
 ---
+## Spike de MCP remoto — execucao concluida
+**Timestamp**: 2026-08-29T00:18:00Z
+**User Input**: "1" (execucao dirigida por subagentes) e "Corrigir: remover o parser morto e tratar o erro" (decisao sobre achado que contradizia o plano)
+**AI Response**: "Tres tarefas implementadas em TDD, cada uma por subagente proprio, com revisao apos cada uma e revisao ampla ao final. 106 testes em mcp/, todos passando; lint e typecheck limpos. Entregue: mcp/auth.ts (conferencia do header em tempo constante, via SHA-256 antes do timingSafeEqual, que nao vaza nem o valor nem o comprimento), mcp/servidor-http.ts (Express com Streamable HTTP stateless, ferramenta ping, middleware de erro), mcp/main-http.ts (ponto de entrada separado), railway.json e mcp/README-remoto.md. Nenhum arquivo de src/ foi modificado; o servidor stdio anterior segue intacto."
+**Context**: CONSTRUCTION — Projeto 0 de 4. Branch mcp-remoto-spike, 10 commits.
+
+---
+
+## Defeitos encontrados pela execucao do spike
+**Timestamp**: 2026-08-29T00:18:00Z
+**User Input**: (nenhum — registro de achados)
+**AI Response**: "A Task 2 exigiu tres rodadas de correcao, cada uma revelando a seguinte. (1) O express.json na rota era codigo morto: createMcpExpressApp ja monta o parser globalmente, ANTES da autenticacao, entao um corpo malformado de chamador nao autenticado caia no handler padrao do Express e devolvia pagina HTML com stack e caminhos absolutos. (2) O middleware de erro que corrigiu isso passou a engolir todo erro sem registrar nada, removendo o console.error que o Express fazia — um defeito em ferramenta futura falharia em silencio. (3) O log que restaurou isso registrava o corpo cru completo: o body-parser anexa o corpo em err.body e o console.error imprime propriedades proprias depois do stack. A revisao final encontrou ainda que err.message tambem carrega um trecho da entrada, canal que a rodada 3 nao fechou. Alem disso: FINANCE_MCP_HOST_PERMITIDO quebraria o healthcheck do Railway, que usa o hostname healthcheck.railway.app — o deploy falharia e a correcao obvia em campo seria apagar a variavel, descartando a protecao em silencio. Treze achados corrigidos numa unica onda."
+**Context**: Licao de processo. Quatro vezes nesta branch um teste certificou mais do que verificava — inclusive um helper de captura de log que usava join(" ") e descartava exatamente a propriedade sob teste. Em tres delas quem encontrou foi o proprio implementador, verificando o instrumento antes de confiar nele.
+
+---
+
+## Estado do spike e o que falta
+**Timestamp**: 2026-08-29T00:18:00Z
+**User Input**: (nenhum — registro de conclusao)
+**AI Response**: "Revisao final ampla em modelo mais capaz tracou cada rota e middleware em ordem de registro e nao encontrou caminho que alcance execucao de ferramenta sem o segredo correto, nem canal que revele o segredo, seu comprimento ou proximidade. Provou a ausencia de oraculo comparando respostas entre estados de autenticacao: identicas byte a byte. Confirmou tambem, rodando uma conversa MCP real contra o app, que initialize, tools/list e tools/call ping funcionam. Estado: pronto para merge. PENDENTE DO USUARIO, por desenho: gerar o segredo, criar o servico no Railway, conferir por curl que POST /mcp sem header devolve 401 no dominio publico, adicionar o connector no claude.ai e pedir um ping do celular. O criterio de sucesso do spike nao e teste verde: e a resposta chegar no celular com o computador desligado."
+**Context**: Registro tambem uma observacao da revisao final que muda o desenho do Projeto 2: o modo stateless impede elicitation do MCP, entao a confirmacao antes de gravar precisa ser desenhada como DUAS chamadas de ferramenta — uma que devolve previa e um token opaco, outra que consome o token — e nao como pergunta interativa. Isso sobrevive a reinicio no meio da conversa, o que elicitation nao sobreviveria.
+
+---
