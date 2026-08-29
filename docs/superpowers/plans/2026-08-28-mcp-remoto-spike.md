@@ -731,7 +731,7 @@ Pelo painel do Railway ou pela CLI, num dos projetos existentes ou num novo:
 1. Crie um serviço apontando para este repositório e a branch `mcp-remoto-spike`.
 2. Defina a variável `FINANCE_MCP_SEGREDO` com o valor do Step 3.
 3. Gere um domínio público para o serviço.
-4. Defina `FINANCE_MCP_HOST_PERMITIDO` com o hostname do domínio gerado, sem `https://` e sem barra final.
+4. Defina `FINANCE_MCP_HOST_PERMITIDO` com o hostname do domínio gerado, sem `https://` e sem barra final. É seguro definir: o código inclui `healthcheck.railway.app` automaticamente ao lado do domínio configurado, então esta variável não derruba o healthcheck do próprio Railway.
 
 - [ ] **Step 5: Confirmar que o serviço está no ar**
 

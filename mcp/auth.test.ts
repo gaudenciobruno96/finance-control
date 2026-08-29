@@ -18,13 +18,26 @@ describe('lerSegredo', () => {
 
   it('nao repete o segredo na mensagem de erro', () => {
     // Um segredo presente mas invalido nao existe hoje; o que se prova aqui e
-    // que a mensagem e construida a partir do NOME da variavel, nunca do valor.
+    // que a mensagem e construida a partir do NOME da variavel, nunca do
+    // valor. `not.toContain(SEGREDO)` passaria mesmo se a mensagem
+    // interpolasse QUALQUER OUTRO valor -- so a igualdade exata com o texto
+    // fixo prova que nada e interpolado.
+    let mensagem = ''
     try {
       lerSegredo({ FINANCE_MCP_SEGREDO: '' })
       expect.unreachable('deveria ter lancado')
     } catch (e) {
-      expect(String(e)).not.toContain(SEGREDO)
+      mensagem = e instanceof Error ? e.message : String(e)
     }
+
+    expect(mensagem).toBe(
+      'FINANCE_MCP_SEGREDO nao esta definida. O servidor nao sobe sem ela: ' +
+        'subir sem segredo publicaria um endpoint aberto na internet.',
+    )
+  })
+
+  it('devolve o segredo sem espacos nas bordas', () => {
+    expect(lerSegredo({ FINANCE_MCP_SEGREDO: `  ${SEGREDO}\n` })).toBe(SEGREDO)
   })
 })
 

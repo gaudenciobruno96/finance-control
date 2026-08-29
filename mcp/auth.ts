@@ -28,7 +28,10 @@ export function lerSegredo(env: Record<string, string | undefined>): string {
     )
   }
 
-  return valor
+  // Trimado: um segredo colado no Railway com espaco a mais nao pode virar um
+  // 401 sem explicacao (por design, a resposta de auth nao diz nada sobre o
+  // motivo da recusa).
+  return valor.trim()
 }
 
 /**
