@@ -6,7 +6,7 @@
  */
 
 import { competenciaDe } from '../../src/domain/calendar.js'
-import type { AppEmMemoria } from '../app-em-memoria.js'
+import type { ProjectionService } from '../../src/services/projection-service.js'
 import {
   AVISO_SALDO_RELATIVO,
   dinheiro,
@@ -42,7 +42,7 @@ export interface SituacaoDoMes {
 }
 
 export async function situacaoDoMes(
-  app: AppEmMemoria,
+  app: { readonly projecao: ProjectionService },
   args: { competencia?: string; hoje: string },
 ): Promise<SituacaoDoMes> {
   const competencia = args.competencia ?? competenciaDe(args.hoje)

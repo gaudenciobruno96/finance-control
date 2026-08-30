@@ -49,8 +49,11 @@ describe('item', () => {
     expect(item(previsto).dataPagamento).toBeNull()
   })
 
-  it('nao vaza campos internos de resolucao', () => {
-    expect(item(base)).not.toHaveProperty('chave')
+  it('expoe a chave, mas nao vaza idReal, que e detalhe de persistencia', () => {
+    // A chave identifica a ocorrencia entre uma consulta e a escrita
+    // seguinte -- sem ela, `marcar_pago` nao teria como referenciar uma
+    // ocorrencia virtual (gerada por regra) que ainda nao existe no banco.
+    expect(item(base).chave).toBe('regra|r-luz|2026-03')
     expect(item(base)).not.toHaveProperty('idReal')
   })
 })

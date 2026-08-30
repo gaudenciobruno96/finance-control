@@ -27,6 +27,19 @@ export function dinheiro(centavos: Centavos): Dinheiro {
 }
 
 export interface ItemFormatado {
+  /**
+   * Chave de sobreposicao. Identifica a ocorrencia entre uma consulta e a
+   * escrita seguinte.
+   *
+   * A maior parte das ocorrencias NAO existe no banco -- contas de regra sao
+   * virtuais ate alguem interagir. Sem a chave, `marcar_pago` nao teria como
+   * referenciar o aluguel de setembro, que nao e uma linha, e sim o resultado
+   * de expandir uma regra.
+   *
+   * `idReal` continua fora: e detalhe de persistencia e nao referencia nada
+   * que o assistente precise.
+   */
+  readonly chave: string
   readonly nome: string
   readonly tipo: 'entrada' | 'saida'
   readonly situacao: string
@@ -48,6 +61,7 @@ function valorEfetivo(o: OcorrenciaResolvida): Centavos {
 
 export function item(o: OcorrenciaResolvida): ItemFormatado {
   return {
+    chave: o.chave,
     nome: o.nome,
     tipo: o.tipo,
     situacao: o.situacao,
