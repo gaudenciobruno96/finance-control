@@ -752,3 +752,26 @@
 **Context**: Pendencias operacionais seguem abertas: segredo 1234 em producao com dados atras dele, e webhook do GitHub nao autorizado.
 
 ---
+## Brainstorming — Patrimonio em mais de uma moeda
+**Timestamp**: 2026-08-30T00:00:00Z
+**User Input**: "Tem um ponto, um dos meus salário eh em dólares ou seja depende muito da cotação em reais, como podemos fazer?"
+**AI Response**: Invocou superpowers:brainstorming. Descobriu que `Regra.valorEhEstimativa` e gravado mas nunca lido por nenhuma logica de dominio ou servico (era etiqueta da tela do PWA), e que `mediaDosUltimosPagos` (DOM-12) nao e chamada por nenhuma ferramenta MCP — nenhum dos dois serve ao caso. Registrou tambem que nao existe ferramenta para editar uma regra.
+**Context**: Requisito novo levantado pelo uso real, apos o deploy do Projeto 2.
+
+---
+
+## Brainstorming — respostas do usuario
+**Timestamp**: 2026-08-30T00:05:00Z
+**User Input**: (1) Como o salario chega: "Cai em dólar e eu converto quando quero". (2) Pergunta a responder: "Quanto eu tenho no total, somando tudo?". (3) Origem da cotacao: "O próprio Claude busca e passa para a ferramenta".
+**AI Response**: Desenho apresentado — tabela `saldos_estrangeiros` fora de `Repositorios`, duas ferramentas (`declarar_saldo_estrangeiro` e `patrimonio`), saldo estrangeiro deliberadamente fora da projecao, conversao com aritmetica inteira em `mcp/cambio.ts`.
+**Context**: Decisao central: o dolar e reserva em outra moeda, nao receita mensal de valor incerto. Entrar na ancora faria o app afirmar que o mes fecha com dinheiro que ainda nao foi convertido.
+
+---
+
+## Brainstorming — aprovacao do desenho
+**Timestamp**: 2026-08-30T00:10:00Z
+**User Input**: "Pode ir"
+**AI Response**: Spec escrita em docs/superpowers/specs/2026-08-30-patrimonio-multimoeda-design.md e commitada. Segue para writing-plans.
+**Context**: Projeto autonomo, fora da sequencia de quatro. Nao depende do Projeto 3 nem o bloqueia.
+
+---
