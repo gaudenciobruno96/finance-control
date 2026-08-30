@@ -466,7 +466,13 @@ function criarServidorMcp(app: AppPg): McpServer {
                 parcelamento: z.object({
                   nome: z.string(),
                   valorParcelaCentavos: z.number().int(),
-                  quantidadeParcelas: z.number().int().min(1),
+                  // .max(360): mesmo limite de cadastrar_parcelamento, e pela
+                  // mesma razao -- expandirParcelamentos percorre
+                  // quantidadeParcelas inteiro em CADA projecao antes de
+                  // descartar o que cai fora do intervalo, e simular_cenario
+                  // projeta ate 24 competencias em dois apps (48 projecoes
+                  // por chamada).
+                  quantidadeParcelas: z.number().int().min(1).max(360),
                   primeiroVencimento: DATA,
                 }),
               }),
