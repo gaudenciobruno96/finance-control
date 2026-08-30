@@ -544,4 +544,34 @@ describe('iniciar', () => {
       },
     )
   })
+
+  it('nao sobe quando as migracoes falham, e nao vaza a DATABASE_URL no log', async () => {
+    // Nenhum Postgres real escuta na porta 1 -- `aplicarMigracoes` falha ao
+    // conectar, e e exatamente esse caminho (nao "sem DATABASE_URL") que
+    // precisa deixar o processo fora do ar. A senha na URL e a prova de que
+    // `descreverErro` (nao a mensagem crua do `pg`) e o que vai ao log.
+    const SENHA_SENTINELA = 'senha-sentinela-nao-deve-vazar-8214'
+    const urlComPortaFechada = `postgres://postgres:${SENHA_SENTINELA}@127.0.0.1:1/nao-existe`
+    const espiao = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    try {
+      await comEnv(
+        {
+          [CHAVE_SEGREDO]: SEGREDO,
+          [CHAVE_PORTA]: undefined,
+          [CHAVE_BANCO]: urlComPortaFechada,
+        },
+        async () => {
+          await expect(iniciar()).rejects.toThrow(/migra/i)
+        },
+      )
+
+      expect(espiao).toHaveBeenCalled()
+      const registrado = textoRegistrado(espiao)
+      expect(registrado).not.toContain(SENHA_SENTINELA)
+      expect(registrado).not.toContain(urlComPortaFechada)
+    } finally {
+      espiao.mockRestore()
+    }
+  }, 20_000)
 })
