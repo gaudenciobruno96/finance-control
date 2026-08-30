@@ -455,7 +455,7 @@ describe('criarApp', () => {
   })
 
   /**
-   * As sete ferramentas financeiras (Fix 9): so `ping` era coberto sobre o
+   * As onze ferramentas financeiras (mais `ping`): so `ping` era coberto sobre o
    * protocolo real. O que fica sem cobertura sem isto e exatamente a
    * FIACAO -- os schemas zod, os espalhamentos de propriedade opcional
    * (`...(x === undefined ? {} : {x})`), e o default `hoje ?? hojeDoSistema()`
@@ -506,7 +506,7 @@ describe('criarApp', () => {
     return corpo.result as { content: { type: string; text: string }[]; isError?: boolean }
   }
 
-  describe('tools/call sobre as sete ferramentas financeiras', () => {
+  describe('tools/call sobre as onze ferramentas financeiras', () => {
     beforeEach(async () => {
       for (const t of ['regras', 'ancoras', 'ocorrencias', 'parcelamentos']) {
         await pool.query(`delete from ${t}`)
@@ -604,6 +604,34 @@ describe('criarApp', () => {
       expect(r.content[0]?.text).toContain('removido')
 
       const restantes = await pool.query('select * from ocorrencias where id = $1', [dados.id])
+      expect(restantes.rowCount).toBe(0)
+    })
+
+    it('desfazer reverte um parcelamento feito por cadastrar_parcelamento (Fix 1)', async () => {
+      // Antes do Fix 1, o enum `tipo` de `desfazer` so aceitava quatro dos
+      // cinco valores de TipoDeEscrita -- 'parcelamento' faltava. O recibo de
+      // cadastrar_parcelamento traz "tipo": "parcelamento", o assistente o
+      // ecoa de volta para desfazer, e o SDK MCP rejeitava com invalid-params
+      // antes do handler rodar. Esta e a unica cobertura sobre o protocolo
+      // real que prova que o caminho volta a ser alcancavel.
+      const cadastro = await chamarFerramenta('cadastrar_parcelamento', {
+        nome: 'Engano via tools/call',
+        valorParcela: '100,00',
+        quantidadeParcelas: 3,
+        primeiroVencimento: '2026-10-20',
+      })
+      const dados = JSON.parse(cadastro.content[0]?.text ?? '{}') as { id: string }
+
+      const r = await chamarFerramenta('desfazer', {
+        tipo: 'parcelamento',
+        id: dados.id,
+        hoje: '2026-09-15',
+      })
+
+      expect(r.isError).not.toBe(true)
+      expect(r.content[0]?.text).toContain('removid')
+
+      const restantes = await pool.query('select * from parcelamentos where id = $1', [dados.id])
       expect(restantes.rowCount).toBe(0)
     })
 
@@ -730,6 +758,18 @@ describe('criarApp', () => {
       expect(r.isError).not.toBe(true)
       expect(r.content[0]?.text).toContain('comCenario')
 
+      // Sem isto, os quatro asserts desta prova passam mesmo se `exportar`
+      // devolvesse um documento vazio -- a metade que fala com o Postgres
+      // (em vez do arquivo que a versao stdio usava) ficaria descoberta. O
+      // Aluguel de 1800,00 cadastrado acima e a UNICA saida do orcamento: se
+      // o documento exportado chegasse vazio ao simulador, setembro nao teria
+      // como refletir esse valor.
+      const simulado = JSON.parse(r.content[0]?.text ?? '{}') as {
+        meses: { competencia: string; semCenario: { valorCentavos: number } }[]
+      }
+      const setembro = simulado.meses.find((m) => m.competencia === '2026-09')
+      expect(setembro?.semCenario.valorCentavos).toBe(-180000)
+
       // A garantia central da ferramenta: ela escreve so em bancos que morrem
       // no fim da chamada. Quando a fonte era um arquivo isso valia por
       // construcao; agora que a fonte e o banco de producao, precisa ser
@@ -737,6 +777,26 @@ describe('criarApp', () => {
       const depois = await pool.query('select * from regras order by id')
       expect(depois.rows).toEqual(antes.rows)
       expect((await pool.query('select * from parcelamentos')).rowCount).toBe(0)
+    })
+
+    it('simular_cenario com "ate" invertido devolve a mensagem especifica, nao a generica (Fix 4)', async () => {
+      // Antes do Fix 4, as duas guardas de simular-cenario.ts lancavam Error
+      // puro. `executarFerramenta` so deixa ErroDeUsuario e ErroDeDominio
+      // atravessarem verbatim -- qualquer outra coisa vira "Falha interna ao
+      // processar a ferramenta. Tente novamente em instantes.", que convida a
+      // uma repeticao que falharia identico, sempre, porque o defeito e no
+      // argumento, nao transitorio.
+      const r = await chamarFerramenta('simular_cenario', {
+        lancamentos: [],
+        ate: '2026-01',
+        hoje: '2026-09-05',
+      })
+
+      expect(r.isError).toBe(true)
+      expect(r.content[0]?.text).toContain('anterior')
+      expect(r.content[0]?.text).toContain('2026-01')
+      expect(r.content[0]?.text).toContain('2026-09')
+      expect(r.content[0]?.text).not.toMatch(/falha interna/i)
     })
 
     it('erro cru do banco NAO atravessa: sai sanitizado (Fix 8)', async () => {

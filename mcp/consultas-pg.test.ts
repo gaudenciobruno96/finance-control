@@ -82,6 +82,10 @@ describe('oQueVence sobre Postgres', () => {
 
     const r = await oQueVence(app, { dias: 7, hoje: '2026-09-20' })
 
+    // A checagem `every` sozinha passa vazia: sem provar que `atrasado`
+    // efetivamente contem o Aluguel, uma implementacao que devolvesse tudo
+    // vazio passaria igual.
+    expect(r.atrasado.map((i) => i.nome)).toContain('Aluguel')
     expect(r.atrasado.every((i) => i.tipo === 'saida')).toBe(true)
     expect(r.aConfirmar.map((i) => i.nome)).toContain('Salario')
   })
@@ -143,6 +147,9 @@ describe('historicoDeGastos sobre Postgres', () => {
   })
 
   it('filtra por nome sem diferenciar maiuscula', async () => {
+    // Um segundo item pago, de nome diferente, e o que torna este teste uma
+    // prova de FILTRAGEM: sem ele, uma implementacao que ignorasse `nome`
+    // por completo tambem devolveria exatamente um item e passaria.
     await lancarAvulso(app, {
       tipo: 'saida',
       nome: 'Mercado',
@@ -150,9 +157,20 @@ describe('historicoDeGastos sobre Postgres', () => {
       data: '2026-09-02',
       hoje: '2026-09-20',
     })
+    await lancarAvulso(app, {
+      tipo: 'saida',
+      nome: 'Farmacia',
+      valor: '45,00',
+      data: '2026-09-03',
+      hoje: '2026-09-20',
+    })
     const s = await situacaoDoMes(app, { competencia: '2026-09', hoje: '2026-09-20' })
     await marcarPago(app, {
       chave: s.faltaPagar.find((i) => i.nome === 'Mercado')!.chave,
+      hoje: '2026-09-20',
+    })
+    await marcarPago(app, {
+      chave: s.faltaPagar.find((i) => i.nome === 'Farmacia')!.chave,
       hoje: '2026-09-20',
     })
 

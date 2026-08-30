@@ -6,6 +6,7 @@ import { aplicarMigracoes } from '../../dados/migracoes.js'
 import { criarAppPg, type AppPg } from '../../app-pg.js'
 import { situacaoDoMes } from '../situacao-do-mes.js'
 import { desfazer } from '../desfazer.js'
+import { marcarPago } from './marcar-pago.js'
 import { cadastrarParcelamento } from './cadastrar-parcelamento.js'
 
 let container: StartedPostgreSqlContainer
@@ -47,7 +48,8 @@ describe('cadastrarParcelamento', () => {
     expect(r.tipo).toBe('parcelamento')
     expect(r.resumo).toContain('Geladeira')
     expect(r.resumo).toMatch(/R\$\s?300,00/u)
-    expect(r.resumo).toContain('10')
+    // 'toContain('10')' era vacuo: '2026-10-20' tambem contem '10'.
+    expect(r.resumo).toContain('10x')
     // O total e derivado, para o usuario conferir contra a fatura.
     expect(r.resumo).toMatch(/R\$\s?3\.000,00/u)
 
@@ -77,7 +79,7 @@ describe('cadastrarParcelamento', () => {
         quantidadeParcelas: 0,
         primeiroVencimento: '2026-10-20',
       }),
-    ).rejects.toThrow()
+    ).rejects.toThrow(/quantidade/i)
 
     expect(await app.repos.parcelamentos.listar()).toHaveLength(0)
   })
@@ -91,6 +93,11 @@ describe('cadastrarParcelamento', () => {
     })
 
     const outubro = await situacaoDoMes(app, { competencia: '2026-10', hoje: '2026-10-01' })
+    // Novembro e o unico mes cuja presenca depende de `somarMeses` --
+    // outubro e o mes do primeiro vencimento, dezembro e o limite testado
+    // abaixo, e so novembro so aparece se o avanco de competencia estiver
+    // correto.
+    const novembro = await situacaoDoMes(app, { competencia: '2026-11', hoje: '2026-10-01' })
     const dezembro = await situacaoDoMes(app, { competencia: '2026-12', hoje: '2026-10-01' })
     const janeiro = await situacaoDoMes(app, { competencia: '2027-01', hoje: '2026-10-01' })
 
@@ -98,9 +105,15 @@ describe('cadastrarParcelamento', () => {
     // "Nome (n/total)" (ver src/domain/installment-expander.ts) -- por isso a
     // checagem e por substring, nao por igualdade exata.
     expect(outubro.faltaPagar.some((i) => i.nome.includes('Geladeira'))).toBe(true)
+    expect(novembro.faltaPagar.some((i) => i.nome.includes('Geladeira'))).toBe(true)
     expect(dezembro.faltaPagar.some((i) => i.nome.includes('Geladeira'))).toBe(true)
     // Tres parcelas: outubro, novembro, dezembro. Janeiro ja nao tem.
     expect(janeiro.faltaPagar.some((i) => i.nome.includes('Geladeira'))).toBe(false)
+
+    // Numeracao e valor por parcela, nao so a presenca do nome.
+    const parcelaDeNovembro = novembro.faltaPagar.find((i) => i.nome.includes('Geladeira'))
+    expect(parcelaDeNovembro?.nome).toBe('Geladeira (2/3)')
+    expect(parcelaDeNovembro?.valorCentavos).toBe(30000)
   })
 })
 
@@ -131,6 +144,14 @@ describe('desfazer de parcelamento', () => {
       primeiroVencimento: '2026-10-20',
     })
 
+    // Materializa a parcela de outubro pagando-a -- sem isto o teste nunca
+    // exercita o comportamento que o requisito descreve, so a string do
+    // aviso.
+    const outubro = await situacaoDoMes(app, { competencia: '2026-10', hoje: '2026-10-01' })
+    const parcelaDeOutubro = outubro.faltaPagar.find((i) => i.nome.includes('Geladeira'))
+    expect(parcelaDeOutubro).toBeDefined()
+    await marcarPago(app, { chave: parcelaDeOutubro!.chave, hoje: '2026-10-01' })
+
     const resultado = await desfazer(app, {
       tipo: 'parcelamento',
       id: r.id,
@@ -141,6 +162,11 @@ describe('desfazer de parcelamento', () => {
     // Sem este aviso a pessoa conclui que apagou a compra inteira e continua
     // vendo parcelas na projecao, sem entender por que.
     expect(resultado.descricao).toMatch(/materializad/i)
+
+    // A remocao do parcelamento NAO cascateia: a ocorrencia materializada
+    // continua no historico.
+    const materializadas = await app.repos.ocorrencias.porGerador('parcelamento', r.id)
+    expect(materializadas).toHaveLength(1)
   })
 
   it('recusa fora da janela de 24 horas, sem apagar', async () => {

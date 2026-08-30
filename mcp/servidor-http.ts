@@ -6,7 +6,7 @@
  * usuario pergunta algo pelo celular. E por isso que funciona com o computador
  * do usuario desligado, e e por isso que a autenticacao aqui nao e opcional.
  *
- * As sete ferramentas financeiras vivem sobre Postgres (`mcp/dados/`,
+ * As onze ferramentas financeiras (mais `ping`) vivem sobre Postgres (`mcp/dados/`,
  * `mcp/app-pg.ts`), montado uma unica vez em `iniciar()` -- nao dentro de
  * `criarServidorMcp()`, que roda por requisicao.
  */
@@ -374,7 +374,17 @@ function criarServidorMcp(app: AppPg): McpServer {
         valorParcela: z
           .string()
           .describe('Valor da PARCELA como a pessoa fala, nunca em centavos. Ex: "300", "300,00"'),
-        quantidadeParcelas: z.number().int().min(1),
+        // .max(360): 30 anos de parcelas mensais e teto generoso o bastante
+        // para qualquer compra real. Nao e cortesia arbitraria -- sem ele,
+        // uma quantidade mal transcrita (ex.: "1000000" em vez de "10")
+        // sobrevive ao cadastro e faz `expandirParcelamentos` (chamado em
+        // TODA projecao futura) iterar uma vez por parcela antes de
+        // descartar as que caem fora do intervalo. Isso nao falha uma vez:
+        // cada consulta seguinte volta a pagar o custo, ate travar o event
+        // loop, derrubar o healthcheck do Railway e colocar o servico em
+        // loop de reinicio -- e, antes do Fix 1, sem `desfazer` alcancavel
+        // pelo protocolo, a unica saida era acesso direto ao banco.
+        quantidadeParcelas: z.number().int().min(1).max(360),
         primeiroVencimento: DATA.describe('Data de vencimento da primeira parcela'),
       },
     },
@@ -398,7 +408,7 @@ function criarServidorMcp(app: AppPg): McpServer {
         'recibo. Desfazer um pagamento nao apaga a conta, so o registro de ' +
         'que foi paga.',
       inputSchema: {
-        tipo: z.enum(['recorrente', 'avulso', 'pagamento', 'saldo']),
+        tipo: z.enum(['recorrente', 'avulso', 'pagamento', 'saldo', 'parcelamento']),
         id: z.string().min(1).describe('O id do recibo -- para tipo pagamento, a chave'),
         hoje: DATA.optional().describe('Data de referencia. Padrao: hoje'),
       },
@@ -431,7 +441,9 @@ function criarServidorMcp(app: AppPg): McpServer {
         'Responde "se eu assumir esse gasto, atravesso os proximos meses?". ' +
         'Projeta lancamentos hipoteticos e compara mes a mes com e sem eles. ' +
         'Nada e gravado. Valores dos lancamentos vao em centavos inteiros ' +
-        'aqui, diferente das ferramentas de cadastro.',
+        'aqui, diferente das ferramentas de cadastro. Quando saldoRelativo ' +
+        'for verdadeiro (no mes ou na resposta), NAO afirme um saldo ' +
+        'absoluto: leia avisoSaldoRelativo.',
       inputSchema: {
         lancamentos: z
           .array(

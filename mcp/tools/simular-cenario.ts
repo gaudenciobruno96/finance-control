@@ -22,6 +22,7 @@ import type { Ocorrencia, Parcelamento, Regra } from '../../src/domain/types.js'
 import type { DocumentoBackup } from '../../src/data/backup-serializer.js'
 import { novoId } from '../../src/data/ids.js'
 import { criarAppDoBackup, type AppEmMemoria } from '../app-em-memoria.js'
+import { ErroDeUsuario } from './erro-do-usuario.js'
 import {
   AVISO_SALDO_RELATIVO,
   dinheiro,
@@ -103,7 +104,7 @@ export async function simularCenario(
   // anterior a `hoje` escapa como ErroDeDominio [calendar] cru, sem dizer
   // qual argumento corrigir.
   if (compararCompetencias(args.ate, de) < 0) {
-    throw new Error(
+    throw new ErroDeUsuario(
       `A competencia final (${args.ate}) e anterior a competencia de hoje ` +
         `(${de}). Informe um "ate" igual ou posterior a competencia atual.`,
     )
@@ -112,7 +113,7 @@ export async function simularCenario(
   const competencias = intervaloDeCompetencias(de, args.ate)
 
   if (competencias.length > MAXIMO_DE_MESES) {
-    throw new Error(
+    throw new ErroDeUsuario(
       `Janela de ${competencias.length} meses excede o maximo de ${MAXIMO_DE_MESES}. ` +
         'Reduza a competencia final.',
     )
