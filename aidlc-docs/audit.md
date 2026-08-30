@@ -729,3 +729,26 @@
 **Context**: Pendencias operacionais herdadas seguem abertas: o segredo em producao ainda e 1234, e agora ha dinheiro atras dele; e o webhook do GitHub nao esta autorizado, entao git push nao redeploya.
 
 ---
+## Projeto 2 — Parcelamento e consultas restantes: implementado
+**Timestamp**: 2026-08-30T22:15:00Z
+**User Input**: "Feche" (aprovacao do desenho) / "Pode seguir" (aprovacao do plano) / "1" (execucao por subagentes)
+**AI Response**: "Tres tarefas implementadas em TDD, com revisao apos cada uma e revisao ampla ao final. 256 testes em mcp/, todos passando. O servidor foi de oito para doze ferramentas: acrescentou cadastrar_parcelamento e portou o_que_vence, historico_de_gastos e simular_cenario. As duas primeiras precisaram apenas do estreitamento do parametro para o que realmente usam; simular_cenario nao mudou uma linha, porque exportar ja produz o DocumentoBackup que ela consome. Nenhum arquivo de src/ foi modificado."
+**Context**: CONSTRUCTION — Projeto 2 de 4. Branch mcp-parcelamento, 8 commits.
+
+---
+
+## Defeitos que a execucao do Projeto 2 revelou
+**Timestamp**: 2026-08-30T22:15:00Z
+**User Input**: (nenhum — registro de achados)
+**AI Response**: "Dois criticos, ambos defeitos do plano e ambos com a mesma forma. (1) O desfazer nao aceitava parcelamento no schema zod do servidor: o tipo tinha cinco valores, o mapeamento de tabela tinha a chave, a funcao tinha o ramo, e os testes passavam — porque chamavam desfazer() como funcao, nunca pelo protocolo. A funcionalidade ficou morta na unica interface que existe. (2) O teste de simular_cenario provava que o banco nao muda, mas passaria com documento vazio: nada asseria semCenario, entao a metade nova — Postgres alimentando a simulacao — estava certificada e nao verificada. Alem desses, quantidadeParcelas sem limite superior permitia derrubar o servico com um numero mal transcrito, e as mensagens de guarda de simular_cenario chegavam ao assistente como falha interna transitoria, convidando a repetir uma chamada que falharia identicamente."
+**Context**: Licao de processo. Quatorze vezes ao longo desta sessao um teste certificou mais do que verificava, sempre com a mesma forma: a assercao correta sobre um caminho que nao e o real. O caso do desfazer e o mais instrutivo, porque tudo estava certo menos o unico caminho que o usuario percorre.
+
+---
+
+## Estado apos o Projeto 2
+**Timestamp**: 2026-08-30T22:15:00Z
+**User Input**: (nenhum — registro de conclusao)
+**AI Response**: "Doze ferramentas, 256 testes em mcp/ passando. Tres achados menores parqueados: o limite de parcelas nao tem teste que o prenda, so um dos dois guards de simular_cenario tem teste de protocolo, e a assercao de -180000 esta acoplada a Aluguel ser o unico item do teste. Registrado tambem que mcp/server.ts, o servidor stdio congelado, carrega o mesmo quantidadeParcelas sem limite — correto deixar, porque ele morre no Projeto 3. Observado que a suite de mcp/ falha intermitentemente no teardown quando muitos containers Postgres competem para desligar; nenhuma assercao falha, e vale olhar quando o Projeto 3 mexer na infraestrutura de testes."
+**Context**: Pendencias operacionais seguem abertas: segredo 1234 em producao com dados atras dele, e webhook do GitHub nao autorizado.
+
+---
