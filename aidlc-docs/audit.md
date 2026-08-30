@@ -706,3 +706,26 @@
 **Context**: Entradas para o brainstorming do Projeto 1.
 
 ---
+## Projeto 1 — Postgres e escrita por conversa: implementado
+**Timestamp**: 2026-08-30T00:00:00Z
+**User Input**: "1 SUB AGENT" (execucao dirigida por subagentes)
+**AI Response**: "Oito tarefas implementadas em TDD, cada uma por subagente proprio, com revisao apos cada uma e revisao ampla ao final. 236 testes em mcp/, todos passando. Entregue: esquema Postgres com dinheiro em BIGINT e datas em TEXT, migracoes sob advisory lock, repositorios Postgres satisfazendo Repositorios estruturalmente, suite de contrato rodando os mesmos casos contra Dexie e Postgres, e sete ferramentas — situacao_do_mes, cadastrar_recorrente, lancar_avulso, marcar_pago, declarar_saldo, desfazer e exportar. Nenhum arquivo de src/ foi modificado; o dominio com seus 309 testes atravessou a troca de banco intacto."
+**Context**: CONSTRUCTION — Projeto 1 de 4. Branch mcp-postgres, 15 commits.
+
+---
+
+## Defeitos que a execucao do Projeto 1 revelou
+**Timestamp**: 2026-08-30T00:00:00Z
+**User Input**: (nenhum — registro de achados)
+**AI Response**: "Dois defeitos criticos so apareceram na revisao final, e os dois derrubariam ou corromperiam o servico em producao. (1) hojeDoSistema lia o relogio com getMonth e getDate, que sao acessores de fuso local — o container do Railway roda em UTC e o usuario vive em BRT, entao entre 21h e meia-noite todo lancamento sem data explicita cairia no dia seguinte, e na virada do mes na competencia errada. E exatamente a classe de defeito que o projeto recusa colunas DATE para evitar, entrando pela unica funcao autorizada a ler o relogio. (2) O pool do pg nao tinha ouvinte de error: uma conexao ociosa quebrada por restart do Postgres subiria como excecao nao tratada e derrubaria o processo, e com restartPolicyMaxRetries 3 o servico ficaria morto ate um redeploy manual. Mais sete achados Important, entre eles marcar_pago aceitando valor negativo (que inverte o movimento na curva), a janela de desfazer ancorada em criado_em que o upsert nao atualiza, e ancoras.salvar divergindo do Dexie num caso que a suite de contrato nao alcancava."
+**Context**: Licao de processo. Nove vezes ao longo do trabalho um teste certificou mais do que verificava, sempre com a mesma forma: a assercao estava correta e o caminho exercitado nao era o real. Tres dessas foram encontradas pelos proprios implementadores, verificando o instrumento antes de confiar nele — inclusive um que descobriu que a fixture sugerida na instrucao usava um instante que nao reproduzia o bug.
+
+---
+
+## Estado e o que fica para o Projeto 3
+**Timestamp**: 2026-08-30T00:00:00Z
+**User Input**: (nenhum — registro de conclusao)
+**AI Response**: "Pronto para merge. Quatro achados menores parqueados, o mais relevante sendo que a migracao de atualizado_em faz back-fill com now(), colocando qualquer linha historica dentro da janela de desfazer por 24 horas — inofensivo com o banco vazio, mas vale um update antes de haver dados. Registro tambem um obstaculo estrutural que a revisao final identificou para o Projeto 3: o tipo Repositorios e declarado como ReturnType<typeof criarRegraRepository>, ou seja, derivado da implementacao Dexie. Apagar src/data/repositories.ts apagaria o tipo que a implementacao Postgres afirma satisfazer, e a suite de contrato perderia sua segunda implementacao no mesmo instante. O Projeto 3 nao e uma exclusao: e uma inversao, e ela precisa ser a primeira tarefa dele, nao uma descoberta no meio."
+**Context**: Pendencias operacionais herdadas seguem abertas: o segredo em producao ainda e 1234, e agora ha dinheiro atras dele; e o webhook do GitHub nao esta autorizado, entao git push nao redeploya.
+
+---
