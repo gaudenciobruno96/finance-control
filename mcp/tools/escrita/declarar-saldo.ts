@@ -10,6 +10,7 @@ import { deEntradaUsuario, formatarBRL } from '../../../src/domain/money.js'
 import { novoId } from '../../../src/data/ids.js'
 import type { AppPg } from '../../app-pg.js'
 import { montarRecibo, type Recibo } from '../../recibo.js'
+import { ErroDeUsuario } from '../erro-do-usuario.js'
 
 export interface ArgsDeclararSaldo {
   readonly valor: string
@@ -20,7 +21,7 @@ export interface ArgsDeclararSaldo {
 export async function declararSaldo(app: AppPg, args: ArgsDeclararSaldo): Promise<Recibo> {
   const centavos = deEntradaUsuario(args.valor)
   if (centavos === null) {
-    throw new Error(
+    throw new ErroDeUsuario(
       `Nao entendi o valor "${args.valor}". Use algo como 1200, 1200,00 ou -300,00.`,
     )
   }

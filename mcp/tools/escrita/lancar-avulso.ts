@@ -11,6 +11,7 @@ import type { Ocorrencia } from '../../../src/domain/types.js'
 import { novoId } from '../../../src/data/ids.js'
 import type { AppPg } from '../../app-pg.js'
 import { montarRecibo, type Recibo } from '../../recibo.js'
+import { ErroDeUsuario } from '../erro-do-usuario.js'
 
 export interface ArgsLancarAvulso {
   readonly tipo: 'entrada' | 'saida'
@@ -24,7 +25,7 @@ export interface ArgsLancarAvulso {
 export async function lancarAvulso(app: AppPg, args: ArgsLancarAvulso): Promise<Recibo> {
   const centavos = deEntradaUsuario(args.valor)
   if (centavos === null) {
-    throw new Error(`Nao entendi o valor "${args.valor}". Use algo como 80, 80,00 ou 1.234,56.`)
+    throw new ErroDeUsuario(`Nao entendi o valor "${args.valor}". Use algo como 80, 80,00 ou 1.234,56.`)
   }
 
   const data = args.data ?? args.hoje

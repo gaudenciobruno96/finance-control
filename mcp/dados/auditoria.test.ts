@@ -44,15 +44,15 @@ describe('auditoria', () => {
 
     await repos.regras.salvar(REGRA)
 
-    const criadoEm = await auditoria.criadoEm('regras', 'r-1')
+    const tocadoEm = await auditoria.tocadoEm('regras', 'r-1')
 
-    expect(criadoEm).toBeInstanceOf(Date)
+    expect(tocadoEm).toBeInstanceOf(Date)
   })
 
   it('devolve null para id inexistente', async () => {
     const auditoria = criarAuditoria(pool)
 
-    expect(await auditoria.criadoEm('regras', 'nao-existe')).toBeNull()
+    expect(await auditoria.tocadoEm('regras', 'nao-existe')).toBeNull()
   })
 
   it('rejeita tabela fora da lista fechada, mesmo contornando o TypeScript', async () => {
@@ -62,7 +62,25 @@ describe('auditoria', () => {
     // guard em runtime, nao o TypeScript, e o que protege a posicao de
     // identificador no SQL contra um nome de tabela arbitrario.
     await expect(
-      auditoria.criadoEm('regras; drop table regras;--' as unknown as TabelaAuditavel, 'r-1'),
+      auditoria.tocadoEm('regras; drop table regras;--' as unknown as TabelaAuditavel, 'r-1'),
     ).rejects.toThrow()
+  })
+
+  it('reflete atualizacao, nao so criacao: salvar de novo avanca tocadoEm', async () => {
+    // A distincao com criado_em e o ponto inteiro do achado 5: uma linha
+    // atualizada (nao recriada) precisa que o instante mude tambem.
+    const repos = criarRepositoriosPg(pool)
+    const auditoria = criarAuditoria(pool)
+
+    await repos.regras.salvar(REGRA)
+    await pool.query(`update regras set atualizado_em = now() - interval '2 days' where id = 'r-1'`)
+    const antesDeAtualizar = await auditoria.tocadoEm('regras', 'r-1')
+
+    await repos.regras.salvar({ ...REGRA, nome: 'Aluguel novo' })
+    const depoisDeAtualizar = await auditoria.tocadoEm('regras', 'r-1')
+
+    expect(depoisDeAtualizar).not.toBeNull()
+    expect(antesDeAtualizar).not.toBeNull()
+    expect(depoisDeAtualizar!.getTime()).toBeGreaterThan(antesDeAtualizar!.getTime())
   })
 })

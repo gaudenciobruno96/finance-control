@@ -84,6 +84,25 @@ const MIGRACOES: readonly string[] = [
     criado_em timestamptz not null default now()
   );
   `,
+  // NAO edite a migracao acima: o mecanismo aplica so as versoes acima da
+  // atual, e um banco ja migrado nunca reveria uma versao editada.
+  //
+  // `atualizado_em` mede o TOQUE, nao a criacao (RN da janela de desfazer,
+  // achado 5). `criado_em` fica congelado no `insert`, e `on conflict do
+  // update` nao o toca -- entao, para as duas escritas que ATUALIZAM uma
+  // linha existente (pagamento sobre ocorrencia ja materializada, e
+  // declarar_saldo substituindo uma ancora existente na mesma data),
+  // `criado_em` mede quando a linha nasceu, nao quando a escrita que se quer
+  // desfazer aconteceu. Um pagamento de hoje sobre uma ocorrencia
+  // materializada ha um mes carregaria `criado_em` de um mes atras, e
+  // `desfazer` recusaria como "mais de 24 horas" um pagamento feito ha
+  // segundos.
+  `
+  alter table regras add column if not exists atualizado_em timestamptz not null default now();
+  alter table parcelamentos add column if not exists atualizado_em timestamptz not null default now();
+  alter table ocorrencias add column if not exists atualizado_em timestamptz not null default now();
+  alter table ancoras add column if not exists atualizado_em timestamptz not null default now();
+  `,
 ]
 
 export async function aplicarMigracoes(pool: Pool): Promise<number> {

@@ -242,6 +242,24 @@ describe.each(IMPLEMENTACOES)('contrato de Repositorios (%s)', (_nome, montar) =
     expect(await repos.ancoras.vigenteEm('2026-02-01')).toBeNull()
   })
 
+  it('salvar um id existente numa data nova MOVE a ancora, como o Dexie (achado 7)', async () => {
+    // A versao Postgres anterior fazia `on conflict (data)`, que so cobre o
+    // conflito no indice de `data`. Quando o MESMO id ja existia numa data
+    // DIFERENTE, quem batia primeiro era a chave primaria `id` -- nao nomeada
+    // na clausula -- e o Postgres levantava 23505 em vez de mover a linha. O
+    // Dexie (`put`) move sem erro. Este caso roda contra as duas
+    // implementacoes: precisa passar nas duas.
+    await repos.ancoras.salvar(ANCORA, '2026-05-20') // a-1 em 2026-03-01
+
+    await repos.ancoras.salvar({ id: 'a-1', data: '2026-05-01', saldoCentavos: 999 }, '2026-05-20')
+
+    const todas = await repos.ancoras.listar()
+    expect(todas).toHaveLength(1)
+    expect(todas[0]?.id).toBe('a-1')
+    expect(todas[0]?.data).toBe('2026-05-01')
+    expect(todas[0]?.saldoCentavos).toBe(999)
+  })
+
   it('declarar saldo na mesma data substitui (RN-50)', async () => {
     await repos.ancoras.salvar(ANCORA, '2026-03-20')
     await repos.ancoras.salvar({ id: 'a-outra', data: '2026-03-01', saldoCentavos: 555 }, '2026-03-20')

@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from '@testcontainers/postgresql'
 import type { Pool } from 'pg'
+import { chaveDe } from '../../src/domain/occurrence-key.js'
 import { criarPool } from '../dados/conexao.js'
 import { aplicarMigracoes } from '../dados/migracoes.js'
 import { criarAppPg, type AppPg } from '../app-pg.js'
@@ -144,5 +145,73 @@ describe('desfazer', () => {
     await expect(
       desfazer(app, { tipo: 'avulso', id: 'nao-existe', agora: logoDepois(), hoje: '2026-09-15' }),
     ).rejects.toThrow()
+  })
+
+  it('desfaz pagamento de ocorrencia materializada ha dias e paga agora (janela mede o toque, nao a criacao)', async () => {
+    // Achado 5: `criado_em` fica congelado no insert e `on conflict do update`
+    // nao o toca. Uma ocorrencia materializada ha dias (ex.: por uma edicao
+    // anterior) e paga AGORA carrega um `criado_em` antigo -- a versao velha
+    // da janela recusava desfazer um pagamento feito ha segundos, alegando
+    // "mais de 24 horas". A correcao le `atualizado_em`, que a propria
+    // chamada de pagamento avanca.
+    const chave = chaveDe('regra', 'r-aluguel', '2026-09')
+    await app.repos.ocorrencias.salvar({
+      id: 'o-materializada-ha-dias',
+      geradorTipo: 'regra',
+      geradorId: 'r-aluguel',
+      competencia: '2026-09',
+      tipo: 'saida',
+      nome: 'Aluguel',
+      valorPrevistoCentavos: 180000,
+      dataVencimento: '2026-09-10',
+      dataPagamento: null,
+      valorPagoCentavos: null,
+      ignorado: false,
+      observacao: null,
+    })
+    await pool.query(
+      `update ocorrencias set criado_em = now() - interval '2 days' where id = $1`,
+      ['o-materializada-ha-dias'],
+    )
+
+    // Paga agora -- isso ATUALIZA a linha existente (mesma chave), sem tocar
+    // em criado_em, mas avancando atualizado_em.
+    await marcarPago(app, { chave, hoje: '2026-09-15' })
+
+    await desfazer(app, { tipo: 'pagamento', id: chave, agora: logoDepois(), hoje: '2026-09-15' })
+
+    const [o] = await app.repos.ocorrencias.listar()
+    expect(o?.dataPagamento).toBeNull()
+    expect(o?.valorPagoCentavos).toBeNull()
+  })
+
+  it('desfaz pagamento retroativo de uma ENTRADA (nao so de saida, que RN-33 empurra para o mes atual)', async () => {
+    // Achado 6: desfazer(pagamento) projetava competenciaDe(hoje), que so
+    // acha o mes CORRENTE. Uma saida atrasada passaria por coincidencia (RN-33
+    // a empurra para dentro de qualquer mes atual); uma entrada nao (RN-90) --
+    // so aparece no mes projetado que e dela mesma. A correcao le a
+    // competencia da propria chave.
+    await app.repos.regras.salvar({
+      id: 'r-freela',
+      tipo: 'entrada',
+      nome: 'Freela',
+      valorCentavos: 9900,
+      valorEhEstimativa: false,
+      diaDoMes: 10,
+      ajusteFimDeSemana: 'nenhum',
+      vigenteDe: '2026-07',
+      vigenteAte: null,
+    })
+
+    const antiga = await situacaoDoMes(app, { competencia: '2026-07', hoje: '2026-09-15' })
+    const chave = antiga.aindaEntra.find((i) => i.nome === 'Freela')!.chave
+
+    await marcarPago(app, { chave, data: '2026-07-10', hoje: '2026-09-15' })
+
+    await desfazer(app, { tipo: 'pagamento', id: chave, agora: logoDepois(), hoje: '2026-09-15' })
+
+    const [o] = await app.repos.ocorrencias.listar()
+    expect(o?.dataPagamento).toBeNull()
+    expect(o?.valorPagoCentavos).toBeNull()
   })
 })

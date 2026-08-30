@@ -12,10 +12,11 @@
  * - saldo: remove a ancora
  */
 
-import { competenciaDe } from '../../src/domain/calendar.js'
 import type { AppPg } from '../app-pg.js'
-import { dentroDaJanela, type TipoDeEscrita } from '../recibo.js'
+import { dentroDaJanela, TOLERANCIA_DE_RELOGIO_MS, type TipoDeEscrita } from '../recibo.js'
 import type { TabelaAuditavel } from '../dados/auditoria.js'
+import { competenciaDaChave } from './competencia-da-chave.js'
+import { ErroDeUsuario } from './erro-do-usuario.js'
 
 export interface ArgsDesfazer {
   readonly tipo: TipoDeEscrita
@@ -41,14 +42,30 @@ async function exigirDentroDaJanela(
   id: string,
   agora: Date,
 ): Promise<void> {
-  const criadoEm = await app.auditoria.criadoEm(tabela, id)
+  // `tocadoEm`, nao `criadoEm`: para pagamento e saldo, a escrita que se quer
+  // desfazer pode ter ATUALIZADO uma linha que ja existia havia dias -- o que
+  // importa para a janela e quando a linha foi tocada, nao quando nasceu.
+  const tocadoEm = await app.auditoria.tocadoEm(tabela, id)
 
-  if (criadoEm === null) {
-    throw new Error('Nao encontrei esse registro. Confira o identificador do recibo.')
+  if (tocadoEm === null) {
+    throw new ErroDeUsuario('Nao encontrei esse registro. Confira o identificador do recibo.')
   }
 
-  if (!dentroDaJanela(criadoEm, agora)) {
-    throw new Error(
+  if (!dentroDaJanela(tocadoEm, agora)) {
+    // `dentroDaJanela` aceita uma pequena folga no futuro (desvio de relogio
+    // entre o banco e o processo, ver TOLERANCIA_DE_RELOGIO_MS) -- alem dela,
+    // nao e desvio de relogio, e sinal real de inconsistencia, e a mensagem
+    // diz isso em vez de "mais de 24 horas", que descreveria o problema
+    // errado.
+    if (tocadoEm.getTime() - agora.getTime() > TOLERANCIA_DE_RELOGIO_MS) {
+      throw new ErroDeUsuario(
+        'Esse registro aparece como tocado no futuro, o que sugere relogios ' +
+          'dessincronizados. Nao da para calcular a janela de desfazer com ' +
+          'confianca -- tente novamente em instantes.',
+      )
+    }
+
+    throw new ErroDeUsuario(
       'Esse registro tem mais de 24 horas e esta fora da janela de desfazer. ' +
         'Para alterar algo antigo, use a ferramenta de edicao correspondente.',
     )
@@ -59,13 +76,22 @@ export async function desfazer(app: AppPg, args: ArgsDesfazer): Promise<Resultad
   if (args.tipo === 'pagamento') {
     // O identificador aqui e a CHAVE, nao um id de linha: o pagamento pode ter
     // materializado o registro agora mesmo.
-    const mes = await app.projecao.projetarMes(competenciaDe(args.hoje), args.hoje)
+    //
+    // A competencia vem da PROPRIA CHAVE, nao de `hoje` -- projetar
+    // `competenciaDe(args.hoje)` so acha pagamentos do mes corrente. Desfazer
+    // um pagamento retroativo (de um mes anterior) sempre falhava para uma
+    // ENTRADA: RN-33 empurra saida atrasada para dentro do mes atual (entao
+    // aquele caso passava por coincidencia), RN-90 nao faz o mesmo para
+    // entrada -- a mesma assimetria que ja pegou este branch em
+    // `marcar_pago`.
+    const competencia = competenciaDaChave(args.id)
+    const mes = await app.projecao.projetarMes(competencia, args.hoje)
     const alvo = [...mes.faltaPagar, ...mes.aindaEntra, ...mes.jaResolvido].find(
       (o) => o.chave === args.id,
     )
 
     if (alvo === undefined) {
-      throw new Error('Nao encontrei essa ocorrencia no mes corrente.')
+      throw new ErroDeUsuario(`Nao encontrei essa ocorrencia em ${competencia}.`)
     }
 
     if (alvo.idReal !== null) {

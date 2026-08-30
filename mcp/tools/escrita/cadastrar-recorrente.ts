@@ -11,6 +11,7 @@ import type { Regra } from '../../../src/domain/types.js'
 import { novoId } from '../../../src/data/ids.js'
 import type { AppPg } from '../../app-pg.js'
 import { montarRecibo, type Recibo } from '../../recibo.js'
+import { ErroDeUsuario } from '../erro-do-usuario.js'
 
 export interface ArgsCadastrarRecorrente {
   readonly tipo: 'entrada' | 'saida'
@@ -31,7 +32,7 @@ export async function cadastrarRecorrente(
   // para errar por uma ordem de grandeza, em silencio.
   const centavos = deEntradaUsuario(args.valor)
   if (centavos === null) {
-    throw new Error(
+    throw new ErroDeUsuario(
       `Nao entendi o valor "${args.valor}". Use algo como 1800, 1800,00 ou 1.800,00.`,
     )
   }

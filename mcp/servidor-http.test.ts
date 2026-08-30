@@ -1,10 +1,10 @@
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { request as httpRequest } from 'node:http'
 import type { Server } from 'node:http'
 import { format } from 'node:util'
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from '@testcontainers/postgresql'
 import type { Pool } from 'pg'
-import { criarApp, iniciar, lerPorta, responderPing } from './servidor-http.js'
+import { criarApp, dataNoFuso, iniciar, lerPorta, responderPing } from './servidor-http.js'
 import { criarPool } from './dados/conexao.js'
 import { aplicarMigracoes } from './dados/migracoes.js'
 import { criarAppPg, type AppPg } from './app-pg.js'
@@ -42,6 +42,26 @@ describe('responderPing', () => {
     const b = responderPing(new Date('2026-06-15T12:30:00.000Z'), '0.1.0')
 
     expect(a.horaDoServidor).not.toBe(b.horaDoServidor)
+  })
+})
+
+describe('dataNoFuso', () => {
+  it('usa o fuso do usuario (BRT), nao o fuso do processo (UTC)', () => {
+    // 22h em Sao Paulo (UTC-3) no dia 31/08 e 01h UTC do dia 01/09 -- o
+    // exemplo do proprio achado. A versao ingenua (getDate()/getMonth(), que
+    // leem o fuso do PROCESSO -- UTC no container) leria '2026-09-01', um dia
+    // adiantado. Verificado: `instante.getUTCDate()` para este instante da
+    // 1 (01/09), enquanto o fuso do usuario ainda esta em 31/08.
+    expect(dataNoFuso(new Date('2026-09-01T01:00:00.000Z'))).toBe('2026-08-31')
+  })
+
+  it('nao muda a data para um horario que ja e o mesmo dia nos dois fusos', () => {
+    expect(dataNoFuso(new Date('2026-08-31T12:00:00.000Z'))).toBe('2026-08-31')
+  })
+
+  it('vira o dia no instante certo, no fuso do usuario', () => {
+    // 00:30 em Sao Paulo do dia 01/09 e 03:30 UTC.
+    expect(dataNoFuso(new Date('2026-09-01T03:30:00.000Z'))).toBe('2026-09-01')
   })
 })
 
@@ -432,6 +452,208 @@ describe('criarApp', () => {
 
     const resultado = corpoPing.result as { content: { type: string; text: string }[] }
     expect(resultado.content[0]?.text).toContain('pong')
+  })
+
+  /**
+   * As sete ferramentas financeiras (Fix 9): so `ping` era coberto sobre o
+   * protocolo real. O que fica sem cobertura sem isto e exatamente a
+   * FIACAO -- os schemas zod, os espalhamentos de propriedade opcional
+   * (`...(x === undefined ? {} : {x})`), e o default `hoje ?? hojeDoSistema()`
+   * -- nada disso e exercitado so chamando as funcoes das ferramentas
+   * diretamente. Uma ferramenta quebrada volta como `isError: true` com
+   * texto, que para o modelo le como uma resposta normal.
+   */
+  async function chamarFerramenta(
+    nome: string,
+    args: Record<string, unknown>,
+  ): Promise<{ content: { type: string; text: string }[]; isError?: boolean }> {
+    const base = await subir()
+    const cabecalhos = {
+      'Content-Type': 'application/json',
+      Accept: 'application/json, text/event-stream',
+      Authorization: `Bearer ${SEGREDO}`,
+    }
+
+    await fetch(`${base}/mcp`, {
+      method: 'POST',
+      headers: cabecalhos,
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'initialize',
+        params: {
+          protocolVersion: '2025-11-25',
+          capabilities: {},
+          clientInfo: { name: 'teste-e2e', version: '1.0.0' },
+        },
+      }),
+    })
+
+    const resposta = await fetch(`${base}/mcp`, {
+      method: 'POST',
+      headers: cabecalhos,
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 2,
+        method: 'tools/call',
+        params: { name: nome, arguments: args },
+      }),
+    })
+    expect(resposta.status).toBe(200)
+    const corpo = await lerRespostaMcp(resposta)
+    expect(corpo.error).toBeUndefined()
+
+    return corpo.result as { content: { type: string; text: string }[]; isError?: boolean }
+  }
+
+  describe('tools/call sobre as sete ferramentas financeiras', () => {
+    beforeEach(async () => {
+      for (const t of ['regras', 'ancoras', 'ocorrencias']) {
+        await pool.query(`delete from ${t}`)
+      }
+    })
+
+    it('situacao_do_mes devolve conteudo plausivel, sem competencia explicita', async () => {
+      const r = await chamarFerramenta('situacao_do_mes', { hoje: '2026-09-15' })
+
+      expect(r.isError).not.toBe(true)
+      expect(r.content[0]?.text).toContain('"competencia": "2026-09"')
+      expect(r.content[0]?.text).toContain('"saldoRelativo"')
+    })
+
+    it('cadastrar_recorrente grava a regra e devolve recibo plausivel', async () => {
+      const r = await chamarFerramenta('cadastrar_recorrente', {
+        tipo: 'saida',
+        nome: 'Aluguel via tools/call',
+        valor: '1800',
+        diaDoMes: 10,
+        vigenteDe: '2026-09',
+      })
+
+      expect(r.isError).not.toBe(true)
+      expect(r.content[0]?.text).toContain('Aluguel via tools/call')
+
+      const todas = await pool.query<{ nome: string }>('select nome from regras')
+      expect(todas.rows.map((x) => x.nome)).toContain('Aluguel via tools/call')
+    })
+
+    it('lancar_avulso grava a ocorrencia e devolve recibo plausivel', async () => {
+      const r = await chamarFerramenta('lancar_avulso', {
+        tipo: 'saida',
+        nome: 'Mercado via tools/call',
+        valor: '80',
+        hoje: '2026-09-15',
+      })
+
+      expect(r.isError).not.toBe(true)
+      expect(r.content[0]?.text).toContain('Mercado via tools/call')
+      expect(r.content[0]?.text).toContain('R$')
+    })
+
+    it('marcar_pago encontra a chave devolvida por situacao_do_mes e paga', async () => {
+      await chamarFerramenta('cadastrar_recorrente', {
+        tipo: 'saida',
+        nome: 'Luz via tools/call',
+        valor: '220',
+        diaDoMes: 5,
+        vigenteDe: '2026-09',
+      })
+
+      const situacao = await chamarFerramenta('situacao_do_mes', {
+        competencia: '2026-09',
+        hoje: '2026-09-15',
+      })
+      const dados = JSON.parse(situacao.content[0]?.text ?? '{}') as {
+        faltaPagar: { nome: string; chave: string }[]
+      }
+      const chave = dados.faltaPagar.find((i) => i.nome === 'Luz via tools/call')?.chave
+      expect(chave).toBeTypeOf('string')
+
+      const r = await chamarFerramenta('marcar_pago', { chave, hoje: '2026-09-15' })
+
+      expect(r.isError).not.toBe(true)
+      expect(r.content[0]?.text).toContain('Luz via tools/call')
+    })
+
+    it('declarar_saldo grava a ancora e devolve recibo plausivel', async () => {
+      const r = await chamarFerramenta('declarar_saldo', { valor: '1000', hoje: '2026-09-15' })
+
+      expect(r.isError).not.toBe(true)
+      expect(r.content[0]?.text).toContain('R$')
+
+      const ancoras = await pool.query('select * from ancoras')
+      expect(ancoras.rowCount).toBe(1)
+    })
+
+    it('desfazer reverte um lancamento avulso feito por lancar_avulso', async () => {
+      const lancamento = await chamarFerramenta('lancar_avulso', {
+        tipo: 'saida',
+        nome: 'Erro via tools/call',
+        valor: '50',
+        hoje: '2026-09-15',
+      })
+      const dados = JSON.parse(lancamento.content[0]?.text ?? '{}') as { id: string }
+
+      const r = await chamarFerramenta('desfazer', {
+        tipo: 'avulso',
+        id: dados.id,
+        hoje: '2026-09-15',
+      })
+
+      expect(r.isError).not.toBe(true)
+      expect(r.content[0]?.text).toContain('removido')
+
+      const restantes = await pool.query('select * from ocorrencias where id = $1', [dados.id])
+      expect(restantes.rowCount).toBe(0)
+    })
+
+    it('exportar devolve o documento de backup completo', async () => {
+      const r = await chamarFerramenta('exportar', { hoje: '2026-09-15' })
+
+      expect(r.isError).not.toBe(true)
+      expect(r.content[0]?.text).toContain('"versaoSchema"')
+      expect(r.content[0]?.text).toContain('"regras"')
+      expect(r.content[0]?.text).toContain('"ocorrencias"')
+    })
+
+    it('erro de dominio (valor invalido) atravessa verbatim ate o cliente (Fix 8)', async () => {
+      // "Nao entendi o valor" e como o assistente sabe o que tentar diferente
+      // -- precisa chegar ao cliente sem ser trocado pela mensagem generica
+      // que erros crus recebem.
+      const r = await chamarFerramenta('lancar_avulso', {
+        tipo: 'saida',
+        nome: 'Teste',
+        valor: 'nao e um numero',
+        hoje: '2026-09-15',
+      })
+
+      expect(r.isError).toBe(true)
+      expect(r.content[0]?.text).toContain('Nao entendi o valor')
+    })
+
+    it('erro cru do banco NAO atravessa: sai sanitizado (Fix 8)', async () => {
+      // Simula uma falha inesperada (nao prevista por nenhuma ferramenta):
+      // fecha o pool desta app antes da chamada, forcando `pool.query` a
+      // lancar um erro que ninguem escreveu pensando no usuario ler. O que se
+      // prova e que esse erro NAO alcanca o cliente verbatim -- so a mensagem
+      // generica alcanca.
+      const poolProprio = criarPool(container.getConnectionUri())
+      const appProprio = criarAppPg(poolProprio)
+      await poolProprio.end()
+
+      const appAnterior = appPg
+      appPg = appProprio
+      try {
+        const r = await chamarFerramenta('situacao_do_mes', { hoje: '2026-09-15' })
+
+        expect(r.isError).toBe(true)
+        expect(r.content[0]?.text).not.toContain('Cannot use a pool')
+        expect(r.content[0]?.text).not.toContain(container.getConnectionUri())
+        expect(r.content[0]?.text).toMatch(/falha interna/i)
+      } finally {
+        appPg = appAnterior
+      }
+    })
   })
 
   it('criarApp recusa segredo vazio', () => {

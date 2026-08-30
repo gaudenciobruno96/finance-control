@@ -31,7 +31,27 @@ export function lerUrlDoBanco(env: Record<string, string | undefined>): string {
 }
 
 export function criarPool(url: string): Pool {
-  return new pg.Pool({ connectionString: url, max: 5 })
+  const pool = new pg.Pool({
+    connectionString: url,
+    max: 5,
+    // Sem timeout, um pool esgotado faz toda chamada de ferramenta pendurar
+    // sem erro, em vez de falhar.
+    connectionTimeoutMillis: 10_000,
+  })
+
+  // `pg-pool` emite 'error' no proprio Pool quando uma conexao OCIOSA quebra
+  // (restart do Postgres, queda do proxy, TCP idle drop). Sem ouvinte aqui,
+  // Node trata como excecao nao tratada e DERRUBA O PROCESSO -- com
+  // `restartPolicyMaxRetries: 3` no railway.json, tres desses eventos ao
+  // longo da vida do servico deixam ele fora do ar ate alguem fazer deploy a
+  // mao. E tambem o unico lugar onde um erro cru do `pg` alcancaria o log: o
+  // handler padrao do Node imprimiria o erro inteiro, que e exatamente o que
+  // `descreverErro` existe para impedir em todo o resto do codigo.
+  pool.on('error', (e) => {
+    console.error('erro em conexao ociosa do banco: %s', descreverErro(e))
+  })
+
+  return pool
 }
 
 /**

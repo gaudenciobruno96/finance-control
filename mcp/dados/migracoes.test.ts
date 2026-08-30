@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from '@testcontainers/postgresql'
 import type { Pool } from 'pg'
 import { criarPool, descreverErro, lerUrlDoBanco } from './conexao.js'
@@ -42,6 +42,33 @@ describe('descreverErro', () => {
 
   it('lida com valor que nao e Error', () => {
     expect(descreverErro('qualquer coisa')).not.toContain('qualquer coisa')
+  })
+})
+
+describe('criarPool', () => {
+  it('nao derruba o processo quando uma conexao ociosa emite erro, e nao vaza a mensagem crua', async () => {
+    // `pg-pool` emite 'error' no Pool para uma conexao OCIOSA que quebra
+    // (restart do Postgres, queda de proxy). Sem ouvinte, isso vira excecao
+    // nao tratada e mata o processo Node inteiro -- inviavel de provar
+    // diretamente num teste (mataria o test runner). O que se prova aqui e o
+    // proxy dessa garantia: emitir 'error' no pool NAO lanca sincronamente
+    // nem rejeita, e o unico lugar que o registra (`descreverErro`) nao
+    // imprime a mensagem crua do erro.
+    const pool = criarPool('postgres://usuario:senha-sentinela-idle-7731@127.0.0.1:1/nao-existe')
+    const espiao = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    try {
+      expect(() => {
+        pool.emit('error', new Error('connection to postgres://usuario:senha-sentinela-idle-7731@127.0.0.1:1 failed'))
+      }).not.toThrow()
+
+      expect(espiao).toHaveBeenCalled()
+      const registrado = espiao.mock.calls.map((c) => String(c[0]) + ' ' + c.slice(1).join(' ')).join('\n')
+      expect(registrado).not.toContain('senha-sentinela-idle-7731')
+    } finally {
+      espiao.mockRestore()
+      await pool.end()
+    }
   })
 })
 

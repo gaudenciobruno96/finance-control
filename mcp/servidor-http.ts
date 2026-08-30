@@ -29,12 +29,42 @@ import { marcarPago } from './tools/escrita/marcar-pago.js'
 import { declararSaldo } from './tools/escrita/declarar-saldo.js'
 import { desfazer } from './tools/desfazer.js'
 import { exportar } from './tools/exportar.js'
+import { ErroDeUsuario } from './tools/erro-do-usuario.js'
+import { ehErroDeDominio } from '../src/domain/errors.js'
 
 const COMPETENCIA = z
   .string()
   .regex(/^\d{4}-\d{2}$/, 'Competencia no formato AAAA-MM')
 
 const DATA = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Data no formato AAAA-MM-DD')
+
+/**
+ * Fuso de quem usa o app -- NAO o fuso do container.
+ *
+ * O Railway roda o processo em UTC; o dono dos dados vive em BRT. Mudar esta
+ * constante muda em que dia uma escrita sem data explicita e gravada.
+ */
+const FUSO_DO_USUARIO = 'America/Sao_Paulo'
+
+/**
+ * A data corrente, no fuso de quem usa o app, a partir de um instante dado.
+ *
+ * Exportada separada de `hojeDoSistema` para ser testavel sem tocar no
+ * relogio global: o instante entra como parametro, como o resto do dominio
+ * exige (RN-04).
+ *
+ * `getDate()` e `getMonth()` leem o fuso do PROCESSO, e o container roda em
+ * UTC enquanto o usuario vive em BRT -- entre 21h e meia-noite (horario de
+ * Brasilia) a data sairia um dia adiantada, e no virar do mes a competencia
+ * inteira sairia errada. E o mesmo deslocamento que o projeto recusa colunas
+ * DATE para evitar (ver `mcp/dados/migracoes.ts`), soh que entrando pelo unico
+ * lugar que ainda le o relogio.
+ *
+ * 'en-CA' emite AAAA-MM-DD, que e o formato que o dominio espera.
+ */
+export function dataNoFuso(instante: Date): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: FUSO_DO_USUARIO }).format(instante)
+}
 
 /**
  * Unico ponto do servidor que le o relogio.
@@ -47,14 +77,51 @@ const DATA = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Data no formato AAAA-MM-DD
  * qualquer data sem tocar no relogio da maquina.
  */
 function hojeDoSistema(): string {
-  const agora = new Date()
-  const mes = String(agora.getMonth() + 1).padStart(2, '0')
-  const dia = String(agora.getDate()).padStart(2, '0')
-  return `${agora.getFullYear()}-${mes}-${dia}`
+  return dataNoFuso(new Date())
 }
 
 function json(valor: unknown): { content: { type: 'text'; text: string }[] } {
   return { content: [{ type: 'text' as const, text: JSON.stringify(valor, null, 2) }] }
+}
+
+/**
+ * Envolve o corpo de uma ferramenta MCP: erros que o usuario precisa ler
+ * atravessam intactos, qualquer outro erro sai sanitizado.
+ *
+ * O SDK do MCP devolve para quem chamou qualquer coisa que uma ferramenta
+ * lance, como texto. Nenhuma ferramenta aqui envolve `pool.query`
+ * individualmente -- sem este wrapper, um erro cru do `pg` (que pode conter a
+ * string de conexao inteira, senha inclusa) alcancaria o contexto do modelo.
+ *
+ * `ErroDeUsuario` (`mcp/tools/erro-do-usuario.ts`) e `ErroDeDominio`
+ * (`src/data/invariants.ts`, via `src/domain/errors.js`) sao as duas formas de
+ * erro pensadas para o usuario ler -- "Nao entendi o valor", "Nao encontrei
+ * essa chave" -- e sao exatamente como o assistente sabe o que tentar
+ * diferente na proxima chamada; precisam atravessar verbatim. Qualquer outra
+ * coisa (erro de `pg`, bug de programacao) passa por `descreverErro` antes de
+ * virar a mensagem que o cliente ve, e o erro original vai so para o log do
+ * Railway.
+ */
+async function executarFerramenta<T>(
+  corpo: () => Promise<T>,
+): Promise<{ content: { type: 'text'; text: string }[] }> {
+  try {
+    return json(await corpo())
+  } catch (e) {
+    if (e instanceof ErroDeUsuario || ehErroDeDominio(e)) {
+      throw e
+    }
+
+    const descricao = descreverErro(e)
+    console.error('erro nao tratado numa ferramenta MCP: %s', descricao)
+    throw new Error('Falha interna ao processar a ferramenta. Tente novamente em instantes.', {
+      // `cause` leva a descricao SANITIZADA, nunca `e` em si -- o mesmo
+      // motivo do catch em `iniciar()` mais abaixo: um erro cru do `pg` pode
+      // conter a string de conexao inteira, senha inclusa.
+      // eslint-disable-next-line preserve-caught-error -- ver comentario acima: `e` cru nunca pode virar `cause`
+      cause: descricao,
+    })
+  }
 }
 
 export const VERSAO: string = (
@@ -120,8 +187,8 @@ function criarServidorMcp(app: AppPg): McpServer {
       },
     },
     async ({ competencia, hoje }) =>
-      json(
-        await situacaoDoMes(app, {
+      executarFerramenta(() =>
+        situacaoDoMes(app, {
           ...(competencia === undefined ? {} : { competencia }),
           hoje: hoje ?? hojeDoSistema(),
         }),
@@ -149,8 +216,8 @@ function criarServidorMcp(app: AppPg): McpServer {
       },
     },
     async ({ tipo, nome, valor, diaDoMes, vigenteDe, ajusteFimDeSemana, valorEhEstimativa }) =>
-      json(
-        await cadastrarRecorrente(app, {
+      executarFerramenta(() =>
+        cadastrarRecorrente(app, {
           tipo,
           nome,
           valor,
@@ -179,8 +246,8 @@ function criarServidorMcp(app: AppPg): McpServer {
       },
     },
     async ({ tipo, nome, valor, data, hoje, observacao }) =>
-      json(
-        await lancarAvulso(app, {
+      executarFerramenta(() =>
+        lancarAvulso(app, {
           tipo,
           nome,
           valor,
@@ -210,8 +277,8 @@ function criarServidorMcp(app: AppPg): McpServer {
       },
     },
     async ({ chave, valor, data, hoje }) =>
-      json(
-        await marcarPago(app, {
+      executarFerramenta(() =>
+        marcarPago(app, {
           chave,
           ...(valor === undefined ? {} : { valor }),
           ...(data === undefined ? {} : { data }),
@@ -235,8 +302,8 @@ function criarServidorMcp(app: AppPg): McpServer {
       },
     },
     async ({ valor, data, hoje }) =>
-      json(
-        await declararSaldo(app, {
+      executarFerramenta(() =>
+        declararSaldo(app, {
           valor,
           ...(data === undefined ? {} : { data }),
           hoje: hoje ?? hojeDoSistema(),
@@ -259,7 +326,9 @@ function criarServidorMcp(app: AppPg): McpServer {
       },
     },
     async ({ tipo, id, hoje }) =>
-      json(await desfazer(app, { tipo, id, agora: new Date(), hoje: hoje ?? hojeDoSistema() })),
+      executarFerramenta(() =>
+        desfazer(app, { tipo, id, agora: new Date(), hoje: hoje ?? hojeDoSistema() }),
+      ),
   )
 
   server.registerTool(
@@ -273,7 +342,7 @@ function criarServidorMcp(app: AppPg): McpServer {
         hoje: DATA.optional().describe('Data de referencia. Padrao: hoje'),
       },
     },
-    async ({ hoje }) => json(await exportar(app, { hoje: hoje ?? hojeDoSistema() })),
+    async ({ hoje }) => executarFerramenta(() => exportar(app, { hoje: hoje ?? hojeDoSistema() })),
   )
 
   return server

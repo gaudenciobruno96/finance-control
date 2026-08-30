@@ -137,15 +137,16 @@ export function criarRepositoriosPg(pool: Pool): Repositorios {
         await pool.query(
           `insert into regras
            (id, tipo, nome, valor_centavos, valor_eh_estimativa, dia_do_mes,
-            ajuste_fim_de_semana, vigente_de, vigente_ate)
-           values ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+            ajuste_fim_de_semana, vigente_de, vigente_ate, atualizado_em)
+           values ($1,$2,$3,$4,$5,$6,$7,$8,$9,now())
            on conflict (id) do update set
              tipo = excluded.tipo, nome = excluded.nome,
              valor_centavos = excluded.valor_centavos,
              valor_eh_estimativa = excluded.valor_eh_estimativa,
              dia_do_mes = excluded.dia_do_mes,
              ajuste_fim_de_semana = excluded.ajuste_fim_de_semana,
-             vigente_de = excluded.vigente_de, vigente_ate = excluded.vigente_ate`,
+             vigente_de = excluded.vigente_de, vigente_ate = excluded.vigente_ate,
+             atualizado_em = now()`,
           [
             x.id,
             x.tipo,
@@ -185,13 +186,14 @@ export function criarRepositoriosPg(pool: Pool): Repositorios {
         validarParcelamento(x)
         await pool.query(
           `insert into parcelamentos
-           (id, nome, valor_parcela_centavos, quantidade_parcelas, primeiro_vencimento)
-           values ($1,$2,$3,$4,$5)
+           (id, nome, valor_parcela_centavos, quantidade_parcelas, primeiro_vencimento, atualizado_em)
+           values ($1,$2,$3,$4,$5,now())
            on conflict (id) do update set
              nome = excluded.nome,
              valor_parcela_centavos = excluded.valor_parcela_centavos,
              quantidade_parcelas = excluded.quantidade_parcelas,
-             primeiro_vencimento = excluded.primeiro_vencimento`,
+             primeiro_vencimento = excluded.primeiro_vencimento,
+             atualizado_em = now()`,
           [x.id, x.nome, x.valorParcelaCentavos, x.quantidadeParcelas, x.primeiroVencimento],
         )
       },
@@ -219,8 +221,8 @@ export function criarRepositoriosPg(pool: Pool): Repositorios {
           `insert into ocorrencias
            (id, gerador_tipo, gerador_id, competencia, tipo, nome,
             valor_previsto_centavos, data_vencimento, data_pagamento,
-            valor_pago_centavos, ignorado, observacao)
-           values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+            valor_pago_centavos, ignorado, observacao, atualizado_em)
+           values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,now())
            on conflict (id) do update set
              gerador_tipo = excluded.gerador_tipo, gerador_id = excluded.gerador_id,
              competencia = excluded.competencia, tipo = excluded.tipo,
@@ -229,7 +231,8 @@ export function criarRepositoriosPg(pool: Pool): Repositorios {
              data_vencimento = excluded.data_vencimento,
              data_pagamento = excluded.data_pagamento,
              valor_pago_centavos = excluded.valor_pago_centavos,
-             ignorado = excluded.ignorado, observacao = excluded.observacao`,
+             ignorado = excluded.ignorado, observacao = excluded.observacao,
+             atualizado_em = now()`,
           [
             x.id,
             x.geradorTipo,
@@ -297,19 +300,50 @@ export function criarRepositoriosPg(pool: Pool): Repositorios {
       /**
        * RN-50: declarar o saldo de uma data que ja tem ancora SUBSTITUI.
        *
-       * O indice unico em `data` faz o `on conflict (data)` resolver isso numa
-       * unica instrucao -- a implementacao Dexie precisava de transacao e de um
-       * laco apagando as da mesma data.
+       * `on conflict (data)` sozinho (a versao anterior) so cobre o caso em
+       * que o CONFLITO acontece no indice de `data`. Quando o MESMO id ja
+       * existe numa data DIFERENTE (mover uma ancora, ex.: `put({id: 'a-1',
+       * data: '2026-05-01'})` quando 'a-1' ja estava em '2026-04-01'), quem
+       * bate primeiro e a chave primaria `id` -- que a clausula nao nomeia --
+       * e o Postgres levanta 23505 em vez de mover a linha. O Dexie (`put`)
+       * move sem erro, entao a implementacao Postgres divergia do
+       * comportamento que o resto do app assume.
+       *
+       * A correcao: apagar antes qualquer OUTRA linha que ja ocupe aquela
+       * data (preserva RN-50 -- uma ancora por data), depois inserir/atualizar
+       * por id -- espelhando o `db.transaction('rw', ...)` que a versao Dexie
+       * usa (ver `src/data/repositories.ts`). Precisa ser uma transacao
+       * explicita com `begin`/`commit`, NAO um `with` de duas instrucoes numa
+       * unica query: o Postgres nao garante ordem de execucao entre uma CTE
+       * que modifica dados e a instrucao principal quando elas nao dependem
+       * uma da outra por dado (so pela mesma snapshot) -- o DELETE poderia
+       * nao ter efeito visivel a tempo do INSERT, e o indice unico em `data`
+       * rejeitaria a escrita mesmo depois da linha antiga ter sido apagada.
        */
       salvar: async (a: AncoraSaldo, hoje: DataISO): Promise<void> => {
         validarAncora(a, hoje)
-        await pool.query(
-          `insert into ancoras (id, data, saldo_centavos)
-           values ($1,$2,$3)
-           on conflict (data) do update set
-             id = excluded.id, saldo_centavos = excluded.saldo_centavos`,
-          [a.id, a.data, a.saldoCentavos],
-        )
+        const cliente = await pool.connect()
+        try {
+          await cliente.query('begin')
+          await cliente.query('delete from ancoras where data = $1 and id <> $2', [
+            a.data,
+            a.id,
+          ])
+          await cliente.query(
+            `insert into ancoras (id, data, saldo_centavos, atualizado_em)
+             values ($1,$2,$3,now())
+             on conflict (id) do update set
+               data = excluded.data, saldo_centavos = excluded.saldo_centavos,
+               atualizado_em = now()`,
+            [a.id, a.data, a.saldoCentavos],
+          )
+          await cliente.query('commit')
+        } catch (e) {
+          await cliente.query('rollback')
+          throw e
+        } finally {
+          cliente.release()
+        }
       },
 
       remover: async (id: string): Promise<void> => {

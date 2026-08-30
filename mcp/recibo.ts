@@ -31,6 +31,18 @@ export const JANELA_DE_DESFAZER_HORAS = 24
 const MS_POR_HORA = 60 * 60 * 1000
 
 /**
+ * Tolerancia para desvio de relogio entre o banco e o processo.
+ *
+ * O instante auditado (`atualizado_em`/`criado_em`) vem do `now()` do
+ * Postgres; `agora` vem do relogio do processo Node. No Railway sao
+ * containers distintos, e podem divergir por alguns segundos. Sem folga, um
+ * registro gravado ha poucos segundos apareceria como "criado no futuro" e
+ * seria recusado sempre que o relogio do banco estiver adiantado -- um falso
+ * negativo, nao uma protecao real.
+ */
+export const TOLERANCIA_DE_RELOGIO_MS = 60_000
+
+/**
  * Desfazer alcanca so o passado recente.
  *
  * Desfazer algo de tres meses atras nao e desfazer, e edicao -- e edicao de
@@ -40,5 +52,7 @@ const MS_POR_HORA = 60 * 60 * 1000
  */
 export function dentroDaJanela(criadoEm: Date, agora: Date): boolean {
   const decorrido = agora.getTime() - criadoEm.getTime()
-  return decorrido >= 0 && decorrido <= JANELA_DE_DESFAZER_HORAS * MS_POR_HORA
+  return (
+    decorrido >= -TOLERANCIA_DE_RELOGIO_MS && decorrido <= JANELA_DE_DESFAZER_HORAS * MS_POR_HORA
+  )
 }

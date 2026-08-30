@@ -221,4 +221,75 @@ describe('marcarPago', () => {
 
     expect(await app.repos.ocorrencias.listar()).toHaveLength(0)
   })
+
+  it('recusa valor negativo ao pagar, sem gravar', async () => {
+    // deEntradaUsuario('-50') devolve -5000, que nao e null -- sem a guarda
+    // isso chegaria ao PaymentService, e o projetor de saldo usa
+    // valorPagoCentavos como magnitude do movimento: um pagamento negativo de
+    // uma saida INVERTE o sinal e soma dinheiro em vez de subtrair.
+    await cadastrarAluguel()
+    const s = await situacaoDoMes(app, { competencia: '2026-09', hoje: '2026-09-15' })
+    const chave = s.faltaPagar.find((i) => i.nome === 'Aluguel')!.chave
+
+    await expect(
+      marcarPago(app, { chave, valor: '-50', hoje: '2026-09-15' }),
+    ).rejects.toThrow(/valor/i)
+
+    // Nao apenas lancou: a tabela continua exatamente como estava, sem a
+    // ocorrencia materializada com um pagamento negativo.
+    expect(await app.repos.ocorrencias.listar()).toHaveLength(0)
+  })
+
+  it('recusa valor zero ao pagar, sem gravar', async () => {
+    await cadastrarAluguel()
+    const s = await situacaoDoMes(app, { competencia: '2026-09', hoje: '2026-09-15' })
+    const chave = s.faltaPagar.find((i) => i.nome === 'Aluguel')!.chave
+
+    await expect(
+      marcarPago(app, { chave, valor: '0', hoje: '2026-09-15' }),
+    ).rejects.toThrow(/valor/i)
+
+    expect(await app.repos.ocorrencias.listar()).toHaveLength(0)
+  })
+
+  it('paga uma conta de setembro antecipadamente, em 31/08 (a competencia vem da chave, nao de hoje)', async () => {
+    // Achado 6: a versao anterior projetava competenciaDe(data) -- e sem
+    // `data` explicita, data = hoje = '2026-08-31', entao competenciaDe da
+    // '2026-08'. A chave devolvida por situacao_do_mes de setembro e de
+    // '2026-09', que nao aparece na projecao de agosto: "nao encontrei a
+    // chave" para uma chave que a propria ferramenta acabou de devolver.
+    await cadastrarAluguel()
+
+    const setembro = await situacaoDoMes(app, { competencia: '2026-09', hoje: '2026-08-31' })
+    const chave = setembro.faltaPagar.find((i) => i.nome === 'Aluguel')!.chave
+
+    const r = await marcarPago(app, { chave, hoje: '2026-08-31' })
+
+    expect(r.tipo).toBe('pagamento')
+    const [o] = await app.repos.ocorrencias.listar()
+    expect(o?.competencia).toBe('2026-09')
+    expect(o?.dataPagamento).toBe('2026-08-31')
+  })
+
+  it('paga uma conta previamente marcada como ignorada (mes.ignorados entra na busca)', async () => {
+    // Achado 6: `registrarPagamento` (via PaymentService.aplicar) ja seta
+    // `ignorado: false` -- pagar uma conta ignorada e uma reativacao valida.
+    // Sem `mes.ignorados` na lista de busca, isso falhava com "nao encontrei
+    // a chave", mesmo a chave existindo (so que na lista errada).
+    await cadastrarAluguel()
+    const mes = await app.projecao.projetarMes('2026-09', '2026-09-15')
+    const aluguel = mes.faltaPagar.find((o) => o.nome === 'Aluguel')!
+
+    await app.pagamento.ignorarNoMes(aluguel)
+    const depoisDeIgnorar = await app.projecao.projetarMes('2026-09', '2026-09-15')
+    expect(depoisDeIgnorar.ignorados.map((o) => o.nome)).toContain('Aluguel')
+    expect(depoisDeIgnorar.faltaPagar.map((o) => o.nome)).not.toContain('Aluguel')
+
+    const r = await marcarPago(app, { chave: aluguel.chave, hoje: '2026-09-15' })
+
+    expect(r.tipo).toBe('pagamento')
+    const [o] = await app.repos.ocorrencias.listar()
+    expect(o?.ignorado).toBe(false)
+    expect(o?.dataPagamento).toBe('2026-09-15')
+  })
 })
