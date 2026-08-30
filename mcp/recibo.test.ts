@@ -38,6 +38,13 @@ describe('dentroDaJanela', () => {
     expect(dentroDaJanela(new Date('2026-08-28T11:59:59.000Z'), agora)).toBe(false)
   })
 
+  it('recusa criadoEm no futuro', () => {
+    // Relogio do banco e do processo podem divergir. Um registro "criado"
+    // depois de agora nao e recente: e sinal de que algo esta errado, e
+    // desfazer nao deve passar por cima disso.
+    expect(dentroDaJanela(new Date('2026-08-29T13:00:00.000Z'), agora)).toBe(false)
+  })
+
   it('a janela e de 24 horas', () => {
     expect(JANELA_DE_DESFAZER_HORAS).toBe(24)
   })
