@@ -9,7 +9,7 @@
 
 import { competenciaDe, somarMeses } from '../../src/domain/calendar.js'
 import { media } from '../../src/domain/money.js'
-import type { AppEmMemoria } from '../app-em-memoria.js'
+import type { ProjectionService } from '../../src/services/projection-service.js'
 import { dinheiro, type Dinheiro } from '../formatacao.js'
 
 export interface GastoNoMes {
@@ -35,7 +35,8 @@ export interface HistoricoDeGastos {
 const MESES_PADRAO = 6
 
 export async function historicoDeGastos(
-  app: AppEmMemoria,
+  // Estreitado ao que a funcao realmente usa, como em o-que-vence.ts.
+  app: { readonly projecao: ProjectionService },
   args: { meses?: number; nome?: string; hoje: string },
 ): Promise<HistoricoDeGastos> {
   const meses = args.meses ?? MESES_PADRAO

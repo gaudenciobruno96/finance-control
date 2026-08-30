@@ -18,7 +18,7 @@ import {
   somarDias,
 } from '../../src/domain/calendar.js'
 import type { OcorrenciaResolvida } from '../../src/domain/types.js'
-import type { AppEmMemoria } from '../app-em-memoria.js'
+import type { ProjectionService } from '../../src/services/projection-service.js'
 import { dinheiro, item, type Dinheiro, type ItemFormatado } from '../formatacao.js'
 
 export interface OQueVence {
@@ -35,7 +35,10 @@ export interface OQueVence {
 const DIAS_PADRAO = 7
 
 export async function oQueVence(
-  app: AppEmMemoria,
+  // Estreitado ao que a funcao realmente usa: `AppEmMemoria` e `AppPg`
+  // satisfazem isto estruturalmente, entao a ferramenta serve as duas fontes
+  // sem saber qual esta por tras.
+  app: { readonly projecao: ProjectionService },
   args: { dias?: number; hoje: string },
 ): Promise<OQueVence> {
   const dias = args.dias ?? DIAS_PADRAO
