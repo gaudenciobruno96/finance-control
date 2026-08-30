@@ -177,4 +177,48 @@ describe('marcarPago', () => {
 
     expect(await app.repos.ocorrencias.listar()).toHaveLength(0)
   })
+
+  it('usa a competencia da data informada para localizar a ocorrencia, nao a de hoje', async () => {
+    // Regra de ENTRADA vigente desde um mes anterior ao corrente (hoje e
+    // 2026-09-15). Uma saida atrasada nao serviria para provar isto: RN-33 a
+    // empurra para dentro de qualquer mes atual, entao ela apareceria em
+    // faltaPagar mesmo se o codigo projetasse o mes errado. Uma entrada nao e
+    // empurrada (RN-90) -- so aparece em aindaEntra do mes projetado que e
+    // dela mesma. Isso faz o teste distinguir de verdade `competenciaDe(data)`
+    // de `competenciaDe(hoje)`.
+    await app.repos.regras.salvar({
+      id: 'r-freela',
+      tipo: 'entrada',
+      nome: 'Freela',
+      valorCentavos: 9900,
+      valorEhEstimativa: false,
+      diaDoMes: 10,
+      ajusteFimDeSemana: 'nenhum',
+      vigenteDe: '2026-07',
+      vigenteAte: null,
+    })
+
+    const antiga = await situacaoDoMes(app, { competencia: '2026-07', hoje: '2026-09-15' })
+    const chave = antiga.aindaEntra.find((i) => i.nome === 'Freela')!.chave
+
+    const r = await marcarPago(app, { chave, data: '2026-07-10', hoje: '2026-09-15' })
+
+    expect(r.tipo).toBe('pagamento')
+
+    const [o] = await app.repos.ocorrencias.listar()
+    expect(o?.competencia).toBe('2026-07')
+    expect(o?.dataPagamento).toBe('2026-07-10')
+  })
+
+  it('recusa valor invalido ao pagar, sem gravar', async () => {
+    await cadastrarAluguel()
+    const s = await situacaoDoMes(app, { competencia: '2026-09', hoje: '2026-09-15' })
+    const chave = s.faltaPagar.find((i) => i.nome === 'Aluguel')!.chave
+
+    await expect(
+      marcarPago(app, { chave, valor: 'muito dinheiro', hoje: '2026-09-15' }),
+    ).rejects.toThrow(/valor/i)
+
+    expect(await app.repos.ocorrencias.listar()).toHaveLength(0)
+  })
 })
