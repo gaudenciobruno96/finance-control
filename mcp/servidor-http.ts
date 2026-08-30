@@ -23,10 +23,14 @@ import { criarPool, descreverErro, lerUrlDoBanco } from './dados/conexao.js'
 import { aplicarMigracoes } from './dados/migracoes.js'
 import { criarAppPg, type AppPg } from './app-pg.js'
 import { situacaoDoMes } from './tools/situacao-do-mes.js'
+import { oQueVence } from './tools/o-que-vence.js'
+import { historicoDeGastos } from './tools/historico-de-gastos.js'
+import { simularCenario } from './tools/simular-cenario.js'
 import { cadastrarRecorrente } from './tools/escrita/cadastrar-recorrente.js'
 import { lancarAvulso } from './tools/escrita/lancar-avulso.js'
 import { marcarPago } from './tools/escrita/marcar-pago.js'
 import { declararSaldo } from './tools/escrita/declarar-saldo.js'
+import { cadastrarParcelamento } from './tools/escrita/cadastrar-parcelamento.js'
 import { desfazer } from './tools/desfazer.js'
 import { exportar } from './tools/exportar.js'
 import { ErroDeUsuario } from './tools/erro-do-usuario.js'
@@ -196,6 +200,52 @@ function criarServidorMcp(app: AppPg): McpServer {
   )
 
   server.registerTool(
+    'o_que_vence',
+    {
+      title: 'O que vence',
+      description:
+        'Responde "o que preciso pagar nos proximos dias?". Janela curta a ' +
+        'partir de hoje, que pode cruzar a virada do mes, mais tudo que ja ' +
+        'esta atrasado. Para o quadro completo de um mes use situacao_do_mes.',
+      inputSchema: {
+        dias: z.number().int().min(1).max(365).optional().describe('Janela em dias. Padrao: 7'),
+        hoje: DATA.optional().describe('Data de referencia. Padrao: hoje'),
+      },
+    },
+    async ({ dias, hoje }) =>
+      executarFerramenta(() =>
+        oQueVence(app, {
+          ...(dias === undefined ? {} : { dias }),
+          hoje: hoje ?? hojeDoSistema(),
+        }),
+      ),
+  )
+
+  server.registerTool(
+    'historico_de_gastos',
+    {
+      title: 'Historico de gastos',
+      description:
+        'Responde "quanto eu gastei com isso?". Olha o PASSADO ja pago, ' +
+        'agregado por nome, nos ultimos meses. Nao mostra previsao nem conta ' +
+        'em aberto -- para isso use situacao_do_mes ou o_que_vence.',
+      inputSchema: {
+        meses: z.number().int().min(1).max(60).optional().describe('Janela em meses. Padrao: 6'),
+        nome: z.string().optional().describe('Filtra por nome, sem diferenciar maiuscula'),
+        hoje: DATA.optional().describe('Data de referencia. Padrao: hoje'),
+      },
+    },
+    async ({ meses, nome, hoje }) =>
+      executarFerramenta(() =>
+        historicoDeGastos(app, {
+          ...(meses === undefined ? {} : { meses }),
+          ...(nome === undefined ? {} : { nome }),
+          hoje: hoje ?? hojeDoSistema(),
+        }),
+      ),
+  )
+
+  server.registerTool(
     'cadastrar_recorrente',
     {
       title: 'Cadastrar recorrente',
@@ -312,6 +362,34 @@ function criarServidorMcp(app: AppPg): McpServer {
   )
 
   server.registerTool(
+    'cadastrar_parcelamento',
+    {
+      title: 'Cadastrar parcelamento',
+      description:
+        'Cadastra uma compra parcelada. O valor e o da PARCELA como aparece ' +
+        'na fatura, nunca o total -- o total e devolvido no recibo para voce ' +
+        'conferir.',
+      inputSchema: {
+        nome: z.string().min(1),
+        valorParcela: z
+          .string()
+          .describe('Valor da PARCELA como a pessoa fala, nunca em centavos. Ex: "300", "300,00"'),
+        quantidadeParcelas: z.number().int().min(1),
+        primeiroVencimento: DATA.describe('Data de vencimento da primeira parcela'),
+      },
+    },
+    async ({ nome, valorParcela, quantidadeParcelas, primeiroVencimento }) =>
+      executarFerramenta(() =>
+        cadastrarParcelamento(app, {
+          nome,
+          valorParcela,
+          quantidadeParcelas,
+          primeiroVencimento,
+        }),
+      ),
+  )
+
+  server.registerTool(
     'desfazer',
     {
       title: 'Desfazer',
@@ -343,6 +421,81 @@ function criarServidorMcp(app: AppPg): McpServer {
       },
     },
     async ({ hoje }) => executarFerramenta(() => exportar(app, { hoje: hoje ?? hojeDoSistema() })),
+  )
+
+  server.registerTool(
+    'simular_cenario',
+    {
+      title: 'Simular cenario',
+      description:
+        'Responde "se eu assumir esse gasto, atravesso os proximos meses?". ' +
+        'Projeta lancamentos hipoteticos e compara mes a mes com e sem eles. ' +
+        'Nada e gravado. Valores dos lancamentos vao em centavos inteiros ' +
+        'aqui, diferente das ferramentas de cadastro.',
+      inputSchema: {
+        lancamentos: z
+          .array(
+            z.discriminatedUnion('tipo', [
+              z.object({
+                tipo: z.literal('regra'),
+                regra: z.object({
+                  tipo: z.enum(['entrada', 'saida']),
+                  nome: z.string(),
+                  valorCentavos: z.number().int(),
+                  valorEhEstimativa: z.boolean(),
+                  diaDoMes: z.number().int().min(1).max(31),
+                  ajusteFimDeSemana: z.enum(['nenhum', 'antecipa', 'posterga']),
+                  vigenteDe: COMPETENCIA,
+                  vigenteAte: COMPETENCIA.nullable(),
+                }),
+              }),
+              z.object({
+                tipo: z.literal('parcelamento'),
+                parcelamento: z.object({
+                  nome: z.string(),
+                  valorParcelaCentavos: z.number().int(),
+                  quantidadeParcelas: z.number().int().min(1),
+                  primeiroVencimento: DATA,
+                }),
+              }),
+              z.object({
+                tipo: z.literal('avulso'),
+                ocorrencia: z.object({
+                  // Cinco campos mecanicos de um lancamento HIPOTETICO: um
+                  // avulso simulado ja nasce nao pago e nao ignorado, e so
+                  // pode ter vindo de 'avulso' (nunca de uma regra ou
+                  // parcelamento que nao existe de verdade). Default poupa o
+                  // modelo de preencher cinco valores com exatamente uma
+                  // resposta sensata cada.
+                  geradorTipo: z.literal('avulso').default('avulso'),
+                  geradorId: z.null().default(null),
+                  competencia: COMPETENCIA,
+                  tipo: z.enum(['entrada', 'saida']),
+                  nome: z.string(),
+                  valorPrevistoCentavos: z.number().int(),
+                  dataVencimento: DATA,
+                  dataPagamento: DATA.nullable().default(null),
+                  valorPagoCentavos: z.number().int().nullable().default(null),
+                  ignorado: z.boolean().default(false),
+                  observacao: z.string().nullable(),
+                }),
+              }),
+            ]),
+          )
+          .describe('Gastos hipoteticos. Valores SEMPRE em centavos inteiros'),
+        ate: COMPETENCIA.describe('Ultima competencia a projetar. Maximo de 24 meses'),
+        hoje: DATA.optional().describe('Data de referencia. Padrao: hoje'),
+      },
+    },
+    async ({ lancamentos, ate, hoje }) =>
+      executarFerramenta(async () => {
+        // `simularCenario` consome um DocumentoBackup e monta dois bancos
+        // descartaveis. `exportar` ja produz exatamente esse documento, entao a
+        // ferramenta nao muda: so muda quem a alimenta. E ela segue sem alcancar
+        // o Postgres, que e o que a torna segura.
+        const doc = await exportar(app, { hoje: hoje ?? hojeDoSistema() })
+        return simularCenario(doc, { lancamentos, ate, hoje: hoje ?? hojeDoSistema() })
+      }),
   )
 
   return server

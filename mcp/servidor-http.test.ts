@@ -508,7 +508,7 @@ describe('criarApp', () => {
 
   describe('tools/call sobre as sete ferramentas financeiras', () => {
     beforeEach(async () => {
-      for (const t of ['regras', 'ancoras', 'ocorrencias']) {
+      for (const t of ['regras', 'ancoras', 'ocorrencias', 'parcelamentos']) {
         await pool.query(`delete from ${t}`)
       }
     })
@@ -629,6 +629,82 @@ describe('criarApp', () => {
 
       expect(r.isError).toBe(true)
       expect(r.content[0]?.text).toContain('Nao entendi o valor')
+    })
+
+    it('o_que_vence responde pelo protocolo', async () => {
+      await chamarFerramenta('cadastrar_recorrente', {
+        tipo: 'saida',
+        nome: 'Aluguel',
+        valor: '1800,00',
+        diaDoMes: 10,
+        vigenteDe: '2026-09',
+      })
+
+      const r = await chamarFerramenta('o_que_vence', { dias: 30, hoje: '2026-09-05' })
+
+      expect(r.isError).not.toBe(true)
+      expect(r.content[0]?.text).toContain('Aluguel')
+    })
+
+    it('historico_de_gastos responde pelo protocolo', async () => {
+      const r = await chamarFerramenta('historico_de_gastos', { meses: 3, hoje: '2026-09-05' })
+
+      expect(r.isError).not.toBe(true)
+      expect(r.content[0]?.text).toContain('totalGeral')
+    })
+
+    it('cadastrar_parcelamento responde pelo protocolo e grava', async () => {
+      const r = await chamarFerramenta('cadastrar_parcelamento', {
+        nome: 'Geladeira',
+        valorParcela: '300,00',
+        quantidadeParcelas: 10,
+        primeiroVencimento: '2026-10-20',
+      })
+
+      expect(r.isError).not.toBe(true)
+      expect(r.content[0]?.text).toContain('Geladeira')
+
+      const gravados = await pool.query('select * from parcelamentos')
+      expect(gravados.rowCount).toBe(1)
+    })
+
+    it('simular_cenario responde pelo protocolo e NAO altera o banco', async () => {
+      await chamarFerramenta('cadastrar_recorrente', {
+        tipo: 'saida',
+        nome: 'Aluguel',
+        valor: '1800,00',
+        diaDoMes: 10,
+        vigenteDe: '2026-09',
+      })
+
+      const antes = await pool.query('select * from regras order by id')
+
+      const r = await chamarFerramenta('simular_cenario', {
+        lancamentos: [
+          {
+            tipo: 'parcelamento',
+            parcelamento: {
+              nome: 'Geladeira',
+              valorParcelaCentavos: 30000,
+              quantidadeParcelas: 6,
+              primeiroVencimento: '2026-10-20',
+            },
+          },
+        ],
+        ate: '2026-12',
+        hoje: '2026-09-05',
+      })
+
+      expect(r.isError).not.toBe(true)
+      expect(r.content[0]?.text).toContain('comCenario')
+
+      // A garantia central da ferramenta: ela escreve so em bancos que morrem
+      // no fim da chamada. Quando a fonte era um arquivo isso valia por
+      // construcao; agora que a fonte e o banco de producao, precisa ser
+      // verificado.
+      const depois = await pool.query('select * from regras order by id')
+      expect(depois.rows).toEqual(antes.rows)
+      expect((await pool.query('select * from parcelamentos')).rowCount).toBe(0)
     })
 
     it('erro cru do banco NAO atravessa: sai sanitizado (Fix 8)', async () => {
