@@ -5,7 +5,7 @@ import type { Pool } from 'pg'
 import type { Repositorios } from '../../src/data/repositories.js'
 import { criarRepositorios } from '../../src/data/repositories.js'
 import { criarBanco } from '../../src/data/db.js'
-import type { AncoraSaldo, Ocorrencia, Regra } from '../../src/domain/types.js'
+import type { AncoraSaldo, Ocorrencia, Parcelamento, Regra } from '../../src/domain/types.js'
 import { criarPool } from './conexao.js'
 import { aplicarMigracoes } from './migracoes.js'
 import { criarRepositoriosPg } from './repositorios-pg.js'
@@ -20,6 +20,14 @@ const REGRA: Regra = {
   ajusteFimDeSemana: 'nenhum',
   vigenteDe: '2026-01',
   vigenteAte: null,
+}
+
+const PARCELAMENTO: Parcelamento = {
+  id: 'p-1',
+  nome: 'Geladeira',
+  valorParcelaCentavos: 30000,
+  quantidadeParcelas: 10,
+  primeiroVencimento: '2026-04-20',
 }
 
 const OCORRENCIA: Ocorrencia = {
@@ -119,6 +127,41 @@ describe.each(IMPLEMENTACOES)('contrato de Repositorios (%s)', (_nome, montar) =
 
     expect(await repos.regras.obter('r-1')).toBeNull()
     expect(await repos.ocorrencias.obter('o-1')).toEqual(OCORRENCIA)
+  })
+
+  it('salva e le um parcelamento', async () => {
+    await repos.parcelamentos.salvar(PARCELAMENTO)
+
+    expect(await repos.parcelamentos.obter('p-1')).toEqual(PARCELAMENTO)
+    expect(await repos.parcelamentos.listar()).toEqual([PARCELAMENTO])
+  })
+
+  it('devolve null para parcelamento inexistente', async () => {
+    expect(await repos.parcelamentos.obter('nao-existe')).toBeNull()
+  })
+
+  it('rejeita parcelamento invalido', async () => {
+    await expect(
+      repos.parcelamentos.salvar({ ...PARCELAMENTO, quantidadeParcelas: 0 }),
+    ).rejects.toThrow()
+  })
+
+  it('salvar parcelamento duas vezes atualiza em vez de duplicar', async () => {
+    await repos.parcelamentos.salvar(PARCELAMENTO)
+    await repos.parcelamentos.salvar({ ...PARCELAMENTO, nome: 'Geladeira nova' })
+
+    const todos = await repos.parcelamentos.listar()
+    expect(todos).toHaveLength(1)
+    expect(todos[0]?.nome).toBe('Geladeira nova')
+  })
+
+  it('remove parcelamento', async () => {
+    await repos.parcelamentos.salvar(PARCELAMENTO)
+
+    await repos.parcelamentos.remover('p-1')
+
+    expect(await repos.parcelamentos.obter('p-1')).toBeNull()
+    expect(await repos.parcelamentos.listar()).toEqual([])
   })
 
   it('lista ocorrencias por intervalo, inclusive nas pontas', async () => {

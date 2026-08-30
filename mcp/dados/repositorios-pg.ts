@@ -10,6 +10,11 @@
  */
 
 import type { Pool } from 'pg'
+// O parser de BIGINT vive como efeito colateral em conexao.ts. Sem este
+// import, um chamador que construa o Pool sem passar por `criarPool`
+// receberia centavos como string, e a aritmetica do dominio quebraria em
+// silencio.
+import './conexao.js'
 import type { Repositorios } from '../../src/data/repositories.js'
 import {
   validarAncora,
