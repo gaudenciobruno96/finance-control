@@ -8,7 +8,7 @@
  * registro final e o que expoe isso.
  */
 
-export type TipoDeEscrita = 'recorrente' | 'avulso' | 'pagamento' | 'saldo'
+export type TipoDeEscrita = 'recorrente' | 'avulso' | 'pagamento' | 'saldo' | 'parcelamento'
 
 export interface Recibo {
   readonly tipo: TipoDeEscrita

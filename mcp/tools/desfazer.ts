@@ -10,6 +10,7 @@
  * - avulso: remove a ocorrencia
  * - pagamento: NAO apaga a conta nem o registro; limpa apenas o pagamento (RN-53)
  * - saldo: remove a ancora
+ * - parcelamento: remove o parcelamento, mas NAO as parcelas ja materializadas
  */
 
 import type { AppPg } from '../app-pg.js'
@@ -34,6 +35,7 @@ const TABELA_POR_TIPO: Record<Exclude<TipoDeEscrita, 'pagamento'>, TabelaAuditav
   recorrente: 'regras',
   avulso: 'ocorrencias',
   saldo: 'ancoras',
+  parcelamento: 'parcelamentos',
 }
 
 async function exigirDentroDaJanela(
@@ -124,6 +126,17 @@ export async function desfazer(app: AppPg, args: ArgsDesfazer): Promise<Resultad
   if (args.tipo === 'avulso') {
     await app.repos.ocorrencias.remover(args.id)
     return { desfeito: true, descricao: 'Lancamento avulso removido.' }
+  }
+
+  if (args.tipo === 'parcelamento') {
+    await app.repos.parcelamentos.remover(args.id)
+    return {
+      desfeito: true,
+      descricao:
+        'Compra parcelada removida. As parcelas ja materializadas permanecem no ' +
+        'historico e continuam aparecendo nos meses em que existem -- a remocao ' +
+        'nao cascateia, do mesmo jeito que a de uma recorrencia.',
+    }
   }
 
   await app.repos.ancoras.remover(args.id)
