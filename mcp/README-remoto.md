@@ -3,8 +3,8 @@
 Servidor MCP hospedado, alcançado pela infraestrutura da Anthropic quando você
 pergunta algo ao Claude — inclusive do celular, com seu computador desligado.
 
-Estado atual: **spike**. A única ferramenta é `ping`. As ferramentas financeiras
-chegam no Projeto 1.
+Estado atual: **Projeto 1 implementado**. As sete ferramentas financeiras
+rodam sobre Postgres.
 
 Desenho: `docs/superpowers/specs/2026-08-28-mcp-remoto-spike-design.md`
 
@@ -13,6 +13,7 @@ Desenho: `docs/superpowers/specs/2026-08-28-mcp-remoto-spike-design.md`
 | Variável | Conteúdo | Obrigatória |
 |---|---|---|
 | `FINANCE_MCP_SEGREDO` | Segredo do header `Authorization: Bearer <segredo>` | Sim — sem ela o processo não sobe |
+| `DATABASE_URL` | String de conexão do Postgres | Sim — sem ela o processo não sobe. No Railway é uma referência a `${{ Postgres.DATABASE_URL }}`; o valor contém a senha do banco, por isso nunca aparece em log |
 | `FINANCE_MCP_HOST_PERMITIDO` | Hostname público do serviço, sem protocolo | Não, mas recomendada |
 | `PORT` | Porta de escuta. O Railway define sozinho | Não (padrão 8080) — quando definida, precisa ser um inteiro positivo; qualquer outro valor impede o processo de subir |
 
@@ -20,10 +21,29 @@ Desenho: `docs/superpowers/specs/2026-08-28-mcp-remoto-spike-design.md`
 segredo publicaria um endpoint aberto na internet com finanças pessoais atrás.
 Não existe modo de desenvolvimento que dispense essa verificação.
 
+**O servidor também recusa subir sem `DATABASE_URL`, e recusa subir se as
+migrações de esquema falharem.** Um servidor no ar sobre um banco ausente ou
+um esquema incompleto responderia errado em silêncio, que é pior do que não
+responder. O pool de conexões e as migrações são montados uma única vez no
+boot (`iniciar()`), não a cada requisição.
+
 Definir `FINANCE_MCP_HOST_PERMITIDO` é seguro: o hostname que o Railway usa
 para o próprio healthcheck (`healthcheck.railway.app`) é incluído
 automaticamente ao lado do domínio configurado, então a variável não derruba
 o healthcheck do serviço.
+
+## Ferramentas
+
+| Ferramenta | O que faz |
+|---|---|
+| `ping` | Verifica se o servidor está no ar |
+| `situacao_do_mes` | Quanto sobra no mês, o que falta pagar e entrar, e o dia de saldo mínimo |
+| `cadastrar_recorrente` | Cadastra um lançamento que se repete todo mês (salário, aluguel, conta de luz) |
+| `lancar_avulso` | Registra um gasto ou entrada pontual, que não se repete |
+| `marcar_pago` | Registra que uma conta foi paga ou um valor foi recebido |
+| `declarar_saldo` | Informa o saldo real da conta numa data — a âncora da projeção |
+| `desfazer` | Reverte uma escrita das últimas 24 horas |
+| `exportar` | Devolve todos os dados em JSON, no formato de backup |
 
 ## Endpoints
 
@@ -41,13 +61,20 @@ PowerShell (o shell padrão neste ambiente):
 
 ```powershell
 $env:FINANCE_MCP_SEGREDO = "qualquer-coisa"
+$env:DATABASE_URL = "postgres://postgres:local@localhost:5433/financas"
 npm run mcp:http
 ```
 
 bash / POSIX:
 
 ```bash
-FINANCE_MCP_SEGREDO=qualquer-coisa npm run mcp:http
+FINANCE_MCP_SEGREDO=qualquer-coisa DATABASE_URL=postgres://postgres:local@localhost:5433/financas npm run mcp:http
+```
+
+Para testar contra um Postgres descartável em container:
+
+```bash
+docker run --rm -d -p 5433:5432 -e POSTGRES_PASSWORD=local -e POSTGRES_DB=financas --name pg-local postgres:16-alpine
 ```
 
 ## Trocar o segredo

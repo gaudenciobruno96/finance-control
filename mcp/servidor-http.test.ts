@@ -1,8 +1,13 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { request as httpRequest } from 'node:http'
 import type { Server } from 'node:http'
 import { format } from 'node:util'
+import { PostgreSqlContainer, type StartedPostgreSqlContainer } from '@testcontainers/postgresql'
+import type { Pool } from 'pg'
 import { criarApp, iniciar, lerPorta, responderPing } from './servidor-http.js'
+import { criarPool } from './dados/conexao.js'
+import { aplicarMigracoes } from './dados/migracoes.js'
+import { criarAppPg, type AppPg } from './app-pg.js'
 
 /**
  * Reconstroi o texto que `console.error` de fato imprimiria.
@@ -42,6 +47,21 @@ describe('responderPing', () => {
 
 describe('criarApp', () => {
   let servidor: Server | null = null
+  let container: StartedPostgreSqlContainer
+  let pool: Pool
+  let appPg: AppPg
+
+  beforeAll(async () => {
+    container = await new PostgreSqlContainer('postgres:16-alpine').start()
+    pool = criarPool(container.getConnectionUri())
+    await aplicarMigracoes(pool)
+    appPg = criarAppPg(pool)
+  }, 120_000)
+
+  afterAll(async () => {
+    await pool.end()
+    await container.stop()
+  })
 
   afterEach(async () => {
     if (servidor !== null) {
@@ -52,7 +72,7 @@ describe('criarApp', () => {
 
   /** Sobe o app numa porta efemera e devolve a base da URL. */
   async function subir(): Promise<string> {
-    const app = criarApp(SEGREDO)
+    const app = criarApp(SEGREDO, appPg)
     return new Promise((ok) => {
       servidor = app.listen(0, '127.0.0.1', () => {
         const endereco = servidor?.address()
@@ -74,7 +94,7 @@ describe('criarApp', () => {
     process.env['FINANCE_MCP_HOST_PERMITIDO'] = hostPermitido
     let app: ReturnType<typeof criarApp>
     try {
-      app = criarApp(SEGREDO)
+      app = criarApp(SEGREDO, appPg)
     } finally {
       if (anterior === undefined) {
         delete process.env['FINANCE_MCP_HOST_PERMITIDO']
@@ -419,11 +439,11 @@ describe('criarApp', () => {
     // mas a fronteira do app nao deveria depender de um chamador que ela nao
     // controla -- um app sem segredo aceitaria `Authorization: Bearer `
     // (header vazio) como valido.
-    expect(() => criarApp('')).toThrow()
+    expect(() => criarApp('', appPg)).toThrow()
   })
 
   it('criarApp recusa segredo so com espacos', () => {
-    expect(() => criarApp('   ')).toThrow()
+    expect(() => criarApp('   ', appPg)).toThrow()
   })
 })
 
@@ -460,9 +480,18 @@ describe('lerPorta', () => {
 describe('iniciar', () => {
   const CHAVE_SEGREDO = 'FINANCE_MCP_SEGREDO'
   const CHAVE_PORTA = 'PORT'
+  const CHAVE_BANCO = 'DATABASE_URL'
 
-  /** Roda `fn` com as variaveis de ambiente indicadas e restaura o estado anterior depois. */
-  function comEnv(mudancas: Record<string, string | undefined>, fn: () => void): void {
+  /**
+   * Roda `fn` com as variaveis de ambiente indicadas e restaura o estado
+   * anterior depois. `iniciar()` e assincrona (aplica migracoes antes de
+   * escutar), entao `fn` tambem e -- e esperada antes do `finally` restaurar
+   * o ambiente, senao a chamada em curso veria o ambiente ja restaurado.
+   */
+  async function comEnv(
+    mudancas: Record<string, string | undefined>,
+    fn: () => Promise<void>,
+  ): Promise<void> {
     const anteriores: Record<string, string | undefined> = {}
     for (const chave of Object.keys(mudancas)) {
       anteriores[chave] = process.env[chave]
@@ -476,7 +505,7 @@ describe('iniciar', () => {
           process.env[chave] = valor
         }
       }
-      fn()
+      await fn()
     } finally {
       for (const [chave, valor] of Object.entries(anteriores)) {
         if (valor === undefined) {
@@ -488,19 +517,31 @@ describe('iniciar', () => {
     }
   }
 
-  it('nao sobe sem FINANCE_MCP_SEGREDO', () => {
+  it('nao sobe sem FINANCE_MCP_SEGREDO', async () => {
     // O item da tabela de testes do spec que so tinha verificacao manual: a
     // ligacao entre `iniciar()` e `lerSegredo`. Lanca ANTES de `listen`, e
     // por isso nenhuma porta chega a ser aberta -- nao precisa fechar
     // servidor nenhum depois.
-    comEnv({ [CHAVE_SEGREDO]: undefined }, () => {
-      expect(() => iniciar()).toThrow(/FINANCE_MCP_SEGREDO/)
+    await comEnv({ [CHAVE_SEGREDO]: undefined }, async () => {
+      await expect(iniciar()).rejects.toThrow(/FINANCE_MCP_SEGREDO/)
     })
   })
 
-  it('nao sobe com PORT invalida', () => {
-    comEnv({ [CHAVE_SEGREDO]: SEGREDO, [CHAVE_PORTA]: 'nao-e-um-numero' }, () => {
-      expect(() => iniciar()).toThrow(/PORT/)
+  it('nao sobe com PORT invalida', async () => {
+    await comEnv({ [CHAVE_SEGREDO]: SEGREDO, [CHAVE_PORTA]: 'nao-e-um-numero' }, async () => {
+      await expect(iniciar()).rejects.toThrow(/PORT/)
     })
+  })
+
+  it('nao sobe sem DATABASE_URL', async () => {
+    // Lanca antes de qualquer tentativa de conexao: `lerUrlDoBanco` roda
+    // antes de `criarPool`, entao este teste nao depende de banco nenhum no
+    // ar.
+    await comEnv(
+      { [CHAVE_SEGREDO]: SEGREDO, [CHAVE_PORTA]: undefined, [CHAVE_BANCO]: undefined },
+      async () => {
+        await expect(iniciar()).rejects.toThrow(/DATABASE_URL/)
+      },
+    )
   })
 })

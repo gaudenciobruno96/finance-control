@@ -7,4 +7,4 @@
 
 import { iniciar } from './servidor-http.js'
 
-iniciar()
+await iniciar()

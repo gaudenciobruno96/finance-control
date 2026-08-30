@@ -6,8 +6,9 @@
  * usuario pergunta algo pelo celular. E por isso que funciona com o computador
  * do usuario desligado, e e por isso que a autenticacao aqui nao e opcional.
  *
- * ESCOPO: este e o spike. A unica ferramenta e `ping`. As ferramentas
- * financeiras chegam no Projeto 1, sobre este mesmo transporte.
+ * As sete ferramentas financeiras vivem sobre Postgres (`mcp/dados/`,
+ * `mcp/app-pg.ts`), montado uma unica vez em `iniciar()` -- nao dentro de
+ * `criarServidorMcp()`, que roda por requisicao.
  */
 
 import { readFileSync } from 'node:fs'
@@ -15,8 +16,46 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { createMcpExpressApp } from '@modelcontextprotocol/sdk/server/express.js'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
 import type { Express, NextFunction, Request, Response } from 'express'
+import { z } from 'zod'
 
 import { criarMiddlewareDeAuth, lerSegredo } from './auth.js'
+import { criarPool, descreverErro, lerUrlDoBanco } from './dados/conexao.js'
+import { aplicarMigracoes } from './dados/migracoes.js'
+import { criarAppPg, type AppPg } from './app-pg.js'
+import { situacaoDoMes } from './tools/situacao-do-mes.js'
+import { cadastrarRecorrente } from './tools/escrita/cadastrar-recorrente.js'
+import { lancarAvulso } from './tools/escrita/lancar-avulso.js'
+import { marcarPago } from './tools/escrita/marcar-pago.js'
+import { declararSaldo } from './tools/escrita/declarar-saldo.js'
+import { desfazer } from './tools/desfazer.js'
+import { exportar } from './tools/exportar.js'
+
+const COMPETENCIA = z
+  .string()
+  .regex(/^\d{4}-\d{2}$/, 'Competencia no formato AAAA-MM')
+
+const DATA = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Data no formato AAAA-MM-DD')
+
+/**
+ * Unico ponto do servidor que le o relogio.
+ *
+ * Duplicado de `mcp/server.ts` de proposito -- aquele arquivo nao pode ser
+ * importado aqui (importa-lo executaria `server.connect(new
+ * StdioServerTransport())` no topo do modulo, abrindo um segundo transporte).
+ * O dominio recebe a data corrente como parametro em todo lugar (RN-04), e
+ * manter a leitura confinada aqui e o que permite testar as ferramentas em
+ * qualquer data sem tocar no relogio da maquina.
+ */
+function hojeDoSistema(): string {
+  const agora = new Date()
+  const mes = String(agora.getMonth() + 1).padStart(2, '0')
+  const dia = String(agora.getDate()).padStart(2, '0')
+  return `${agora.getFullYear()}-${mes}-${dia}`
+}
+
+function json(valor: unknown): { content: { type: 'text'; text: string }[] } {
+  return { content: [{ type: 'text' as const, text: JSON.stringify(valor, null, 2) }] }
+}
 
 export const VERSAO: string = (
   JSON.parse(
@@ -44,7 +83,7 @@ export function responderPing(agora: Date, versao: string): RespostaPing {
   }
 }
 
-function criarServidorMcp(): McpServer {
+function criarServidorMcp(app: AppPg): McpServer {
   const server = new McpServer({ name: 'financas-remoto', version: VERSAO })
 
   server.registerTool(
@@ -64,6 +103,177 @@ function criarServidorMcp(): McpServer {
         },
       ],
     }),
+  )
+
+  server.registerTool(
+    'situacao_do_mes',
+    {
+      title: 'Situacao do mes',
+      description:
+        'Quanto sobra no mes, o que falta pagar e entrar, e em que dia o ' +
+        'saldo chega ao minimo. Quando saldoRelativo for verdadeiro, NAO ' +
+        'afirme um saldo absoluto: leia avisoSaldoRelativo. Cada item traz ' +
+        'uma chave, que e o que voce usa para registrar pagamento.',
+      inputSchema: {
+        competencia: COMPETENCIA.optional().describe('Mes AAAA-MM. Padrao: mes corrente'),
+        hoje: DATA.optional().describe('Data de referencia. Padrao: hoje'),
+      },
+    },
+    async ({ competencia, hoje }) =>
+      json(
+        await situacaoDoMes(app, {
+          ...(competencia === undefined ? {} : { competencia }),
+          hoje: hoje ?? hojeDoSistema(),
+        }),
+      ),
+  )
+
+  server.registerTool(
+    'cadastrar_recorrente',
+    {
+      title: 'Cadastrar recorrente',
+      description:
+        'Cadastra um lancamento que se repete todo mes: salario, aluguel, ' +
+        'conta de luz. O valor vai como a pessoa fala ("1800", "1800,00", ' +
+        '"1.800,00"), nunca em centavos.',
+      inputSchema: {
+        tipo: z.enum(['entrada', 'saida']),
+        nome: z.string().min(1),
+        valor: z
+          .string()
+          .describe('Valor como a pessoa fala, nunca em centavos. Ex: "1800", "1.800,00"'),
+        diaDoMes: z.number().int().min(1).max(31),
+        vigenteDe: COMPETENCIA.describe('Mes a partir do qual a regra vale, AAAA-MM'),
+        ajusteFimDeSemana: z.enum(['nenhum', 'antecipa', 'posterga']).optional(),
+        valorEhEstimativa: z.boolean().optional(),
+      },
+    },
+    async ({ tipo, nome, valor, diaDoMes, vigenteDe, ajusteFimDeSemana, valorEhEstimativa }) =>
+      json(
+        await cadastrarRecorrente(app, {
+          tipo,
+          nome,
+          valor,
+          diaDoMes,
+          vigenteDe,
+          ...(ajusteFimDeSemana === undefined ? {} : { ajusteFimDeSemana }),
+          ...(valorEhEstimativa === undefined ? {} : { valorEhEstimativa }),
+        }),
+      ),
+  )
+
+  server.registerTool(
+    'lancar_avulso',
+    {
+      title: 'Lancar avulso',
+      description:
+        'Registra um gasto ou entrada pontual, que nao se repete. Sem data, ' +
+        'usa hoje. O valor vai como a pessoa fala, nunca em centavos.',
+      inputSchema: {
+        tipo: z.enum(['entrada', 'saida']),
+        nome: z.string().min(1),
+        valor: z.string().describe('Valor como a pessoa fala, nunca em centavos'),
+        data: DATA.optional().describe('Data do lancamento. Padrao: hoje'),
+        hoje: DATA.optional().describe('Data de referencia. Padrao: hoje'),
+        observacao: z.string().optional(),
+      },
+    },
+    async ({ tipo, nome, valor, data, hoje, observacao }) =>
+      json(
+        await lancarAvulso(app, {
+          tipo,
+          nome,
+          valor,
+          ...(data === undefined ? {} : { data }),
+          hoje: hoje ?? hojeDoSistema(),
+          ...(observacao === undefined ? {} : { observacao }),
+        }),
+      ),
+  )
+
+  server.registerTool(
+    'marcar_pago',
+    {
+      title: 'Marcar pago',
+      description:
+        'Registra que uma conta foi paga ou um valor foi recebido. Use a ' +
+        'chave que veio em situacao_do_mes; consulte antes se nao tiver. ' +
+        'Repetir a mesma chamada nao cria lancamento duplicado.',
+      inputSchema: {
+        chave: z.string().min(1).describe('A chave devolvida por situacao_do_mes'),
+        valor: z
+          .string()
+          .optional()
+          .describe('Valor efetivamente pago/recebido, se diferente do previsto'),
+        data: DATA.optional().describe('Data do pagamento. Padrao: hoje'),
+        hoje: DATA.optional().describe('Data de referencia. Padrao: hoje'),
+      },
+    },
+    async ({ chave, valor, data, hoje }) =>
+      json(
+        await marcarPago(app, {
+          chave,
+          ...(valor === undefined ? {} : { valor }),
+          ...(data === undefined ? {} : { data }),
+          hoje: hoje ?? hojeDoSistema(),
+        }),
+      ),
+  )
+
+  server.registerTool(
+    'declarar_saldo',
+    {
+      title: 'Declarar saldo',
+      description:
+        'Informa o saldo real da conta numa data. E o que faz os valores ' +
+        'projetados deixarem de ser relativos. Errar aqui desloca a curva ' +
+        'inteira: confira o recibo.',
+      inputSchema: {
+        valor: z.string().describe('Saldo real, como a pessoa fala, nunca em centavos'),
+        data: DATA.optional().describe('Data do saldo. Padrao: hoje'),
+        hoje: DATA.optional().describe('Data de referencia. Padrao: hoje'),
+      },
+    },
+    async ({ valor, data, hoje }) =>
+      json(
+        await declararSaldo(app, {
+          valor,
+          ...(data === undefined ? {} : { data }),
+          hoje: hoje ?? hojeDoSistema(),
+        }),
+      ),
+  )
+
+  server.registerTool(
+    'desfazer',
+    {
+      title: 'Desfazer',
+      description:
+        'Reverte uma escrita das ultimas 24 horas, usando o tipo e o id do ' +
+        'recibo. Desfazer um pagamento nao apaga a conta, so o registro de ' +
+        'que foi paga.',
+      inputSchema: {
+        tipo: z.enum(['recorrente', 'avulso', 'pagamento', 'saldo']),
+        id: z.string().min(1).describe('O id do recibo -- para tipo pagamento, a chave'),
+        hoje: DATA.optional().describe('Data de referencia. Padrao: hoje'),
+      },
+    },
+    async ({ tipo, id, hoje }) =>
+      json(await desfazer(app, { tipo, id, agora: new Date(), hoje: hoje ?? hojeDoSistema() })),
+  )
+
+  server.registerTool(
+    'exportar',
+    {
+      title: 'Exportar',
+      description:
+        'Devolve todos os dados em JSON, no formato de backup. Use quando a ' +
+        'pessoa quiser uma copia dos proprios dados.',
+      inputSchema: {
+        hoje: DATA.optional().describe('Data de referencia. Padrao: hoje'),
+      },
+    },
+    async ({ hoje }) => json(await exportar(app, { hoje: hoje ?? hojeDoSistema() })),
   )
 
   return server
@@ -186,7 +396,7 @@ const HOST_HEALTHCHECK_RAILWAY = 'healthcheck.railway.app'
  * publico, quem faz esse papel e `allowedHosts`, alimentado pelo dominio do
  * Railway quando ele for conhecido (mais `HOST_HEALTHCHECK_RAILWAY`, sempre).
  */
-export function criarApp(segredo: string): Express {
+export function criarApp(segredo: string, appPg: AppPg): Express {
   if (segredo.trim() === '') {
     // Defesa na fronteira: `iniciar()` ja nao chega aqui sem segredo (
     // `lerSegredo` lanca antes), mas este modulo nao controla quem mais vai
@@ -247,7 +457,7 @@ export function criarApp(segredo: string): Express {
     // descompasso -- StdioServerTransport (usado em mcp/server.ts) declara
     // `onclose?: () => void` puro e nao aciona o erro. Falso positivo de
     // `exactOptionalPropertyTypes` contra a propria tipagem do SDK.
-    await criarServidorMcp().connect(transporte)
+    await criarServidorMcp(appPg).connect(transporte)
     await transporte.handleRequest(req, res, req.body)
   })
 
@@ -294,16 +504,50 @@ export function lerPorta(env: Record<string, string | undefined>): number {
  * comparacao entre `import.meta.url` e `process.argv[1]` e fragil no Windows e
  * sob o tsx; um arquivo de entrada separado nao tem esse problema, e este
  * modulo passa a ser importavel pelos testes sem subir servidor nenhum.
+ *
+ * Assincrona porque precisa aplicar migracoes antes de escutar (ver abaixo).
+ * `mcp/main-http.ts` faz `await iniciar()`.
  */
-export function iniciar(): void {
+export async function iniciar(): Promise<void> {
   // lerSegredo lanca quando a variavel falta, e e exatamente o que se quer:
   // um processo que sobe sem segredo publica um endpoint aberto. lerPorta
   // lanca pelo mesmo motivo: um processo escutando numa porta que ninguem
-  // sabe qual e tao inalcancavel quanto um processo fora do ar.
+  // sabe qual e tao inalcancavel quanto um processo fora do ar. lerUrlDoBanco
+  // lanca pelo mesmo motivo tambem: sem banco nao ha o que servir.
   const segredo = lerSegredo(process.env)
   const porta = lerPorta(process.env)
+  const url = lerUrlDoBanco(process.env)
 
-  criarApp(segredo).listen(porta, '0.0.0.0', () => {
+  // O pool e a app sobre Postgres sao montados uma unica vez aqui, nao dentro
+  // de `criarServidorMcp()` -- aquela funcao roda por requisicao (uma
+  // instancia nova de `McpServer` a cada POST /mcp), e um pool criado la
+  // abriria uma conexao nova por chamada.
+  const pool = criarPool(url)
+
+  try {
+    // Se as migracoes falharem, o processo NAO sobe: um servidor no ar sobre
+    // um esquema incompleto responderia errado em silencio, que e pior do
+    // que nao responder. `descreverErro` porque a mensagem crua de um erro
+    // do `pg` pode conter a string de conexao inteira, senha inclusa -- e
+    // isso nao pode aparecer no log do Railway.
+    await aplicarMigracoes(pool)
+  } catch (e) {
+    const descricao = descreverErro(e)
+    console.error('falha ao aplicar migracoes, servidor nao sobe: %s', descricao)
+    await pool.end()
+    // `cause` leva a descricao SANITIZADA (`descreverErro`), nunca `e` em si:
+    // um erro nao tratado sobe ate o processo e o handler padrao do Node
+    // imprime a cadeia de `cause` inteira no stderr -- anexar `e` cru
+    // reabriria exatamente o vazamento que este catch existe para fechar.
+    throw new Error('falha ao aplicar migracoes: servidor nao sobe sobre esquema incompleto', {
+      // eslint-disable-next-line preserve-caught-error -- ver comentario acima: `e` cru nunca pode virar `cause`
+      cause: descricao,
+    })
+  }
+
+  const app = criarAppPg(pool)
+
+  criarApp(segredo, app).listen(porta, '0.0.0.0', () => {
     // Sem segredo, sem porta de origem, sem nada alem do fato de estar no ar.
     console.log(`servidor MCP de financas no ar, versao ${VERSAO}`)
   })
