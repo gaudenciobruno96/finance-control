@@ -103,6 +103,22 @@ const MIGRACOES: readonly string[] = [
   alter table ocorrencias add column if not exists atualizado_em timestamptz not null default now();
   alter table ancoras add column if not exists atualizado_em timestamptz not null default now();
   `,
+  // O saldo em moeda estrangeira fica FORA da projecao de proposito. Se
+  // entrasse na ancora, o app afirmaria que o mes fecha com dinheiro que
+  // ainda precisa passar por uma conversao a uma cotacao que nao aconteceu.
+  //
+  // `moeda` e a chave primaria: um saldo por moeda, declarar de novo
+  // substitui. Nao ha historico -- e por isso esta escrita nao entra no
+  // `desfazer`.
+  `
+  create table if not exists saldos_estrangeiros (
+    moeda text primary key,
+    valor_centavos bigint not null,
+    data text not null,
+    criado_em timestamptz not null default now(),
+    atualizado_em timestamptz not null default now()
+  );
+  `,
 ]
 
 export async function aplicarMigracoes(pool: Pool): Promise<number> {

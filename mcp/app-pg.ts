@@ -16,9 +16,17 @@ import {
 import { criarPaymentService, type PaymentService } from '../src/services/payment-service.js'
 import { criarRepositoriosPg } from './dados/repositorios-pg.js'
 import { criarAuditoria } from './dados/auditoria.js'
+// NOVO
+import {
+  criarSaldosEstrangeirosPg,
+  type SaldosEstrangeirosRepo,
+} from './dados/saldos-estrangeiros-pg.js'
 
 export interface AppPg {
   readonly repos: Repositorios
+  // NOVO -- irmao de `repos`, e nao um campo dentro dele: `Repositorios` e
+  // derivado da implementacao Dexie e nao pode ganhar campos.
+  readonly saldosEstrangeiros: SaldosEstrangeirosRepo
   readonly projecao: ProjectionService
   readonly pagamento: PaymentService
   readonly auditoria: ReturnType<typeof criarAuditoria>
@@ -29,6 +37,7 @@ export function criarAppPg(pool: Pool): AppPg {
 
   return {
     repos,
+    saldosEstrangeiros: criarSaldosEstrangeirosPg(pool), // NOVO
     projecao: criarProjectionService(repos),
     pagamento: criarPaymentService(repos),
     auditoria: criarAuditoria(pool),
