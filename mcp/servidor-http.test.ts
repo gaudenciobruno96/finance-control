@@ -646,11 +646,43 @@ describe('criarApp', () => {
       expect(r.content[0]?.text).toContain('Aluguel')
     })
 
-    it('historico_de_gastos responde pelo protocolo', async () => {
+    it('historico_de_gastos responde pelo protocolo e usa o valor PAGO, nao o previsto', async () => {
+      await chamarFerramenta('cadastrar_recorrente', {
+        tipo: 'saida',
+        nome: 'Luz para historico',
+        valor: '220,00',
+        diaDoMes: 15,
+        vigenteDe: '2026-08',
+      })
+
+      const situacao = await chamarFerramenta('situacao_do_mes', {
+        competencia: '2026-08',
+        hoje: '2026-08-20',
+      })
+      const dadosSituacao = JSON.parse(situacao.content[0]?.text ?? '{}') as {
+        faltaPagar: { nome: string; chave: string }[]
+      }
+      const chave = dadosSituacao.faltaPagar.find((i) => i.nome === 'Luz para historico')?.chave
+      expect(chave).toBeTypeOf('string')
+
+      // Valor pago (245,90) deliberadamente diferente do previsto (220,00): o
+      // teste so prova algo se o historico refletir o que foi PAGO, nao o
+      // que estava previsto.
+      const pagamento = await chamarFerramenta('marcar_pago', {
+        chave,
+        valor: '245,90',
+        hoje: '2026-08-20',
+      })
+      expect(pagamento.isError).not.toBe(true)
+
       const r = await chamarFerramenta('historico_de_gastos', { meses: 3, hoje: '2026-09-05' })
 
       expect(r.isError).not.toBe(true)
-      expect(r.content[0]?.text).toContain('totalGeral')
+      const dadosHistorico = JSON.parse(r.content[0]?.text ?? '{}') as {
+        itens: { nome: string; total: { valorCentavos: number } }[]
+      }
+      const item = dadosHistorico.itens.find((i) => i.nome === 'Luz para historico')
+      expect(item?.total.valorCentavos).toBe(24590)
     })
 
     it('cadastrar_parcelamento responde pelo protocolo e grava', async () => {
