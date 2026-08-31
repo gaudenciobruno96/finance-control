@@ -455,7 +455,7 @@ describe('criarApp', () => {
   })
 
   /**
-   * As onze ferramentas financeiras (mais `ping`): so `ping` era coberto sobre o
+   * As treze ferramentas financeiras (mais `ping`): so `ping` era coberto sobre o
    * protocolo real. O que fica sem cobertura sem isto e exatamente a
    * FIACAO -- os schemas zod, os espalhamentos de propriedade opcional
    * (`...(x === undefined ? {} : {x})`), e o default `hoje ?? hojeDoSistema()`
@@ -506,9 +506,15 @@ describe('criarApp', () => {
     return corpo.result as { content: { type: string; text: string }[]; isError?: boolean }
   }
 
-  describe('tools/call sobre as onze ferramentas financeiras', () => {
+  describe('tools/call sobre as treze ferramentas financeiras', () => {
     beforeEach(async () => {
-      for (const t of ['regras', 'ancoras', 'ocorrencias', 'parcelamentos']) {
+      for (const t of [
+        'regras',
+        'ancoras',
+        'ocorrencias',
+        'parcelamentos',
+        'saldos_estrangeiros',
+      ]) {
         await pool.query(`delete from ${t}`)
       }
     })
@@ -821,6 +827,72 @@ describe('criarApp', () => {
       } finally {
         appPg = appAnterior
       }
+    })
+
+    it('declarar_saldo_estrangeiro grava e devolve o valor na moeda de origem', async () => {
+      const r = await chamarFerramenta('declarar_saldo_estrangeiro', {
+        moeda: 'usd',
+        valor: '5000',
+        hoje: '2026-09-15',
+      })
+
+      expect(r.isError).not.toBe(true)
+      const recibo = JSON.parse(r.content[0]?.text ?? '{}') as {
+        moeda: string
+        valorCentavos: number
+        data: string
+      }
+      expect(recibo.moeda).toBe('USD')
+      expect(recibo.valorCentavos).toBe(500_000)
+      expect(recibo.data).toBe('2026-09-15')
+    })
+
+    // O `cotacoes` atravessa o schema zod como record de strings. Sem um teste
+    // sobre o protocolo, um schema errado so apareceria em producao: a
+    // FIACAO nao e exercitada chamando a funcao da ferramenta diretamente.
+    it('patrimonio soma o saldo em dolar pela cotacao informada', async () => {
+      await chamarFerramenta('declarar_saldo', {
+        valor: '10000,00',
+        data: '2026-09-15',
+        hoje: '2026-09-15',
+      })
+      await chamarFerramenta('declarar_saldo_estrangeiro', {
+        moeda: 'USD',
+        valor: '5000',
+        hoje: '2026-09-15',
+      })
+
+      const r = await chamarFerramenta('patrimonio', {
+        cotacoes: { USD: '5,4321' },
+        hoje: '2026-09-15',
+      })
+
+      expect(r.isError).not.toBe(true)
+      const p = JSON.parse(r.content[0]?.text ?? '{}') as {
+        emReais: { valorCentavos: number }
+        total: { valorCentavos: number }
+        emMoedaEstrangeira: { moeda: string; cotacao: string }[]
+        avisoConversao: string | null
+      }
+      expect(p.emReais.valorCentavos).toBe(1_000_000)
+      // US$ 5.000,00 a 5,4321 = R$ 27.160,50
+      expect(p.total.valorCentavos).toBe(1_000_000 + 2_716_050)
+      expect(p.emMoedaEstrangeira[0]?.moeda).toBe('USD')
+      expect(p.emMoedaEstrangeira[0]?.cotacao).toBe('5,4321')
+      expect(p.avisoConversao).not.toBeNull()
+    })
+
+    it('patrimonio recusa, nomeando a moeda, quando falta a cotacao', async () => {
+      await chamarFerramenta('declarar_saldo_estrangeiro', {
+        moeda: 'USD',
+        valor: '5000',
+        hoje: '2026-09-15',
+      })
+
+      const r = await chamarFerramenta('patrimonio', { hoje: '2026-09-15' })
+
+      expect(r.isError).toBe(true)
+      expect(r.content[0]?.text).toContain('USD')
     })
   })
 

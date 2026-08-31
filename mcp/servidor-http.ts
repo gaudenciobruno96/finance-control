@@ -6,7 +6,7 @@
  * usuario pergunta algo pelo celular. E por isso que funciona com o computador
  * do usuario desligado, e e por isso que a autenticacao aqui nao e opcional.
  *
- * As onze ferramentas financeiras (mais `ping`) vivem sobre Postgres (`mcp/dados/`,
+ * As treze ferramentas financeiras (mais `ping`) vivem sobre Postgres (`mcp/dados/`,
  * `mcp/app-pg.ts`), montado uma unica vez em `iniciar()` -- nao dentro de
  * `criarServidorMcp()`, que roda por requisicao.
  */
@@ -30,7 +30,9 @@ import { cadastrarRecorrente } from './tools/escrita/cadastrar-recorrente.js'
 import { lancarAvulso } from './tools/escrita/lancar-avulso.js'
 import { marcarPago } from './tools/escrita/marcar-pago.js'
 import { declararSaldo } from './tools/escrita/declarar-saldo.js'
+import { declararSaldoEstrangeiro } from './tools/escrita/declarar-saldo-estrangeiro.js'
 import { cadastrarParcelamento } from './tools/escrita/cadastrar-parcelamento.js'
+import { patrimonio } from './tools/patrimonio.js'
 import { desfazer } from './tools/desfazer.js'
 import { exportar } from './tools/exportar.js'
 import { ErroDeUsuario } from './tools/erro-do-usuario.js'
@@ -356,6 +358,66 @@ function criarServidorMcp(app: AppPg): McpServer {
         declararSaldo(app, {
           valor,
           ...(data === undefined ? {} : { data }),
+          hoje: hoje ?? hojeDoSistema(),
+        }),
+      ),
+  )
+
+  server.registerTool(
+    'declarar_saldo_estrangeiro',
+    {
+      title: 'Declarar saldo em moeda estrangeira',
+      description:
+        'Informa quanto ha em uma moeda estrangeira, como dolares parados em ' +
+        'conta internacional. Este valor NAO entra na projecao do mes: ele so ' +
+        'paga contas depois de convertido em reais. Declarar de novo substitui ' +
+        'o valor anterior, e nao ha desfazer.',
+      inputSchema: {
+        moeda: z.string().describe('Codigo de tres letras, como USD ou EUR'),
+        valor: z
+          .string()
+          .describe('Saldo na moeda de origem, como a pessoa fala, nunca em centavos'),
+        data: DATA.optional().describe('Data do saldo. Padrao: hoje'),
+        hoje: DATA.optional().describe('Data de referencia. Padrao: hoje'),
+      },
+    },
+    async ({ moeda, valor, data, hoje }) =>
+      executarFerramenta(() =>
+        declararSaldoEstrangeiro(app, {
+          moeda,
+          valor,
+          ...(data === undefined ? {} : { data }),
+          hoje: hoje ?? hojeDoSistema(),
+        }),
+      ),
+  )
+
+  server.registerTool(
+    'patrimonio',
+    {
+      title: 'Patrimonio total',
+      description:
+        'Responde "quanto eu tenho no total?" -- o saldo em reais mais os ' +
+        'saldos em moeda estrangeira convertidos. Para "como estou este mes?" ' +
+        'use situacao_do_mes, que so olha reais e o fluxo do mes. ' +
+        'ANTES de chamar, busque a cotacao do dia de cada moeda com saldo e ' +
+        'informe em `cotacoes`; diga ao usuario qual cotacao usou. Se nao ' +
+        'conseguir uma cotacao confiavel, pergunte -- nunca estime de memoria.',
+      inputSchema: {
+        cotacoes: z
+          .record(z.string(), z.string())
+          .optional()
+          .describe(
+            'Cotacao em reais de cada moeda, como texto. Exemplo: ' +
+              '{ "USD": "5,4321" }. Ate quatro casas decimais.',
+          ),
+        hoje: DATA.optional().describe('Data de referencia. Padrao: hoje'),
+      },
+    },
+    async ({ cotacoes, hoje }) =>
+      executarFerramenta(() =>
+        patrimonio(app, {
+          ...(cotacoes === undefined ? {} : { cotacoes }),
           hoje: hoje ?? hojeDoSistema(),
         }),
       ),
