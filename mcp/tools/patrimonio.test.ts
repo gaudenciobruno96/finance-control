@@ -97,13 +97,27 @@ describe('patrimonio', () => {
     expect(p.emMoedaEstrangeira[0]?.equivalenteEmReais.valorCentavos).toBe(2_716_050)
   })
 
-  it('ordena as linhas por codigo de moeda', async () => {
+  // Achado 4: nada garantia que o equivalente de CADA moeda, e o total, somam
+  // certo -- so a ordem era testada. Um bug que somasse so a ultima moeda, ou
+  // contasse uma linha duas vezes, passaria pela suite inteira sem isto.
+  it('ordena as linhas por codigo de moeda e soma cada uma corretamente', async () => {
     await declararSaldoEstrangeiro(app, { moeda: 'USD', valor: '5000', hoje: HOJE })
     await declararSaldoEstrangeiro(app, { moeda: 'EUR', valor: '1000', hoje: HOJE })
 
     const p = await patrimonio(app, { cotacoes: { USD: '5,40', EUR: '6,20' }, hoje: HOJE })
 
     expect(p.emMoedaEstrangeira.map((l) => l.moeda)).toEqual(['EUR', 'USD'])
+
+    const [eur, usd] = p.emMoedaEstrangeira
+    // EUR 1.000,00 a 6,20 = R$ 6.200,00
+    expect(eur?.equivalenteEmReais.valorCentavos).toBe(620_000)
+    // USD 5.000,00 a 5,40 = R$ 27.000,00
+    expect(usd?.equivalenteEmReais.valorCentavos).toBe(2_700_000)
+
+    // Sem ancora declarada neste teste, o saldo em reais parte de zero -- o
+    // total e so a soma das duas moedas convertidas.
+    expect(p.emReais.valorCentavos).toBe(0)
+    expect(p.total.valorCentavos).toBe(620_000 + 2_700_000)
   })
 
   // Um total que descarta uma moeda em silencio e um numero errado com cara
@@ -149,5 +163,79 @@ describe('patrimonio', () => {
     const depois = await situacaoDoMes(app, { hoje: HOJE })
 
     expect(depois).toEqual(antes)
+  })
+
+  // Achado 1: a linha carregava so moeda/valor/cotacao/equivalente e
+  // descartava a data que o repositorio ja trazia. `dataDaReferencia` existe
+  // do lado do real precisamente para o usuario ver o quao fresco e o
+  // numero -- sem `data` aqui, o lado estrangeiro nao tinha equivalente.
+  it('cada linha carrega a data em que o saldo foi declarado', async () => {
+    await declararSaldoEstrangeiro(app, {
+      moeda: 'USD',
+      valor: '5000',
+      data: '2026-08-15',
+      hoje: HOJE,
+    })
+
+    const p = await patrimonio(app, { cotacoes: { USD: '5,40' }, hoje: HOJE })
+
+    expect(p.emMoedaEstrangeira[0]?.data).toBe('2026-08-15')
+  })
+
+  describe('avisoSaldoDesatualizado', () => {
+    it('e null quando o saldo foi declarado na competencia de hoje', async () => {
+      await declararSaldoEstrangeiro(app, {
+        moeda: 'USD',
+        valor: '5000',
+        data: HOJE,
+        hoje: HOJE,
+      })
+
+      const p = await patrimonio(app, { cotacoes: { USD: '5,40' }, hoje: HOJE })
+
+      expect(p.avisoSaldoDesatualizado).toBeNull()
+    })
+
+    // O cenario concreto que o achado descreve: dolar declarado em junho,
+    // convertido em algum mes depois e esquecido de zerar. Em agosto,
+    // `patrimonio` precisa apontar a moeda e a data, nao ficar em silencio.
+    it('nomeia a moeda e a data quando o saldo e de uma competencia anterior', async () => {
+      await declararSaldoEstrangeiro(app, {
+        moeda: 'USD',
+        valor: '5000',
+        data: '2026-06-10',
+        hoje: HOJE,
+      })
+
+      const p = await patrimonio(app, { cotacoes: { USD: '5,40' }, hoje: HOJE })
+
+      expect(p.avisoSaldoDesatualizado).not.toBeNull()
+      expect(p.avisoSaldoDesatualizado).toMatch(/USD/u)
+      expect(p.avisoSaldoDesatualizado).toMatch(/2026-06-10/u)
+    })
+  })
+
+  // Achado 3: uma linha com valor 0 (typo corrigido, ou dolar totalmente
+  // convertido) nao pode exigir cotacao para sempre -- `desfazer` nao alcanca
+  // esta escrita, entao sem este filtro nao haveria como sair do estado.
+  describe('saldo zerado', () => {
+    it('nao exige cotacao para uma moeda com saldo 0', async () => {
+      await declararSaldoEstrangeiro(app, { moeda: 'USD', valor: '5000', hoje: HOJE })
+      await declararSaldoEstrangeiro(app, { moeda: 'USD', valor: '0', hoje: HOJE })
+
+      const p = await patrimonio(app, { hoje: HOJE })
+
+      expect(p.emMoedaEstrangeira).toEqual([])
+    })
+
+    it('ignora o saldo zerado mesmo quando uma cotacao e informada', async () => {
+      await declararSaldoEstrangeiro(app, { moeda: 'USD', valor: '5000', hoje: HOJE })
+      await declararSaldoEstrangeiro(app, { moeda: 'USD', valor: '0', hoje: HOJE })
+
+      const p = await patrimonio(app, { cotacoes: { USD: '5,40' }, hoje: HOJE })
+
+      expect(p.emMoedaEstrangeira).toEqual([])
+      expect(p.total.valorCentavos).toBe(p.emReais.valorCentavos)
+    })
   })
 })

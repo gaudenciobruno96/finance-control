@@ -371,7 +371,8 @@ function criarServidorMcp(app: AppPg): McpServer {
         'Informa quanto ha em uma moeda estrangeira, como dolares parados em ' +
         'conta internacional. Este valor NAO entra na projecao do mes: ele so ' +
         'paga contas depois de convertido em reais. Declarar de novo substitui ' +
-        'o valor anterior, e nao ha desfazer.',
+        'o valor anterior, e nao ha desfazer. Para aposentar uma moeda (por ' +
+        'exemplo, depois de converter tudo para reais), declare o saldo como 0.',
       inputSchema: {
         moeda: z.string().describe('Codigo de tres letras, como USD ou EUR'),
         valor: z
@@ -402,7 +403,10 @@ function criarServidorMcp(app: AppPg): McpServer {
         'use situacao_do_mes, que so olha reais e o fluxo do mes. ' +
         'ANTES de chamar, busque a cotacao do dia de cada moeda com saldo e ' +
         'informe em `cotacoes`; diga ao usuario qual cotacao usou. Se nao ' +
-        'conseguir uma cotacao confiavel, pergunte -- nunca estime de memoria.',
+        'conseguir uma cotacao confiavel, pergunte -- nunca estime de memoria. ' +
+        'Se `avisoSaldoDesatualizado` vier preenchido, mostre-o: ha saldo ' +
+        'estrangeiro declarado antes do mes atual, que pode ja ter sido ' +
+        'convertido e esquecido de zerar.',
       inputSchema: {
         cotacoes: z
           .record(z.string(), z.string())

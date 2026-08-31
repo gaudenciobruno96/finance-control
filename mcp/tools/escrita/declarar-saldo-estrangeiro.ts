@@ -68,6 +68,7 @@ export async function declararSaldoEstrangeiro(
     avisos: [
       'Este valor não entra na projeção do mês: ele só paga contas depois de convertido em reais.',
       'Não há desfazer para esta escrita. Para corrigir, declare o saldo de novo — o valor anterior é substituído.',
+      'Para aposentar esta moeda (por exemplo, depois de converter tudo para reais), declare o saldo de novo como 0.',
     ],
   }
 }
