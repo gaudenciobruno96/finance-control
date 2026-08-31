@@ -775,3 +775,26 @@
 **Context**: Projeto autonomo, fora da sequencia de quatro. Nao depende do Projeto 3 nem o bloqueia.
 
 ---
+## Execucao — Patrimonio em mais de uma moeda
+**Timestamp**: 2026-08-30T23:00:00Z
+**User Input**: "1 pode executar"
+**AI Response**: Executado via superpowers:subagent-driven-development no branch `mcp-multimoeda`. Cinco tarefas, cada uma com implementador e revisor proprios: mcp/cambio.ts (conversao inteira), tabela saldos_estrangeiros + repositorio fora de Repositorios, declarar_saldo_estrangeiro, patrimonio, e o registro das duas no servidor (12 -> 14 ferramentas).
+**Context**: O saldo em moeda estrangeira fica fora da projecao por decisao de desenho. A revisao final verificou o isolamento por cinco caminhos independentes, incluindo que simular_cenario nao o alcanca via exportar.
+
+---
+
+## Achados corrigidos antes do merge
+**Timestamp**: 2026-08-30T23:05:00Z
+**User Input**: (1) exportar sem os saldos estrangeiros: "Incluir no exportar, em campo separado". (2) demais correcoes: "Corrigir as tres antes do merge".
+**AI Response**: Quatro correcoes numa onda so. (I1, plan-mandated) patrimonio descartava s.data — risco de contar o mesmo dinheiro duas vezes apos uma conversao; ganhou `data` por linha e `avisoSaldoDesatualizado`. (I2, plan-mandated) exportar omitia os saldos; entraram como campo IRMAO de DocumentoBackup, nunca dentro dele, para nao vazar no simular_cenario. (I3) linha com saldo zero ou moeda digitada errada travava patrimonio para sempre; linhas zeradas passam a ser ignoradas, o que tambem da como aposentar uma moeda. (I4) nenhum teste afirmava a soma de duas moedas.
+**Context**: Dois dos quatro achados eram defeitos da propria spec. Apresentados ao humano com o texto do plano ao lado, conforme a regra de achado plan-mandated.
+
+---
+
+## Achado durante a Task 2 — teste que certificava mais do que verificava
+**Timestamp**: 2026-08-30T22:00:00Z
+**User Input**: "Corrigir a raiz: estender bigint-parser.test.ts"
+**AI Response**: O teste do parser de bigint escrito no plano passava por motivo diferente do que afirmava: o proprio arquivo importa criarPool, que ja registra o parser. A instrucao do controller (estender bigint-parser.test.ts) tambem estava errada — aquele arquivo importa repositorios-pg.ts, que puxa conexao.js no mesmo grafo de modulos. O implementador verificou empiricamente e criou mcp/dados/saldos-estrangeiros-pg-bigint-parser.test.ts, isolado, que falha com o import de producao removido.
+**Context**: Mesma classe de defeito recorrente nos Projetos 1 e 2. A verificacao empirica ("o teste morde?") foi o que separou a correcao real da cosmetica.
+
+---
