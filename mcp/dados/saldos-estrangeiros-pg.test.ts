@@ -34,8 +34,12 @@ it('grava e le um saldo', async () => {
 })
 
 // `valor_centavos` e bigint, e o driver `pg` devolve bigint como STRING por
-// padrao. Sem o parser de tipo, este teste veria "500000" e a soma do
-// patrimonio concatenaria em vez de somar.
+// padrao. Este teste garante que o valor chega como numero quando o Pool vem
+// de `criarPool` -- mas o proprio `criarPool`, importado acima neste arquivo,
+// ja registra o parser globalmente, entao isto NAO prova que
+// `saldos-estrangeiros-pg.ts` mantenha seu proprio import de `./conexao.js`.
+// Quem prova isso e `saldos-estrangeiros-pg-bigint-parser.test.ts`, que
+// constroi o Pool sem passar por `criarPool` de proposito.
 it('devolve o valor como numero, nao como string', async () => {
   await repo.salvar({ moeda: 'USD', valorCentavos: 500_000, data: '2026-08-30' })
 
