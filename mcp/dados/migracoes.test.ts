@@ -86,7 +86,7 @@ describe('aplicarMigracoes', () => {
     await container.stop()
   })
 
-  it('cria as cinco tabelas', async () => {
+  it('cria as seis tabelas', async () => {
     await aplicarMigracoes(pool)
 
     const r = await pool.query<{ table_name: string }>(
@@ -100,6 +100,7 @@ describe('aplicarMigracoes', () => {
     expect(nomes).toContain('ocorrencias')
     expect(nomes).toContain('ancoras')
     expect(nomes).toContain('configuracoes')
+    expect(nomes).toContain('saldos_estrangeiros')
   })
 
   it('e idempotente: aplicar duas vezes nao falha', async () => {
