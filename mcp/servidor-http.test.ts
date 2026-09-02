@@ -455,7 +455,7 @@ describe('criarApp', () => {
   })
 
   /**
-   * As treze ferramentas financeiras (mais `ping`): so `ping` era coberto sobre o
+   * As dezesseis ferramentas financeiras (mais `ping`): so `ping` era coberto sobre o
    * protocolo real. O que fica sem cobertura sem isto e exatamente a
    * FIACAO -- os schemas zod, os espalhamentos de propriedade opcional
    * (`...(x === undefined ? {} : {x})`), e o default `hoje ?? hojeDoSistema()`
@@ -506,7 +506,7 @@ describe('criarApp', () => {
     return corpo.result as { content: { type: string; text: string }[]; isError?: boolean }
   }
 
-  describe('tools/call sobre as treze ferramentas financeiras', () => {
+  describe('tools/call sobre as dezesseis ferramentas financeiras', () => {
     beforeEach(async () => {
       for (const t of [
         'regras',
@@ -893,6 +893,84 @@ describe('criarApp', () => {
 
       expect(r.isError).toBe(true)
       expect(r.content[0]?.text).toContain('USD')
+    })
+
+    it('ajustar_conta muda o valor pelo protocolo', async () => {
+      await chamarFerramenta('cadastrar_recorrente', {
+        tipo: 'saida',
+        nome: 'Aluguel protocolo',
+        valor: '1800',
+        diaDoMes: 10,
+        vigenteDe: '2026-09',
+      })
+      const s = await chamarFerramenta('situacao_do_mes', { hoje: '2026-09-15' })
+      const chave = (JSON.parse(s.content[0]?.text ?? '{}') as {
+        faltaPagar: { nome: string; chave: string }[]
+      }).faltaPagar.find((i) => i.nome === 'Aluguel protocolo')?.chave
+
+      const r = await chamarFerramenta('ajustar_conta', {
+        chave,
+        valor: '2000,00',
+        hoje: '2026-09-15',
+      })
+
+      expect(r.isError).not.toBe(true)
+      const recibo = JSON.parse(r.content[0]?.text ?? '{}') as {
+        antes: string
+        depois: string
+      }
+      expect(recibo.antes).toMatch(/1\.800,00/u)
+      expect(recibo.depois).toMatch(/2\.000,00/u)
+    })
+
+    // O booleano atravessa o schema zod. Sem teste de protocolo, um schema
+    // errado so apareceria em producao.
+    it('ignorar_conta aceita o booleano pelo protocolo', async () => {
+      await chamarFerramenta('cadastrar_recorrente', {
+        tipo: 'saida',
+        nome: 'Mercado protocolo',
+        valor: '1500',
+        diaDoMes: 1,
+        vigenteDe: '2026-09',
+      })
+      const s = await chamarFerramenta('situacao_do_mes', { hoje: '2026-09-15' })
+      const chave = (JSON.parse(s.content[0]?.text ?? '{}') as {
+        faltaPagar: { nome: string; chave: string }[]
+      }).faltaPagar.find((i) => i.nome === 'Mercado protocolo')?.chave
+
+      const r = await chamarFerramenta('ignorar_conta', {
+        chave,
+        ignorar: true,
+        hoje: '2026-09-15',
+      })
+
+      expect(r.isError).not.toBe(true)
+      expect(JSON.parse(r.content[0]?.text ?? '{}')).toMatchObject({ depois: 'ignorada' })
+
+      const depois = await chamarFerramenta('situacao_do_mes', { hoje: '2026-09-15' })
+      expect(depois.content[0]?.text).not.toContain('Mercado protocolo')
+    })
+
+    it('registrar_parte recusa parte maior que o previsto, pelo protocolo', async () => {
+      await chamarFerramenta('cadastrar_recorrente', {
+        tipo: 'entrada',
+        nome: 'Salario protocolo',
+        valor: '18000',
+        diaDoMes: 30,
+        vigenteDe: '2026-09',
+      })
+      const s = await chamarFerramenta('situacao_do_mes', { hoje: '2026-09-15' })
+      const chave = (JSON.parse(s.content[0]?.text ?? '{}') as {
+        aindaEntra: { nome: string; chave: string }[]
+      }).aindaEntra.find((i) => i.nome === 'Salario protocolo')?.chave
+
+      const r = await chamarFerramenta('registrar_parte', {
+        chave,
+        valor: '20000,00',
+        hoje: '2026-09-15',
+      })
+
+      expect(r.isError).toBe(true)
     })
   })
 

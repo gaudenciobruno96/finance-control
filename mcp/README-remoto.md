@@ -3,7 +3,7 @@
 Servidor MCP hospedado, alcançado pela infraestrutura da Anthropic quando você
 pergunta algo ao Claude — inclusive do celular, com seu computador desligado.
 
-Estado atual: **Projetos 1 e 2 implementados**. As treze ferramentas
+Estado atual: **Projetos 1 e 2 implementados**. As dezesseis ferramentas
 financeiras rodam sobre Postgres.
 
 Desenho: `docs/superpowers/specs/2026-08-28-mcp-remoto-spike-design.md`
@@ -43,6 +43,9 @@ o healthcheck do serviço.
 | `cadastrar_recorrente` | Cadastra um lançamento que se repete todo mês (salário, aluguel, conta de luz) |
 | `lancar_avulso` | Registra um gasto ou entrada pontual, que não se repete |
 | `marcar_pago` | Registra que uma conta foi paga ou um valor foi recebido |
+| `ajustar_conta` | Corrige o valor ou o vencimento de uma conta ainda não paga |
+| `ignorar_conta` | Tira uma conta da projeção deste mês, ou traz de volta |
+| `registrar_parte` | Registra que parte do valor já entrou, reduzindo o que falta |
 | `declarar_saldo` | Informa o saldo real da conta numa data — a âncora da projeção |
 | `cadastrar_parcelamento` | Cadastra uma compra parcelada — o valor é o da parcela, nunca o total |
 | `declarar_saldo_estrangeiro` | Quanto há em uma moeda estrangeira (não entra na projeção) |

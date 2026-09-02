@@ -6,7 +6,7 @@
  * usuario pergunta algo pelo celular. E por isso que funciona com o computador
  * do usuario desligado, e e por isso que a autenticacao aqui nao e opcional.
  *
- * As treze ferramentas financeiras (mais `ping`) vivem sobre Postgres (`mcp/dados/`,
+ * As dezesseis ferramentas financeiras (mais `ping`) vivem sobre Postgres (`mcp/dados/`,
  * `mcp/app-pg.ts`), montado uma unica vez em `iniciar()` -- nao dentro de
  * `criarServidorMcp()`, que roda por requisicao.
  */
@@ -29,6 +29,9 @@ import { simularCenario } from './tools/simular-cenario.js'
 import { cadastrarRecorrente } from './tools/escrita/cadastrar-recorrente.js'
 import { lancarAvulso } from './tools/escrita/lancar-avulso.js'
 import { marcarPago } from './tools/escrita/marcar-pago.js'
+import { ajustarConta } from './tools/escrita/ajustar-conta.js'
+import { ignorarConta } from './tools/escrita/ignorar-conta.js'
+import { registrarParte } from './tools/escrita/registrar-parte.js'
 import { declararSaldo } from './tools/escrita/declarar-saldo.js'
 import { declararSaldoEstrangeiro } from './tools/escrita/declarar-saldo-estrangeiro.js'
 import { cadastrarParcelamento } from './tools/escrita/cadastrar-parcelamento.js'
@@ -336,6 +339,86 @@ function criarServidorMcp(app: AppPg): McpServer {
           ...(data === undefined ? {} : { data }),
           hoje: hoje ?? hojeDoSistema(),
         }),
+      ),
+  )
+
+  server.registerTool(
+    'ajustar_conta',
+    {
+      title: 'Ajustar conta',
+      description:
+        'Corrige o valor previsto ou o vencimento de uma conta que ainda NAO ' +
+        'foi paga, usando a chave que a consulta devolve. Vale so para o mes ' +
+        'daquela conta -- a recorrencia que a gerou nao muda. Para corrigir o ' +
+        'valor de algo JA PAGO, use marcar_pago de novo, que atualiza o mesmo ' +
+        'registro.',
+      inputSchema: {
+        chave: z.string().min(1).describe('A chave devolvida pela consulta'),
+        valor: z
+          .string()
+          .optional()
+          .describe('Novo valor previsto, como a pessoa fala, nunca em centavos'),
+        vencimento: DATA.optional().describe('Novo vencimento'),
+        hoje: DATA.optional().describe('Data de referencia. Padrao: hoje'),
+      },
+    },
+    async ({ chave, valor, vencimento, hoje }) =>
+      executarFerramenta(() =>
+        ajustarConta(app, {
+          chave,
+          ...(valor === undefined ? {} : { valor }),
+          ...(vencimento === undefined ? {} : { vencimento }),
+          hoje: hoje ?? hojeDoSistema(),
+        }),
+      ),
+  )
+
+  server.registerTool(
+    'ignorar_conta',
+    {
+      title: 'Ignorar conta no mes',
+      description:
+        'Tira uma conta da projecao deste mes (ignorar=true) ou a traz de ' +
+        'volta (ignorar=false). Use quando a conta simplesmente nao existe ' +
+        'neste mes -- um gasto previsto que nao aconteceu, por exemplo. A ' +
+        'recorrencia continua valendo nos meses seguintes. ATENCAO: ignorar ' +
+        'uma conta ja paga APAGA o pagamento registrado; o recibo avisa e diz ' +
+        'o valor apagado.',
+      inputSchema: {
+        chave: z.string().min(1).describe('A chave devolvida pela consulta'),
+        ignorar: z
+          .boolean()
+          .describe('true tira da projecao deste mes, false traz de volta'),
+        hoje: DATA.optional().describe('Data de referencia. Padrao: hoje'),
+      },
+    },
+    async ({ chave, ignorar, hoje }) =>
+      executarFerramenta(() =>
+        ignorarConta(app, { chave, ignorar, hoje: hoje ?? hojeDoSistema() }),
+      ),
+  )
+
+  server.registerTool(
+    'registrar_parte',
+    {
+      title: 'Registrar parte antecipada',
+      description:
+        'Registra que PARTE do valor ja entrou ou saiu antes do vencimento, ' +
+        'reduzindo o que ainda falta. Exemplo: o salario e 18.000 e vieram ' +
+        '8.000 de adiantamento -- restam 10.000 a receber. Vale so para este ' +
+        'mes. Recebimento ou pagamento INTEGRAL nao passa por aqui: use ' +
+        'marcar_pago.',
+      inputSchema: {
+        chave: z.string().min(1).describe('A chave devolvida pela consulta'),
+        valor: z
+          .string()
+          .describe('Quanto ja entrou ou saiu, como a pessoa fala, nunca em centavos'),
+        hoje: DATA.optional().describe('Data de referencia. Padrao: hoje'),
+      },
+    },
+    async ({ chave, valor, hoje }) =>
+      executarFerramenta(() =>
+        registrarParte(app, { chave, valor, hoje: hoje ?? hojeDoSistema() }),
       ),
   )
 
