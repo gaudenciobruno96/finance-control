@@ -30,6 +30,16 @@ export interface SituacaoDoMes {
   readonly jaResolvido: Dinheiro
   readonly faltaPagar: readonly ItemFormatado[]
   readonly aindaEntra: readonly ItemFormatado[]
+  /**
+   * Contas tiradas da projecao deste mes por `ignorar_conta`.
+   *
+   * Nao entram em nenhum total: estao aqui porque a CHAVE delas nao aparecia
+   * em lugar nenhum. Sem esta lista, o unico lugar onde a chave de uma conta
+   * ignorada existia era o recibo da chamada que a ignorou -- numa conversa
+   * seguinte, `ignorar_conta(ignorar: false)` nao tinha como ser enderecada, e
+   * a reativacao ficava inalcancavel.
+   */
+  readonly ignorados: readonly ItemFormatado[]
   readonly saldoRelativo: boolean
   /**
    * Texto pronto para o assistente repetir quando nao ha ancora.
@@ -61,6 +71,7 @@ export async function situacaoDoMes(
     jaResolvido: dinheiro(m.totalJaResolvidoCentavos),
     faltaPagar: m.faltaPagar.map(item),
     aindaEntra: m.aindaEntra.map(item),
+    ignorados: m.ignorados.map(item),
     saldoRelativo: m.saldoRelativo,
     avisoSaldoRelativo: m.saldoRelativo ? AVISO_SALDO_RELATIVO : null,
   }

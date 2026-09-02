@@ -189,7 +189,10 @@ function criarServidorMcp(app: AppPg): McpServer {
         'Quanto sobra no mes, o que falta pagar e entrar, e em que dia o ' +
         'saldo chega ao minimo. Quando saldoRelativo for verdadeiro, NAO ' +
         'afirme um saldo absoluto: leia avisoSaldoRelativo. Cada item traz ' +
-        'uma chave, que e o que voce usa para registrar pagamento.',
+        'uma chave, que e o que voce usa para registrar pagamento. A lista ' +
+        'ignorados traz as contas que foram tiradas da projecao deste mes: ' +
+        'elas nao entram em nenhum total, e a chave delas e como voce as traz ' +
+        'de volta, com ignorar_conta(ignorar: false).',
       inputSchema: {
         competencia: COMPETENCIA.optional().describe('Mes AAAA-MM. Padrao: mes corrente'),
         hoje: DATA.optional().describe('Data de referencia. Padrao: hoje'),

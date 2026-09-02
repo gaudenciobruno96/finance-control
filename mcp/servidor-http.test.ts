@@ -947,8 +947,18 @@ describe('criarApp', () => {
       expect(r.isError).not.toBe(true)
       expect(JSON.parse(r.content[0]?.text ?? '{}')).toMatchObject({ depois: 'ignorada' })
 
+      // A conta sai de faltaPagar mas continua enderecavel em `ignorados`:
+      // e de la que a chave para `ignorar_conta(false)` vem, numa conversa
+      // posterior a que ignorou.
       const depois = await chamarFerramenta('situacao_do_mes', { hoje: '2026-09-15' })
-      expect(depois.content[0]?.text).not.toContain('Mercado protocolo')
+      const situacao = JSON.parse(depois.content[0]?.text ?? '{}') as {
+        faltaPagar: { nome: string }[]
+        ignorados: { nome: string; chave: string }[]
+      }
+      expect(situacao.faltaPagar.map((i) => i.nome)).not.toContain('Mercado protocolo')
+      expect(situacao.ignorados.find((i) => i.nome === 'Mercado protocolo')?.chave).toBe(
+        chave,
+      )
     })
 
     it('registrar_parte recusa parte maior que o previsto, pelo protocolo', async () => {
@@ -971,6 +981,11 @@ describe('criarApp', () => {
       })
 
       expect(r.isError).toBe(true)
+      // O texto importa mais que o booleano: e por ele que o assistente sabe
+      // para onde ir. O codigo interno do dominio ("restanteAposParte") nao
+      // pode chegar ate aqui.
+      expect(r.content[0]?.text).toContain('marcar_pago')
+      expect(r.content[0]?.text).not.toContain('restanteAposParte')
     })
   })
 
