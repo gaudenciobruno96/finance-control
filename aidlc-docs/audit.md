@@ -843,3 +843,18 @@
 **Context**: Primeira mudanca a alcancar `src/`, congelado desde o Projeto 1 — a regra defeituosa vive no dominio. Excecao deliberada a RN-04 justificada na spec: instante absoluto precisa de fuso, ao contrario de data de calendario.
 
 ---
+## Execucao — ancora com instante de declaracao
+**Timestamp**: 2026-09-02T02:00:00Z
+**User Input**: "1" (subagent-driven)
+**AI Response**: Executado em tres tarefas no branch `ancora-com-instante`: os dois campos e a RN-32 revisada no dominio, a persistencia das duas colunas, e as ferramentas gravando o instante. O controller ampliou a Task 2 para fechar uma lacuna de ordenacao do plano (Task 1 tornava os campos obrigatorios e so a Task 3 ajustava o mcp/, deixando 93 testes vermelhos entre as duas).
+**Context**: Primeira mudanca a alcancar `src/` desde o Projeto 1.
+
+---
+
+## Revisao final — dois Critical vindos de defeito da spec
+**Timestamp**: 2026-09-02T02:30:00Z
+**User Input**: (1) "Migração de schema, como o projeto já faz (Recomendado)". (2) Important: I1 e I2 sim, I3 nao.
+**AI Response**: A spec dizia "null significa comportamento anterior" e o codigo implementou `=== null` — mas a representacao real de campo ausente no IndexedDB e em todo backup antigo e `undefined`. C1: restaurar qualquer backup pre-existente falhava com INSTANTE_INVALIDO, incluindo o orcamento.json sincronizado no GitHub. C2: linhas antigas do Dexie faziam a RN-32 parar de aplicar, mudando numeros de meses passados em silencio. Corrigidos via VERSAO_SCHEMA 3 com upgrade Dexie e passo em migrarDocumento. I1: re-registrar pagamento movia o instante e descontava de saldo que ja o continha. I2: lancamento retroativo carimbava instante de agora.
+**Context**: Os dois Critical passaram por tres revisoes de tarefa porque todos os fixtures foram atualizados com os campos, apagando da suite o caso "registro antigo" — que e todo registro em producao. Os testes novos constroem fixtures com os campos genuinamente AUSENTES. Suite: 660/660 em 65 arquivos.
+
+---
