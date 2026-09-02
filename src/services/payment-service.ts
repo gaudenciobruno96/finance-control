@@ -73,13 +73,31 @@ export function criarPaymentService(repos: Repositorios) {
   }
 
   return {
-    registrarPagamento: (o: OcorrenciaResolvida, data: DataISO, valor: Centavos) =>
-      aplicar(o, { dataPagamento: data, valorPagoCentavos: valor, ignorado: false }),
+    /**
+     * `registradoEm` e o instante ISO em UTC da escrita, usado para desempatar
+     * contra a ancora quando os dois caem no mesmo dia (RN-32 revisada).
+     *
+     * Opcional porque a maioria dos chamadores nao se importa com a ordem
+     * dentro do dia: ausente, o campo fica nulo e o registro cai no
+     * comportamento anterior, que compara so datas.
+     */
+    registrarPagamento: (
+      o: OcorrenciaResolvida,
+      data: DataISO,
+      valor: Centavos,
+      registradoEm?: string,
+    ) =>
+      aplicar(o, {
+        dataPagamento: data,
+        valorPagoCentavos: valor,
+        ignorado: false,
+        pagamentoRegistradoEm: registradoEm ?? null,
+      }),
 
     /** RN-53: limpa o pagamento mas mantem o registro materializado, que pode
      * carregar valor ajustado ou vencimento adiado. */
     desfazerPagamento: (o: OcorrenciaResolvida) =>
-      aplicar(o, { dataPagamento: null, valorPagoCentavos: null }),
+      aplicar(o, { dataPagamento: null, valorPagoCentavos: null, pagamentoRegistradoEm: null }),
 
     ajustarValorPrevisto: (o: OcorrenciaResolvida, valor: Centavos) =>
       aplicar(o, { valorPrevistoCentavos: valor }),

@@ -71,7 +71,10 @@ export async function marcarPago(app: AppPg, args: ArgsMarcarPago): Promise<Reci
     )
   }
 
-  await app.pagamento.registrarPagamento(alvo, data, valorPago)
+  // O instante e do servidor, em UTC. Pedir ao modelo que informe o horario
+  // seria pedir que ele inventasse um -- e diferente de `hoje`, que a pessoa
+  // pode legitimamente querer sobrescrever para lancar algo retroativo.
+  await app.pagamento.registrarPagamento(alvo, data, valorPago, new Date().toISOString())
 
   const verbo = alvo.tipo === 'entrada' ? 'Recebimento' : 'Pagamento'
 
