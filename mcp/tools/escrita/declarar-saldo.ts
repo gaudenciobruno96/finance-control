@@ -29,14 +29,23 @@ export async function declararSaldo(app: AppPg, args: ArgsDeclararSaldo): Promis
   const data = args.data ?? args.hoje
   const id = novoId()
 
+  // O instante e do servidor, em UTC. Pedir ao modelo que informe o horario
+  // seria pedir que ele inventasse um.
+  //
+  // So vale para a ancora de HOJE. `data` existe justamente para declarar
+  // retroativamente, e o instante de uma declaracao retroativa nao descreve a
+  // leitura do extrato daquele dia -- diz apenas quando a pessoa digitou.
+  // Comparado (RN-32) contra o instante de um pagamento, produz uma ordem que
+  // nunca aconteceu: um pagamento do dia 1 registrado no dia 4 ficaria
+  // "depois" de uma ancora do dia 1 declarada no dia 3, e passaria a descontar
+  // de um saldo que ja o continha. Nulo devolve a comparacao por datas, que e
+  // o que se sabe de fato.
+  const declaradaEm = data === args.hoje ? new Date().toISOString() : null
+
   // `salvar` chama `validarAncora`, que rejeita data futura. O segundo
   // argumento e a data corrente -- diferente das outras entidades.
-  //
-  // O instante e do servidor, em UTC. Pedir ao modelo que informe o horario
-  // seria pedir que ele inventasse um -- e diferente de `hoje`, que a pessoa
-  // pode legitimamente querer sobrescrever para lancar algo retroativo.
   await app.repos.ancoras.salvar(
-    { id, data, saldoCentavos: centavos, declaradaEm: new Date().toISOString() },
+    { id, data, saldoCentavos: centavos, declaradaEm },
     args.hoje,
   )
 

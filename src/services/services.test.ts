@@ -184,14 +184,27 @@ describe('payment-service', () => {
 
     await app.pagamento.ajustarValorPrevisto(alvo, 190_000)
     const comAjuste = await app.projecao.projetarMes('2026-08', HOJE)
-    await app.pagamento.registrarPagamento(daCompetencia(comAjuste, '2026-08'), '2026-08-11', 190_000)
+    await app.pagamento.registrarPagamento(
+      daCompetencia(comAjuste, '2026-08'),
+      '2026-08-11',
+      190_000,
+      '2026-08-11T12:00:00.000Z',
+    )
 
     const pago = await app.projecao.projetarMes('2026-08', HOJE)
+    expect(pago.jaResolvido[0]?.pagamentoRegistradoEm).toBe('2026-08-11T12:00:00.000Z')
+
     await app.pagamento.desfazerPagamento(pago.jaResolvido[0]!)
 
     const depois = await app.projecao.projetarMes('2026-08', HOJE)
     expect(depois.jaResolvido).toHaveLength(0)
     expect(depois.resumo.aPagarCentavos).toBe(190_000)
+
+    // O registro sobrevive, mas o instante nao: sem pagamento ele nao descreve
+    // mais nada, e sobreviver o faria desempatar contra uma ancora futura como
+    // se um pagamento desfeito ainda estivesse no extrato.
+    const [registro] = await app.repos.ocorrencias.listar()
+    expect(registro?.pagamentoRegistradoEm).toBeNull()
   })
 
   it('lanca e remove ocorrencia avulsa', async () => {
