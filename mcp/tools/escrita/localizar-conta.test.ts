@@ -68,8 +68,8 @@ describe('localizarConta', () => {
     expect(o.competencia).toBe('2026-09')
   })
 
-  // `ignorados` precisa entrar na busca: reativar uma conta ignorada exige
-  // encontra-la primeiro, e ela nao esta em nenhuma das outras listas.
+  // Conta paga resolve no balde `jaResolvido` (situacao === 'pago'), nao em
+  // `ignorados`. Este teste cobre que `jaResolvido` entra na busca.
   it('acha uma conta ja paga', async () => {
     const chave = await chaveDoAluguel()
     await marcarPago(app, { chave, hoje: HOJE })
@@ -77,6 +77,24 @@ describe('localizarConta', () => {
     const o = await localizarConta(app, chave, HOJE)
 
     expect(o.dataPagamento).not.toBeNull()
+  })
+
+  // `ignorados` precisa entrar na busca: reativar uma conta ignorada exige
+  // encontra-la primeiro, e ela nao esta em nenhuma das outras listas --
+  // nem em `jaResolvido`, que e onde as contas PAGAS caem.
+  it('acha uma conta ignorada', async () => {
+    const chave = await chaveDoAluguel()
+    const mes = await app.projecao.projetarMes('2026-09', HOJE)
+    const aluguel = mes.faltaPagar.find((o) => o.nome === 'Aluguel')!
+
+    await app.pagamento.ignorarNoMes(aluguel)
+
+    const depoisDeIgnorar = await app.projecao.projetarMes('2026-09', HOJE)
+    expect(depoisDeIgnorar.faltaPagar.map((o) => o.nome)).not.toContain('Aluguel')
+
+    const o = await localizarConta(app, chave, HOJE)
+
+    expect(o.nome).toBe('Aluguel')
   })
 
   it('recusa uma chave que nao existe, nomeando a competencia', async () => {
