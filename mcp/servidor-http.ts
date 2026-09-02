@@ -561,7 +561,10 @@ function criarServidorMcp(app: AppPg): McpServer {
         'tanto para desfazer um engano recente quanto para apagar um ' +
         'registro antigo. Desfazer um pagamento nao apaga a conta, so o ' +
         'registro de que foi paga. Nao ha confirmacao previa: confira o id ' +
-        'antes de chamar, e repita ao usuario o que foi removido.',
+        'antes de chamar, e repita ao usuario o que foi removido. Para tirar ' +
+        'uma conta de UM mes so, use ignorar_conta: desfazer com ' +
+        "tipo 'recorrente' apaga a regra inteira, e com ela a conta de todos " +
+        'os meses seguintes -- raramente e o que a pessoa quer dizer.',
       inputSchema: {
         tipo: z.enum(['recorrente', 'avulso', 'pagamento', 'saldo', 'parcelamento']),
         id: z.string().min(1).describe('O id do recibo -- para tipo pagamento, a chave'),
