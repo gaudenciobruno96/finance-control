@@ -865,3 +865,18 @@
 **Context**: A sessao expos o atrito tres vezes — mudar valor, mudar dia, e pular o mercado de um mes. Nas tres a unica saida foi apagar e recriar. No caso do mercado isso removeu a recorrencia inteira e deixou a projecao otimista. Registrado tambem um erro do assistente: ofereceu ao usuario a opcao "so a de setembro" sem antes verificar que nao havia ferramenta para cumpri-la.
 
 ---
+## Execucao — corrigir contas que ja existem
+**Timestamp**: 2026-09-02T08:00:00Z
+**User Input**: "1" (subagent-driven)
+**AI Response**: Quatro tarefas no branch `corrigir-contas`: o helper localizarConta, ajustar_conta, ignorar_conta com registrar_parte, e o registro no servidor (14 -> 17 ferramentas).
+**Context**: Duas correcoes durante as tarefas, ambas de erro meu no plano: um teste rotulado como cobertura de `ignorados` que na verdade cobria `jaResolvido`; e o helper de teste que tratava situacaoDoMes.jaResolvido como lista, quando ali e Dinheiro (repeticao do mesmo erro do plano anterior).
+
+---
+
+## Revisao final — cinco Important
+**Timestamp**: 2026-09-02T08:30:00Z
+**User Input**: (1) "Sim, os três mais o teste do saldo". (2) "Sim, o situacao_do_mes passa a listá-las". (3) "Recusar, apontando o ignorar_conta(false)".
+**AI Response**: F1: ajustar_conta gravava o valor e so entao validava o vencimento — data invalida deixava escrita parcial e devolvia erro SEM o recibo, quebrando a promessa antes/depois que substitui o desfazer. F2: registrar_parte com valor integral vazava erro interno em vez de nomear marcar_pago; sem guarda de negativo. F3: conta ignorada passava as guardas e reportava sucesso sem mudar a projecao — agora recusa. F4: reativacao era inalcancavel, nenhuma consulta expunha ignorados; situacao_do_mes passa a lista-los com a chave. F5: desfazer nao apontava para ignorar_conta, sendo a ferramenta que causou o problema original.
+**Context**: Escrito tambem o teste que a spec pedia e ninguem tinha escrito: nenhum teste do branch declarava ancora, entao nenhum provava que o saldo volta — so que a lista muda. Suite: 696/696 em 68 arquivos.
+
+---
