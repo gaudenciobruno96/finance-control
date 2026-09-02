@@ -858,3 +858,10 @@
 **Context**: Os dois Critical passaram por tres revisoes de tarefa porque todos os fixtures foram atualizados com os campos, apagando da suite o caso "registro antigo" — que e todo registro em producao. Os testes novos constroem fixtures com os campos genuinamente AUSENTES. Suite: 660/660 em 65 arquivos.
 
 ---
+## Brainstorming — corrigir contas que ja existem
+**Timestamp**: 2026-09-02T05:00:00Z
+**User Input**: "Que outras feature podem ser muito úteis para mim nesse MCP? /superpowers:brainstorming" -> escolheu "Poder corrigir as coisas — editar, adiar, pular o mês" -> escopo "Só mexer em contas específicas, por ora" -> "Fecha"
+**AI Response**: Achado que orientou a conversa: o payment-service ja tem cinco operacoes prontas e testadas que o MCP nunca expos (ajustarValorPrevisto, adiarVencimento, ignorarNoMes, reativarNoMes, registrarParteAntecipada). Nenhuma depende do Dexie. Spec escrita em docs/superpowers/specs/2026-09-02-corrigir-contas-design.md: tres ferramentas (ajustar_conta, ignorar_conta, registrar_parte), agrupadas pela pergunta do usuario e nao pelo metodo do servico.
+**Context**: A sessao expos o atrito tres vezes — mudar valor, mudar dia, e pular o mercado de um mes. Nas tres a unica saida foi apagar e recriar. No caso do mercado isso removeu a recorrencia inteira e deixou a projecao otimista. Registrado tambem um erro do assistente: ofereceu ao usuario a opcao "so a de setembro" sem antes verificar que nao havia ferramenta para cumpri-la.
+
+---
