@@ -798,3 +798,18 @@
 **Context**: Mesma classe de defeito recorrente nos Projetos 1 e 2. A verificacao empirica ("o teste morde?") foi o que separou a correcao real da cosmetica.
 
 ---
+## Correcao — saldo nao descontava conta paga hoje (RN-91)
+**Timestamp**: 2026-08-31T22:35:00Z
+**User Input**: "Quando lançarmos uma conta como paga, ele deve descontar do saldo atual já"
+**AI Response**: Investigado com superpowers:systematic-debugging antes de qualquer correcao. Reproduzido: ancora de R$ 10.000 declarada ontem, aluguel de R$ 1.800 vencendo hoje — a curva devolvia 820.000 no ponto de hoje tanto com a conta paga quanto nao paga, e `saldoNaReferencia` usa o ponto ANTERIOR (comeco do dia), entao ficava 1.000.000 nos dois casos. Marcar como pago nao movia numero nenhum.
+**Context**: Causa raiz em `posicaoNaCurva` (src/services/projection-service.ts): a referencia e deliberadamente o saldo do comeco do dia, para que uma conta que apenas VENCE hoje nao apareca descontada de dinheiro que ainda esta na conta. A regra nao distinguia "vence hoje" de "foi paga hoje".
+
+---
+
+## Decisao do usuario sobre a definicao de saldo atual
+**Timestamp**: 2026-08-31T22:36:00Z
+**User Input**: "Só o que já foi pago hoje (Recomendado)"
+**AI Response**: Implementado `separarPorPagamento` em src/domain/balance-projector.ts, dividindo o movimento do dia entre pago e pendente de forma exaustiva (pendente sai por diferenca). Duas metades: o saldo passa a descontar o pago de hoje, e o mesmo item sai de "ainda sai" — sem a segunda, o pagamento seria contado duas vezes e a identidade `saldo + entra - sai = sobra` pararia de fechar.
+**Context**: Simetrico a RN-32. Verificado que os testes mordem: revertendo a correcao, 3 falham pelos motivos certos (1000000 vs 820000, vs 800000 com valor pago diferente do previsto, vs 1500000 com entrada confirmada). Suite completa: 644/644 em 63 arquivos.
+
+---
