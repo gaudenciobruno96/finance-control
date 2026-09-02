@@ -12,6 +12,7 @@
  * mesmo registro.
  */
 
+import { ehDataValida } from '../../../src/domain/guards.js'
 import { deEntradaUsuario, formatarBRL } from '../../../src/domain/money.js'
 import type { AppPg } from '../../app-pg.js'
 import type { ReciboDeAjuste } from '../../recibo.js'
@@ -36,7 +37,39 @@ export async function ajustarConta(
     )
   }
 
+  // Valor e vencimento sao DUAS escritas sequenciais, sem transacao em volta.
+  // Validar o vencimento so no momento de grava-lo deixava a primeira ja
+  // comitada quando a segunda falhava: `valor: '2000,00'` com
+  // `vencimento: '2026-09-31'` mudava o valor, estourava em `adiarVencimento`
+  // e devolvia erro SEM recibo -- a pessoa era informada de que nada
+  // aconteceu, o valor tinha mudado, e o `antes` de que ela precisaria para
+  // reverter nunca chegou.
+  //
+  // O schema zod da fronteira (`DATA`, em servidor-http.ts) e so regex: ele
+  // aceita 2026-09-31, 2026-02-30 e 2026-13-01. `ehDataValida` e a mesma
+  // funcao que `validarOcorrencia` usa la no fundo -- aqui ela roda ANTES de
+  // qualquer escrita, para a operacao ser tudo ou nada.
+  if (args.vencimento !== undefined && !ehDataValida(args.vencimento)) {
+    throw new ErroDeUsuario(
+      `A data "${args.vencimento}" nao existe no calendario. ` +
+        'Informe um vencimento real no formato AAAA-MM-DD.',
+    )
+  }
+
   const alvo = await localizarConta(app, args.chave, args.hoje)
+
+  // Uma conta ignorada esta FORA da projecao deste mes. Ajustar valor ou
+  // vencimento dela nao muda numero nenhum na tela, e nenhuma das duas
+  // escritas daqui reativa a conta -- o recibo diria "ajustado" sobre algo
+  // que continua invisivel. Recusar e nomear a saida e o unico jeito de o
+  // assistente descobrir que falta um passo antes.
+  if (alvo.ignorado) {
+    throw new ErroDeUsuario(
+      `"${alvo.nome}" esta ignorada neste mes e fora da projecao -- ajustar ` +
+        'aqui nao mudaria numero nenhum. Traga a conta de volta com ' +
+        'ignorar_conta(ignorar: false) e ajuste depois.',
+    )
+  }
 
   if (alvo.dataPagamento !== null) {
     throw new ErroDeUsuario(

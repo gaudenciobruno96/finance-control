@@ -9,6 +9,7 @@ import { situacaoDoMes } from '../situacao-do-mes.js'
 import { cadastrarRecorrente } from './cadastrar-recorrente.js'
 import { marcarPago } from './marcar-pago.js'
 import { ajustarConta } from './ajustar-conta.js'
+import { ignorarConta } from './ignorar-conta.js'
 
 const HOJE = '2026-09-15'
 
@@ -152,6 +153,56 @@ describe('ajustarConta', () => {
       ajustarConta(app, { chave: a.chave, valor: '-100', hoje: HOJE }),
     ).rejects.toThrow(ErroDeUsuario)
     expect(await app.repos.ocorrencias.listar()).toEqual([])
+  })
+
+  // O caso da escrita parcial: valor e vencimento sao duas gravacoes
+  // sequenciais sem transacao. `2026-09-31` passa pelo regex do schema zod da
+  // fronteira e so morre la no dominio -- se a validacao ficasse no ponto da
+  // gravacao, o VALOR ja teria sido comitado quando a data estourasse, e o
+  // recibo com o `antes` necessario para reverter nunca chegaria.
+  it('recusa vencimento inexistente sem comitar o valor', async () => {
+    const a = await aluguel()
+
+    await expect(
+      ajustarConta(app, {
+        chave: a.chave,
+        valor: '2000,00',
+        vencimento: '2026-09-31',
+        hoje: HOJE,
+      }),
+    ).rejects.toThrow(ErroDeUsuario)
+
+    expect(await app.repos.ocorrencias.listar()).toEqual([])
+    expect((await itemNaProjecao('Aluguel'))?.valorCentavos).toBe(180_000)
+    expect((await itemNaProjecao('Aluguel'))?.dataVencimento).toBe('2026-09-10')
+  })
+
+  it.each(['2026-02-30', '2026-13-01', '2026-04-31'])(
+    'recusa a data impossivel %s, que o regex do schema deixa passar',
+    async (vencimento) => {
+      const a = await aluguel()
+
+      await expect(
+        ajustarConta(app, { chave: a.chave, vencimento, hoje: HOJE }),
+      ).rejects.toThrow(ErroDeUsuario)
+      expect(await app.repos.ocorrencias.listar()).toEqual([])
+    },
+  )
+
+  // Uma conta ignorada esta fora da projecao, e nenhuma das escritas daqui a
+  // reativa: aceitar devolveria um recibo alegre por uma mudanca que nao
+  // aparece em lugar nenhum.
+  it('recusa conta ignorada, nomeando ignorar_conta, sem alterar', async () => {
+    const a = await aluguel()
+    await ignorarConta(app, { chave: a.chave, ignorar: true, hoje: HOJE })
+
+    await expect(
+      ajustarConta(app, { chave: a.chave, valor: '2000,00', hoje: HOJE }),
+    ).rejects.toThrow(/ignorar_conta/u)
+
+    const m = await app.projecao.projetarMes('2026-09', HOJE)
+    const ignorada = m.ignorados.find((o) => o.nome === 'Aluguel')
+    expect(ignorada?.valorPrevistoCentavos).toBe(180_000)
   })
 
   // RN-51: a operacao e idempotente. Duas chamadas atualizam a mesma linha.
