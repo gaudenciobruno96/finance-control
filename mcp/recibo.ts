@@ -33,3 +33,22 @@ export function montarRecibo(
 //
 // O que protege `desfazer` agora e o que sempre fez o trabalho: o id precisa
 // ser dito explicitamente, e ele so aparece num recibo ou numa consulta.
+
+/**
+ * O recibo de um ajuste em conta existente.
+ *
+ * Traz `antes` e `depois` porque e o que substitui o `desfazer`: reverter um
+ * ajuste exigiria guardar o valor anterior, e nao guardamos. Em vez disso a
+ * pessoa le o valor antigo e, se quiser, chama a ferramenta de novo com ele.
+ *
+ * Os dois sao texto ja formatado ("R$ 1.500,00", "2026-09-01", "ativa"):
+ * quem le e uma pessoa, e o valor em centavos nao acrescenta nada aqui.
+ */
+export interface ReciboDeAjuste {
+  readonly chave: string
+  readonly nome: string
+  readonly antes: string
+  readonly depois: string
+  readonly resumo: string
+  readonly avisos: readonly string[]
+}
