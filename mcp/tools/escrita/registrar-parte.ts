@@ -32,7 +32,29 @@ export async function registrarParte(
     )
   }
 
+  // `deEntradaUsuario('-100')` devolve -10000 sem erro: o sinal e sintaxe
+  // valida para `declarar_saldo`, que aceita saldo negativo. Aqui nao ha
+  // parte negativa de coisa alguma. Sem a guarda, o valor so seria barrado la
+  // dentro de `registrarParteAntecipada`, como o codigo interno
+  // VALOR_NAO_POSITIVO -- e a mesma razao pela qual `marcar_pago` mantem a sua
+  // guarda de sinal nesta camada.
+  if (parte <= 0) {
+    throw new ErroDeUsuario(
+      `A parte ja recebida ou paga precisa ser positiva. Recebi "${args.valor}".`,
+    )
+  }
+
   const alvo = await localizarConta(app, args.chave, args.hoje)
+
+  // Ignorada e fora da projecao: reduzir o previsto de uma conta invisivel
+  // nao move numero algum, e esta operacao nao reativa a conta.
+  if (alvo.ignorado) {
+    throw new ErroDeUsuario(
+      `"${alvo.nome}" esta ignorada neste mes e fora da projecao -- registrar ` +
+        'uma parte aqui nao mudaria numero nenhum. Traga a conta de volta com ' +
+        'ignorar_conta(ignorar: false) e registre depois.',
+    )
+  }
 
   if (alvo.dataPagamento !== null) {
     throw new ErroDeUsuario(
@@ -42,8 +64,22 @@ export async function registrarParte(
     )
   }
 
-  // `registrarParteAntecipada` valida que a parte e positiva e menor que o
-  // previsto, e levanta ErroDeDominio quando nao e.
+  // "Veio tudo" e o engano mais provavel desta ferramenta: `registrar_parte`
+  // com o valor cheio. `registrarParteAntecipada` recusa -- mas com
+  // `VALOR_NAO_POSITIVO / restanteAposParte`, um codigo interno que fala do
+  // resto da subtracao, nao do que a pessoa fez. Traduzido aqui, o erro diz a
+  // mesma coisa que a descricao da ferramenta ja diz: recebimento ou
+  // pagamento INTEGRAL e um pagamento confirmado e vai por `marcar_pago`.
+  if (parte >= alvo.valorPrevistoCentavos) {
+    throw new ErroDeUsuario(
+      `${formatarBRL(parte)} nao e uma PARTE de "${alvo.nome}": o previsto e ` +
+        `${formatarBRL(alvo.valorPrevistoCentavos)}. Se veio tudo, isso e um ` +
+        'pagamento confirmado -- use marcar_pago. Se veio so um pedaco, ' +
+        'informe um valor menor que o previsto.',
+    )
+  }
+
+  // `registrarParteAntecipada` revalida o mesmo par de condicoes no dominio.
   const tinhaObservacao = alvo.observacao !== null
 
   await app.pagamento.registrarParteAntecipada(alvo, parte)

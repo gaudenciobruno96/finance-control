@@ -7,6 +7,7 @@ import { criarAppPg, type AppPg } from '../../app-pg.js'
 import { ErroDeUsuario } from '../erro-do-usuario.js'
 import { situacaoDoMes } from '../situacao-do-mes.js'
 import { cadastrarRecorrente } from './cadastrar-recorrente.js'
+import { declararSaldo } from './declarar-saldo.js'
 import { marcarPago } from './marcar-pago.js'
 import { ignorarConta } from './ignorar-conta.js'
 import { registrarParte } from './registrar-parte.js'
@@ -115,6 +116,51 @@ describe('ignorarConta', () => {
 
     expect(r.avisos.join(' ')).not.toMatch(/pagamento registrado/iu)
   })
+
+  // A queixa que originou a branch inteira, em dinheiro e nao em pertinencia
+  // de lista: a estimativa de mercado venceu sem ser paga, virou "atrasado" e
+  // o projetor a empurrou para hoje (RN-33), derrubando o saldo do dia. Os
+  // demais testes provam que o item sai da lista -- este prova que o dinheiro
+  // volta, que e a reclamacao de verdade.
+  //
+  // Exige uma ANCORA: sem ela `saldoRelativo` e verdadeiro e os valores tem
+  // forma mas nao tem nivel, entao a diferenca nao significaria nada.
+  it('devolve o saldo que a conta vencida e nao paga tinha derrubado', async () => {
+    await declararSaldo(app, { valor: '10000,00', hoje: HOJE })
+    const c = await mercado() // vence 2026-09-01; em 2026-09-15 esta vencida
+
+    const antes = await situacaoDoMes(app, { competencia: '2026-09', hoje: HOJE })
+    expect(antes.saldoRelativo).toBe(false)
+    expect(antes.faltaPagar.map((i) => i.nome)).toContain('Mercado')
+
+    await ignorarConta(app, { chave: c.chave, ignorar: true, hoje: HOJE })
+
+    const depois = await situacaoDoMes(app, { competencia: '2026-09', hoje: HOJE })
+    expect(depois.saldoRelativo).toBe(false)
+    expect(depois.sobra.valorCentavos - antes.sobra.valorCentavos).toBe(150_000)
+
+    // Ignorada a unica conta do mes, a sobra volta a ser o saldo declarado.
+    expect(depois.sobra.valorCentavos).toBe(1_000_000)
+  })
+
+  // A chave de uma conta ignorada nao aparecia em consulta nenhuma: existia
+  // so no recibo da chamada que a ignorou. Numa conversa seguinte, reativar
+  // era literalmente inenderecavel.
+  it('mantem a conta ignorada visivel, com chave, em situacao_do_mes', async () => {
+    const c = await mercado()
+    await ignorarConta(app, { chave: c.chave, ignorar: true, hoje: HOJE })
+
+    const s = await situacaoDoMes(app, { competencia: '2026-09', hoje: HOJE })
+    const ignorada = s.ignorados.find((i) => i.nome === 'Mercado')
+
+    expect(ignorada?.chave).toBe(c.chave)
+    expect(ignorada?.valorCentavos).toBe(150_000)
+    expect(s.faltaPagar.map((i) => i.nome)).not.toContain('Mercado')
+
+    // E a chave listada de fato reativa.
+    await ignorarConta(app, { chave: ignorada!.chave, ignorar: false, hoje: HOJE })
+    expect(await faltaPagar()).toContain('Mercado')
+  })
 })
 
 describe('registrarParte', () => {
@@ -140,13 +186,52 @@ describe('registrarParte', () => {
     expect(out.aindaEntra.find((i) => i.nome === 'Salário')?.valorCentavos).toBe(1_800_000)
   })
 
-  it('recusa parte maior ou igual ao previsto, sem gravar', async () => {
+  // "Veio tudo" e o engano mais provavel desta ferramenta. Antes, ele saia
+  // como o codigo interno do dominio ("[restanteAposParte] valor monetario
+  // deve ser maior que zero"), que nao diz o que fazer em vez disso.
+  it('recusa parte maior ou igual ao previsto, nomeando marcar_pago', async () => {
     const s = await salario()
 
     await expect(
       registrarParte(app, { chave: s.chave, valor: '18000,00', hoje: HOJE }),
-    ).rejects.toThrow()
+    ).rejects.toThrow(ErroDeUsuario)
+    await expect(
+      registrarParte(app, { chave: s.chave, valor: '18000,00', hoje: HOJE }),
+    ).rejects.toThrow(/marcar_pago/u)
+    await expect(
+      registrarParte(app, { chave: s.chave, valor: '20000,00', hoje: HOJE }),
+    ).rejects.toThrow(/marcar_pago/u)
+
     expect(await app.repos.ocorrencias.listar()).toEqual([])
+  })
+
+  // `deEntradaUsuario('-100')` devolve -10000 sem reclamar -- sinal e sintaxe
+  // valida para `declarar_saldo`. Sem guarda aqui, o negativo so morreria no
+  // dominio, como codigo interno.
+  it('recusa parte zero ou negativa, sem gravar', async () => {
+    const s = await salario()
+
+    await expect(
+      registrarParte(app, { chave: s.chave, valor: '-100', hoje: HOJE }),
+    ).rejects.toThrow(ErroDeUsuario)
+    await expect(
+      registrarParte(app, { chave: s.chave, valor: '0', hoje: HOJE }),
+    ).rejects.toThrow(ErroDeUsuario)
+    expect(await app.repos.ocorrencias.listar()).toEqual([])
+  })
+
+  it('recusa conta ignorada, nomeando ignorar_conta, sem gravar', async () => {
+    const s = await salario()
+    await ignorarConta(app, { chave: s.chave, ignorar: true, hoje: HOJE })
+
+    await expect(
+      registrarParte(app, { chave: s.chave, valor: '8000,00', hoje: HOJE }),
+    ).rejects.toThrow(/ignorar_conta/u)
+
+    const m = await app.projecao.projetarMes('2026-09', HOJE)
+    expect(m.ignorados.find((o) => o.nome === 'Salário')?.valorPrevistoCentavos).toBe(
+      1_800_000,
+    )
   })
 
   it('recusa valor ilegivel, sem gravar', async () => {
