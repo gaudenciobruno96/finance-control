@@ -28,6 +28,7 @@ const historico = (quantidade: number): fc.Arbitrary<readonly Ocorrencia[]> =>
         dataVencimento: data,
         dataPagamento: data,
         valorPagoCentavos: valor,
+        pagamentoRegistradoEm: null,
         ignorado: false,
         observacao: null,
       })),

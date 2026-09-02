@@ -70,7 +70,7 @@ export function criarRuleService(db: BancoFinanceiro, repos: Repositorios) {
       saldoCentavos: number,
       hoje: string,
     ): Promise<void> {
-      await repos.ancoras.salvar({ id: novoId(), data, saldoCentavos }, hoje)
+      await repos.ancoras.salvar({ id: novoId(), data, saldoCentavos, declaradaEm: null }, hoje)
     },
   }
 }

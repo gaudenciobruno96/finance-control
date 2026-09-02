@@ -32,6 +32,11 @@ function erro(codigo: ConstructorParameters<typeof ErroDeDominio>[0]): ErroDeDom
   return new ErroDeDominio(codigo, COMPONENTE)
 }
 
+/** Instante ISO 8601 em UTC, como `new Date().toISOString()` produz. */
+function ehInstanteValido(v: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u.test(v)
+}
+
 export function validarRegra(r: Regra): void {
   exigir(ehCentavosValido(r.valorCentavos), 'VALOR_NAO_INTEIRO')
   exigir(r.valorCentavos > 0, 'VALOR_NAO_POSITIVO')
@@ -82,6 +87,10 @@ export function validarOcorrencia(o: Ocorrencia): void {
   } else {
     exigir(o.geradorId !== null, 'GERADOR_INCONSISTENTE')
   }
+
+  if (o.pagamentoRegistradoEm !== null) {
+    exigir(ehInstanteValido(o.pagamentoRegistradoEm), 'INSTANTE_INVALIDO')
+  }
 }
 
 /** RN-45: declarar saldo para uma data que ainda nao chegou nao tem significado. */
@@ -89,4 +98,8 @@ export function validarAncora(a: AncoraSaldo, hoje: DataISO): void {
   exigir(ehDataValida(a.data), 'DATA_INVALIDA')
   exigir(ehCentavosValido(a.saldoCentavos), 'VALOR_NAO_INTEIRO')
   exigir(comparar(a.data, hoje) <= 0, 'ANCORA_FUTURA')
+
+  if (a.declaradaEm !== null) {
+    exigir(ehInstanteValido(a.declaradaEm), 'INSTANTE_INVALIDO')
+  }
 }

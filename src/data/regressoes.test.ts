@@ -38,11 +38,11 @@ describe('ancora na mesma data (revisao #2)', () => {
   it('declarar o saldo de novo substitui, e o valor novo sempre vence', async () => {
     for (let i = 0; i < 20; i += 1) {
       await repos.ancoras.salvar(
-        { id: crypto.randomUUID(), data: '2026-08-10', saldoCentavos: 10_000 },
+        { id: crypto.randomUUID(), data: '2026-08-10', saldoCentavos: 10_000, declaradaEm: null },
         HOJE,
       )
       await repos.ancoras.salvar(
-        { id: crypto.randomUUID(), data: '2026-08-10', saldoCentavos: 99_900 },
+        { id: crypto.randomUUID(), data: '2026-08-10', saldoCentavos: 99_900, declaradaEm: null },
         HOJE,
       )
 
@@ -55,8 +55,8 @@ describe('ancora na mesma data (revisao #2)', () => {
   })
 
   it('ancoras de datas diferentes continuam acumulando', async () => {
-    await repos.ancoras.salvar({ id: 'a', data: '2026-07-01', saldoCentavos: 1 }, HOJE)
-    await repos.ancoras.salvar({ id: 'b', data: '2026-08-01', saldoCentavos: 2 }, HOJE)
+    await repos.ancoras.salvar({ id: 'a', data: '2026-07-01', saldoCentavos: 1, declaradaEm: null }, HOJE)
+    await repos.ancoras.salvar({ id: 'b', data: '2026-08-01', saldoCentavos: 2, declaradaEm: null }, HOJE)
 
     expect(await repos.ancoras.listar()).toHaveLength(2)
     expect((await repos.ancoras.vigenteEm('2026-07-15'))?.saldoCentavos).toBe(1)

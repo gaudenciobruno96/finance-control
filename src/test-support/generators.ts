@@ -176,6 +176,9 @@ export const ocorrencia = (): fc.Arbitrary<Ocorrencia> =>
       ignorado,
       dataPagamento: ignorado ? null : (pagamento?.data ?? null),
       valorPagoCentavos: ignorado ? null : (pagamento?.valor ?? null),
+      // O instante nao e o foco destes testes por propriedade; fica sempre
+      // nulo, o que preserva a RN-32 original (comparacao so por data).
+      pagamentoRegistradoEm: null,
     }))
 
 export const ancoraSaldo = (): fc.Arbitrary<AncoraSaldo> =>
@@ -183,4 +186,5 @@ export const ancoraSaldo = (): fc.Arbitrary<AncoraSaldo> =>
     id: identificador('ancora'),
     data: dataISO(),
     saldoCentavos: centavos(),
+    declaradaEm: fc.constant(null),
   })

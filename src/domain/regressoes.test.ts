@@ -9,7 +9,12 @@ import { projetarCurva } from './balance-projector.js'
 import { aplicarAjuste, competenciaDe } from './calendar.js'
 import type { AncoraSaldo, Regra } from './types.js'
 
-const ANCORA: AncoraSaldo = { id: 'a', data: '2026-08-01', saldoCentavos: 100_000 }
+const ANCORA: AncoraSaldo = {
+  id: 'a',
+  data: '2026-08-01',
+  saldoCentavos: 100_000,
+  declaradaEm: null,
+}
 
 function regra(over: Partial<Regra> = {}): Regra {
   return {
@@ -106,7 +111,7 @@ describe('ocorrencia antecipada para o mes anterior (revisao #1)', () => {
 
     const curva = projetarCurva(
       deAgosto,
-      { id: 'a', data: '2026-07-01', saldoCentavos: 0 },
+      { id: 'a', data: '2026-07-01', saldoCentavos: 0, declaradaEm: null },
       '2026-07',
       '2026-08-15',
     )

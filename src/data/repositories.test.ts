@@ -60,6 +60,7 @@ function ocorrencia(over: Partial<Ocorrencia> = {}): Ocorrencia {
     dataVencimento: '2026-08-10',
     dataPagamento: null,
     valorPagoCentavos: null,
+    pagamentoRegistradoEm: null,
     ignorado: false,
     observacao: null,
     ...over,
@@ -67,7 +68,7 @@ function ocorrencia(over: Partial<Ocorrencia> = {}): Ocorrencia {
 }
 
 function ancora(over: Partial<AncoraSaldo> = {}): AncoraSaldo {
-  return { id: 'a1', data: '2026-08-01', saldoCentavos: 100_000, ...over }
+  return { id: 'a1', data: '2026-08-01', saldoCentavos: 100_000, declaradaEm: null, ...over }
 }
 
 describe('repositorios', () => {

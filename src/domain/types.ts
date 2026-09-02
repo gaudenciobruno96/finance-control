@@ -111,6 +111,16 @@ export interface Ocorrencia {
   readonly dataPagamento: DataISO | null
   /** Valor efetivamente pago, que pode diferir do previsto (juros, desconto). */
   readonly valorPagoCentavos: Centavos | null
+  /**
+   * Instante ISO 8601 em UTC em que o pagamento foi registrado.
+   *
+   * Serve para desempatar contra `AncoraSaldo.declaradaEm` quando os dois
+   * caem no mesmo dia: o saldo declarado reflete o que ja tinha saido naquele
+   * instante, e nao o que saiu depois. Nulo em registros anteriores a esta
+   * mudanca, e tambem quando o pagamento vem de um caminho que nao informa o
+   * instante -- nesse caso vale o comportamento anterior, que compara so datas.
+   */
+  readonly pagamentoRegistradoEm: string | null
   readonly ignorado: boolean
   readonly observacao: string | null
 }
@@ -120,6 +130,14 @@ export interface AncoraSaldo {
   readonly data: DataISO
   /** Pode ser negativo. */
   readonly saldoCentavos: Centavos
+  /**
+   * Instante ISO 8601 em UTC da declaracao.
+   *
+   * `data` continua sendo o que indexa a ancora, seleciona a vigente (RN-49)
+   * e o que o usuario ve. Este campo e informacao adicional, usada apenas
+   * para ordenar contra pagamentos do MESMO dia.
+   */
+  readonly declaradaEm: string | null
 }
 
 // ---------------------------------------------------------------------------
@@ -156,6 +174,8 @@ export interface OcorrenciaResolvida {
   readonly dataVencimento: DataISO
   readonly dataPagamento: DataISO | null
   readonly valorPagoCentavos: Centavos | null
+  /** Ver `Ocorrencia.pagamentoRegistradoEm`. */
+  readonly pagamentoRegistradoEm: string | null
   readonly ignorado: boolean
   readonly observacao: string | null
 }

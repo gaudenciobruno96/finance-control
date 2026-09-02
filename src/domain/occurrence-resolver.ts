@@ -61,6 +61,7 @@ function realParaResolvida(
     dataVencimento: real.dataVencimento,
     dataPagamento: real.dataPagamento,
     valorPagoCentavos: real.valorPagoCentavos,
+    pagamentoRegistradoEm: real.pagamentoRegistradoEm,
     ignorado: real.ignorado,
     observacao: real.observacao,
   }

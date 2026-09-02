@@ -121,6 +121,37 @@ export function separarPorPagamento(movimento: MovimentoDoDia): {
   }
 }
 
+/**
+ * RN-32: o pagamento ja esta dentro do saldo declarado?
+ *
+ * Data anterior: sempre sim -- o extrato daquele dia ja o descontou, e o
+ * instante nao entra na conta (um pagamento de ontem as 23h contra uma ancora
+ * de hoje as 9h seria descontado indevidamente se entrasse).
+ *
+ * Mesmo dia: depende da ORDEM. Quem confere o extrato depois de pagar digita
+ * um valor que ja desconta; quem declara de manha e gasta a tarde, nao. Sem
+ * os dois instantes nao ha como ordenar, e a escolha e preservar o
+ * comportamento anterior -- nenhum saldo ja conferido se desloca sozinho.
+ *
+ * Os instantes sao ISO 8601 em UTC e por isso ordenam por comparacao de
+ * string: nenhum `Date` e construido aqui.
+ */
+function jaRefletidoNaAncora(
+  o: OcorrenciaResolvida,
+  ancora: AncoraSaldo | null,
+): boolean {
+  if (ancora === null || o.dataPagamento === null) return false
+
+  const ordem = comparar(o.dataPagamento, ancora.data)
+  if (ordem > 0) return false
+  if (ordem < 0) return true
+
+  // Mesmo dia.
+  if (ancora.declaradaEm === null || o.pagamentoRegistradoEm === null) return true
+
+  return o.pagamentoRegistradoEm <= ancora.declaradaEm
+}
+
 export function projetarCurva(
   ocorrencias: readonly OcorrenciaResolvida[],
   ancora: AncoraSaldo | null,
@@ -192,11 +223,7 @@ export function projetarCurva(
     // ja esta descontado dele. Subtrair de novo uma conta paga hoje mostraria
     // um saldo menor que o digitado, na propria linha que diz "que voce tem
     // hoje" -- e foi exatamente o que acontecia.
-    if (
-      temAncora &&
-      o.dataPagamento !== null &&
-      comparar(o.dataPagamento, dataDaAncora) <= 0
-    ) {
+    if (temAncora && o.dataPagamento !== null && jaRefletidoNaAncora(o, ancora)) {
       continue
     }
 

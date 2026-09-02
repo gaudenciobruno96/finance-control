@@ -19,6 +19,7 @@ function paga(
     dataVencimento: `${competencia}-10`,
     dataPagamento,
     valorPagoCentavos,
+    pagamentoRegistradoEm: null,
     ignorado: false,
     observacao: null,
     ...over,

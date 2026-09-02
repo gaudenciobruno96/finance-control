@@ -26,6 +26,7 @@ export type CodigoInvariante =
   | 'GERADOR_INCONSISTENTE'
   | 'PAGAMENTO_INCOMPLETO'
   | 'TIPO_INVALIDO'
+  | 'INSTANTE_INVALIDO'
 
 /**
  * Mensagens fixas por codigo. Sao constantes deliberadamente: uma mensagem
@@ -46,6 +47,7 @@ const MENSAGENS: Record<CodigoInvariante, string> = {
   GERADOR_INCONSISTENTE: 'origem do lancamento inconsistente com seu identificador',
   PAGAMENTO_INCOMPLETO: 'pagamento precisa ter data e valor juntos, ou nenhum dos dois',
   TIPO_INVALIDO: 'tipo de movimento deve ser entrada ou saida',
+  INSTANTE_INVALIDO: 'instante deve estar no formato ISO 8601 em UTC',
 }
 
 export class ErroDeDominio extends Error {

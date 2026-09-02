@@ -54,6 +54,7 @@ export function expandirParcelamentos(
         dataVencimento: construirData(competencia, diaBase),
         dataPagamento: null,
         valorPagoCentavos: null,
+        pagamentoRegistradoEm: null,
         ignorado: false,
         observacao: null,
       })

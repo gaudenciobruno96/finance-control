@@ -112,7 +112,7 @@ describe('balance-projector — propriedades', () => {
           const data = `${cenario.competencia}-${String(diaDaAncora).padStart(2, '0')}`
           const curva = projetarCurva(
             cenario.ocorrencias,
-            { id: 'a', data, saldoCentavos: 100_000 },
+            { id: 'a', data, saldoCentavos: 100_000, declaradaEm: null },
             cenario.competencia,
             cenario.hoje,
           )
@@ -256,6 +256,7 @@ describe('balance-projector — propriedades', () => {
           id: 'a',
           data: `${cenario.competencia}-01`,
           saldoCentavos: 123_456,
+          declaradaEm: null,
         }
 
         fc.pre(cenario.ocorrencias.every((o) => !jaNoSaldo(o, ancora)))

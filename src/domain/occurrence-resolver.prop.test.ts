@@ -44,6 +44,7 @@ describe('occurrence-resolver — propriedades', () => {
           dataVencimento: alvo.dataVencimento,
           dataPagamento: null,
           valorPagoCentavos: null,
+          pagamentoRegistradoEm: null,
           ignorado: false,
           observacao: null,
         }

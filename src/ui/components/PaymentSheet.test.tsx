@@ -27,6 +27,7 @@ const LUZ: OcorrenciaResolvida = {
   dataVencimento: '2026-08-10',
   dataPagamento: null,
   valorPagoCentavos: null,
+  pagamentoRegistradoEm: null,
   ignorado: false,
   observacao: null,
 }

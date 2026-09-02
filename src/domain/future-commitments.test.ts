@@ -18,6 +18,7 @@ function item(over: Partial<OcorrenciaResolvida> = {}): OcorrenciaResolvida {
     dataVencimento: '2026-08-10',
     dataPagamento: null,
     valorPagoCentavos: null,
+    pagamentoRegistradoEm: null,
     ignorado: false,
     observacao: null,
     ...over,

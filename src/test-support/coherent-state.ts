@@ -79,6 +79,9 @@ function ocorrenciaNaCompetencia(
         dataVencimento: dataNaCompetencia(c, r.diaVencimento),
         dataPagamento: pago ? dataNaCompetencia(c, r.pagamento!.dia) : null,
         valorPagoCentavos: pago ? r.pagamento!.valor : null,
+        // O instante nao e o foco destas propriedades; fica sempre nulo, o
+        // que preserva a RN-32 original (comparacao so por data).
+        pagamentoRegistradoEm: null,
         ignorado: r.ignorado,
         observacao: null,
       }
@@ -117,6 +120,7 @@ export const cenarioDeProjecao = (): fc.Arbitrary<CenarioDeProjecao> =>
                   id: 'ancora-1',
                   data: dataNaCompetencia(c, 1),
                   saldoCentavos: saldoAncora,
+                  declaradaEm: null,
                 }
               : null,
             ocorrencias,

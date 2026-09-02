@@ -3,7 +3,12 @@ import { projetarCurva } from './balance-projector.js'
 import { resumirMes } from './month-summarizer.js'
 import type { AncoraSaldo, OcorrenciaResolvida } from './types.js'
 
-const ANCORA: AncoraSaldo = { id: 'a1', data: '2026-08-01', saldoCentavos: 100_000 }
+const ANCORA: AncoraSaldo = {
+  id: 'a1',
+  data: '2026-08-01',
+  saldoCentavos: 100_000,
+  declaradaEm: null,
+}
 
 function item(over: Partial<OcorrenciaResolvida> = {}): OcorrenciaResolvida {
   return {
@@ -21,6 +26,7 @@ function item(over: Partial<OcorrenciaResolvida> = {}): OcorrenciaResolvida {
     dataVencimento: '2026-08-10',
     dataPagamento: null,
     valorPagoCentavos: null,
+    pagamentoRegistradoEm: null,
     ignorado: false,
     observacao: null,
     ...over,

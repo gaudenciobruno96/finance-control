@@ -68,6 +68,7 @@ export function expandirRegras(
         dataVencimento,
         dataPagamento: null,
         valorPagoCentavos: null,
+        pagamentoRegistradoEm: null,
         ignorado: false,
         observacao: null,
       })

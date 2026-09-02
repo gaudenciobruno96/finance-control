@@ -32,6 +32,7 @@ function real(over: Partial<Ocorrencia> = {}): Ocorrencia {
     dataVencimento: '2026-08-10',
     dataPagamento: null,
     valorPagoCentavos: null,
+    pagamentoRegistradoEm: null,
     ignorado: false,
     observacao: null,
     ...over,
@@ -156,6 +157,7 @@ describe('occurrence-resolver', () => {
         dataVencimento: '2026-08-28',
         dataPagamento: null,
         valorPagoCentavos: null,
+        pagamentoRegistradoEm: null,
         ignorado: false,
         observacao: null,
       }
