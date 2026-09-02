@@ -1,9 +1,10 @@
 /**
- * Desfaz uma escrita recente.
+ * Desfaz uma escrita, de qualquer data.
  *
- * Alcanca apenas as ultimas 24 horas. Desfazer algo de tres meses atras nao e
- * desfazer, e edicao -- e edicao de registro antigo deve ser explicita, nunca
- * efeito colateral de uma ferramenta chamada "desfazer".
+ * Nao ha janela de tempo. Recusar por idade obrigava a conviver com um erro ja
+ * percebido, e nao havia ferramenta de edicao para onde mandar quem chegasse
+ * tarde -- a recusa era um beco sem saida. O identificador explicito, que so
+ * aparece num recibo ou numa consulta, e a protecao que resta.
  *
  * O significado difere por tipo, e a diferenca importa:
  * - recorrente: remove a regra, mas NAO as ocorrencias ja materializadas (RN-46)
@@ -14,7 +15,7 @@
  */
 
 import type { AppPg } from '../app-pg.js'
-import { dentroDaJanela, TOLERANCIA_DE_RELOGIO_MS, type TipoDeEscrita } from '../recibo.js'
+import type { TipoDeEscrita } from '../recibo.js'
 import type { TabelaAuditavel } from '../dados/auditoria.js'
 import { competenciaDaChave } from './competencia-da-chave.js'
 import { ErroDeUsuario } from './erro-do-usuario.js'
@@ -22,7 +23,6 @@ import { ErroDeUsuario } from './erro-do-usuario.js'
 export interface ArgsDesfazer {
   readonly tipo: TipoDeEscrita
   readonly id: string
-  readonly agora: Date
   readonly hoje: string
 }
 
@@ -38,39 +38,26 @@ const TABELA_POR_TIPO: Record<Exclude<TipoDeEscrita, 'pagamento'>, TabelaAuditav
   parcelamento: 'parcelamentos',
 }
 
-async function exigirDentroDaJanela(
+/**
+ * Confirma que o registro existe antes de tentar remove-lo.
+ *
+ * Nao ha limite de tempo. A janela de 24 horas que existia aqui protegia
+ * contra um identificador trocado apagar historia, mas o preco era obrigar a
+ * pessoa a conviver com um erro que ela ja tinha visto -- e nao havia
+ * ferramenta de edicao para onde mandar quem chegasse tarde demais, entao a
+ * recusa era um beco sem saida. A protecao que resta e a que sempre fez o
+ * trabalho: o id precisa ser dito explicitamente, e ele so aparece num recibo
+ * ou numa consulta.
+ */
+async function exigirQueExista(
   app: AppPg,
   tabela: TabelaAuditavel,
   id: string,
-  agora: Date,
 ): Promise<void> {
-  // `tocadoEm`, nao `criadoEm`: para pagamento e saldo, a escrita que se quer
-  // desfazer pode ter ATUALIZADO uma linha que ja existia havia dias -- o que
-  // importa para a janela e quando a linha foi tocada, nao quando nasceu.
   const tocadoEm = await app.auditoria.tocadoEm(tabela, id)
 
   if (tocadoEm === null) {
     throw new ErroDeUsuario('Nao encontrei esse registro. Confira o identificador do recibo.')
-  }
-
-  if (!dentroDaJanela(tocadoEm, agora)) {
-    // `dentroDaJanela` aceita uma pequena folga no futuro (desvio de relogio
-    // entre o banco e o processo, ver TOLERANCIA_DE_RELOGIO_MS) -- alem dela,
-    // nao e desvio de relogio, e sinal real de inconsistencia, e a mensagem
-    // diz isso em vez de "mais de 24 horas", que descreveria o problema
-    // errado.
-    if (tocadoEm.getTime() - agora.getTime() > TOLERANCIA_DE_RELOGIO_MS) {
-      throw new ErroDeUsuario(
-        'Esse registro aparece como tocado no futuro, o que sugere relogios ' +
-          'dessincronizados. Nao da para calcular a janela de desfazer com ' +
-          'confianca -- tente novamente em instantes.',
-      )
-    }
-
-    throw new ErroDeUsuario(
-      'Esse registro tem mais de 24 horas e esta fora da janela de desfazer. ' +
-        'Para alterar algo antigo, use a ferramenta de edicao correspondente.',
-    )
   }
 }
 
@@ -97,7 +84,7 @@ export async function desfazer(app: AppPg, args: ArgsDesfazer): Promise<Resultad
     }
 
     if (alvo.idReal !== null) {
-      await exigirDentroDaJanela(app, 'ocorrencias', alvo.idReal, args.agora)
+      await exigirQueExista(app, 'ocorrencias', alvo.idReal)
     }
 
     await app.pagamento.desfazerPagamento(alvo)
@@ -111,7 +98,7 @@ export async function desfazer(app: AppPg, args: ArgsDesfazer): Promise<Resultad
   }
 
   const tabela = TABELA_POR_TIPO[args.tipo]
-  await exigirDentroDaJanela(app, tabela, args.id, args.agora)
+  await exigirQueExista(app, tabela, args.id)
 
   if (args.tipo === 'recorrente') {
     await app.repos.regras.remover(args.id)

@@ -26,33 +26,10 @@ export function montarRecibo(
   return { tipo, id, resumo, avisos }
 }
 
-export const JANELA_DE_DESFAZER_HORAS = 24
-
-const MS_POR_HORA = 60 * 60 * 1000
-
-/**
- * Tolerancia para desvio de relogio entre o banco e o processo.
- *
- * O instante auditado (`atualizado_em`/`criado_em`) vem do `now()` do
- * Postgres; `agora` vem do relogio do processo Node. No Railway sao
- * containers distintos, e podem divergir por alguns segundos. Sem folga, um
- * registro gravado ha poucos segundos apareceria como "criado no futuro" e
- * seria recusado sempre que o relogio do banco estiver adiantado -- um falso
- * negativo, nao uma protecao real.
- */
-export const TOLERANCIA_DE_RELOGIO_MS = 60_000
-
-/**
- * Desfazer alcanca so o passado recente.
- *
- * Desfazer algo de tres meses atras nao e desfazer, e edicao -- e edicao de
- * registro antigo deve ser explicita, nunca efeito colateral de uma ferramenta
- * chamada "desfazer". Sem o limite, `desfazer` seria `apagar_qualquer_coisa`, e
- * um identificador trocado apagaria historia.
- */
-export function dentroDaJanela(criadoEm: Date, agora: Date): boolean {
-  const decorrido = agora.getTime() - criadoEm.getTime()
-  return (
-    decorrido >= -TOLERANCIA_DE_RELOGIO_MS && decorrido <= JANELA_DE_DESFAZER_HORAS * MS_POR_HORA
-  )
-}
+// A janela de 24 horas de `desfazer` foi removida a pedido do usuario: ela
+// recusava corrigir um registro antigo e mandava usar "a ferramenta de edicao
+// correspondente", que nunca existiu -- um beco sem saida. Junto com ela saiu
+// a tolerancia de desvio de relogio, que so servia para calcular a janela.
+//
+// O que protege `desfazer` agora e o que sempre fez o trabalho: o id precisa
+// ser dito explicitamente, e ele so aparece num recibo ou numa consulta.

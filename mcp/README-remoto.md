@@ -48,7 +48,7 @@ o healthcheck do serviço.
 | `declarar_saldo_estrangeiro` | Quanto há em uma moeda estrangeira (não entra na projeção) |
 | `patrimonio` | Quanto há no total, reais mais moedas estrangeiras convertidas |
 | `simular_cenario` | "Se eu assumir esse gasto, atravesso os próximos meses?" — projeta lançamentos hipotéticos sem gravar nada |
-| `desfazer` | Reverte uma escrita das últimas 24 horas |
+| `desfazer` | Remove uma escrita de qualquer data (recorrente, avulso, pagamento, saldo, parcelamento) |
 | `exportar` | Devolve todos os dados em JSON, no formato de backup |
 
 ## Endpoints

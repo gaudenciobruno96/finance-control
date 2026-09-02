@@ -16,20 +16,21 @@ let container: StartedPostgreSqlContainer
 let pool: Pool
 let app: AppPg
 
-// `agora` e o instante de relogio real usado para a janela de 24h, distinto de
-// `hoje` (data de negocio fixa nos testes). `criado_em` no Postgres e
-// `timestamptz default now()` -- o relogio real do container. Por isso cada
-// teste captura o instante DEPOIS de criar o registro (nunca uma constante
-// fixa no topo do arquivo): uma constante de modulo e avaliada antes do
-// container subir, entao `criadoEm` sempre viria depois dela e a janela
-// pareceria negativa mesmo para um registro recem-criado.
-//
-// `logoDepois` adiciona uma folga de um minuto -- o container tem relogio
-// proprio e mediu-se uma diferenca de alguns milissegundos entre ele e o
-// processo Node; um minuto absorve isso com folga e ainda representa
-// fielmente "desfazer logo em seguida", bem dentro da janela de 24h.
-function logoDepois(): Date {
-  return new Date(Date.now() + 60_000)
+/**
+ * Envelhece um registro no banco, como se tivesse sido criado ha `dias`.
+ *
+ * A idade que importa e a do REGISTRO, medida pelo relogio do Postgres --
+ * `desfazer` nao recebe mais instante algum. Sem envelhecer de verdade, um
+ * teste de "registro antigo" seria indistinguivel de um recem-criado e nao
+ * provaria nada sobre a remocao da janela.
+ */
+async function envelhecer(tabela: string, id: string, dias: number): Promise<void> {
+  await pool.query(
+    `update ${tabela} set criado_em = now() - ($1 || ' days')::interval,
+                          atualizado_em = now() - ($1 || ' days')::interval
+     where id = $2`,
+    [String(dias), id],
+  )
 }
 
 beforeAll(async () => {
@@ -59,7 +60,7 @@ describe('desfazer', () => {
       hoje: '2026-09-15',
     })
 
-    await desfazer(app, { tipo: 'avulso', id: r.id, agora: logoDepois(), hoje: '2026-09-15' })
+    await desfazer(app, { tipo: 'avulso', id: r.id, hoje: '2026-09-15' })
 
     expect(await app.repos.ocorrencias.obter(r.id)).toBeNull()
   })
@@ -76,7 +77,6 @@ describe('desfazer', () => {
     const resultado = await desfazer(app, {
       tipo: 'recorrente',
       id: r.id,
-      agora: logoDepois(),
       hoje: '2026-09-15',
     })
 
@@ -100,7 +100,7 @@ describe('desfazer', () => {
     const chave = s.faltaPagar.find((i) => i.nome === 'Aluguel')!.chave
     await marcarPago(app, { chave, hoje: '2026-09-15' })
 
-    await desfazer(app, { tipo: 'pagamento', id: chave, agora: logoDepois(), hoje: '2026-09-15' })
+    await desfazer(app, { tipo: 'pagamento', id: chave, hoje: '2026-09-15' })
 
     // O registro materializado permanece -- pode carregar valor ajustado ou
     // vencimento adiado. So o pagamento e limpo.
@@ -116,44 +116,65 @@ describe('desfazer', () => {
   it('remove uma ancora', async () => {
     const r = await declararSaldo(app, { valor: '100', hoje: '2026-09-15' })
 
-    await desfazer(app, { tipo: 'saldo', id: r.id, agora: logoDepois(), hoje: '2026-09-15' })
+    await desfazer(app, { tipo: 'saldo', id: r.id, hoje: '2026-09-15' })
 
     expect(await app.repos.ancoras.listar()).toHaveLength(0)
   })
 
-  it('recusa fora da janela de 24 horas', async () => {
+  // O caso que a janela de 24 horas recusava, e que motivou remove-la: um
+  // lancamento de tres meses atras que a pessoa quer corrigir. A recusa
+  // mandava usar "a ferramenta de edicao correspondente", que nunca existiu.
+  it('remove um avulso de tres meses atras', async () => {
     const r = await lancarAvulso(app, {
       tipo: 'saida',
       nome: 'Antigo',
       valor: '10',
       hoje: '2026-09-15',
     })
+    await envelhecer('ocorrencias', r.id, 90)
 
-    // 30 dias depois do relogio real, para garantir que fica fora da janela de
-    // 24h independente de quando o teste rodar.
-    const muitoDepois = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+    await desfazer(app, { tipo: 'avulso', id: r.id, hoje: '2026-12-01' })
 
-    await expect(
-      desfazer(app, { tipo: 'avulso', id: r.id, agora: muitoDepois, hoje: '2026-12-01' }),
-    ).rejects.toThrow(/24 horas|janela/i)
+    expect(await app.repos.ocorrencias.obter(r.id)).toBeNull()
+  })
 
-    // E nao apagou nada.
-    expect(await app.repos.ocorrencias.obter(r.id)).not.toBeNull()
+  it('remove uma regra antiga', async () => {
+    const r = await cadastrarRecorrente(app, {
+      tipo: 'saida',
+      nome: 'Regra velha',
+      valor: '100',
+      diaDoMes: 5,
+      vigenteDe: '2026-09',
+    })
+    await envelhecer('regras', r.id, 90)
+
+    await desfazer(app, { tipo: 'recorrente', id: r.id, hoje: '2026-12-01' })
+
+    expect(await app.repos.regras.obter(r.id)).toBeNull()
+  })
+
+  it('remove uma ancora antiga', async () => {
+    const r = await declararSaldo(app, { valor: '100', hoje: '2026-09-15' })
+    await envelhecer('ancoras', r.id, 90)
+
+    await desfazer(app, { tipo: 'saldo', id: r.id, hoje: '2026-12-01' })
+
+    expect(await app.repos.ancoras.listar()).toHaveLength(0)
   })
 
   it('recusa id inexistente', async () => {
     await expect(
-      desfazer(app, { tipo: 'avulso', id: 'nao-existe', agora: logoDepois(), hoje: '2026-09-15' }),
+      desfazer(app, { tipo: 'avulso', id: 'nao-existe', hoje: '2026-09-15' }),
     ).rejects.toThrow()
   })
 
-  it('desfaz pagamento de ocorrencia materializada ha dias e paga agora (janela mede o toque, nao a criacao)', async () => {
-    // Achado 5: `criado_em` fica congelado no insert e `on conflict do update`
-    // nao o toca. Uma ocorrencia materializada ha dias (ex.: por uma edicao
-    // anterior) e paga AGORA carrega um `criado_em` antigo -- a versao velha
-    // da janela recusava desfazer um pagamento feito ha segundos, alegando
-    // "mais de 24 horas". A correcao le `atualizado_em`, que a propria
-    // chamada de pagamento avanca.
+  it('desfaz pagamento de ocorrencia materializada ha dias e paga agora', async () => {
+    // Este caso motivou o achado 5 na epoca da janela: `criado_em` fica
+    // congelado no insert e `on conflict do update` nao o toca, entao uma
+    // ocorrencia materializada ha dias e paga AGORA carregava um `criado_em`
+    // antigo, e a janela recusava desfazer um pagamento feito ha segundos.
+    // A janela nao existe mais, mas o caminho continua valendo a pena cobrir:
+    // desfazer um pagamento sobre uma linha preexistente e o fluxo real.
     const chave = chaveDe('regra', 'r-aluguel', '2026-09')
     await app.repos.ocorrencias.salvar({
       id: 'o-materializada-ha-dias',
@@ -178,7 +199,7 @@ describe('desfazer', () => {
     // em criado_em, mas avancando atualizado_em.
     await marcarPago(app, { chave, hoje: '2026-09-15' })
 
-    await desfazer(app, { tipo: 'pagamento', id: chave, agora: logoDepois(), hoje: '2026-09-15' })
+    await desfazer(app, { tipo: 'pagamento', id: chave, hoje: '2026-09-15' })
 
     const [o] = await app.repos.ocorrencias.listar()
     expect(o?.dataPagamento).toBeNull()
@@ -208,7 +229,7 @@ describe('desfazer', () => {
 
     await marcarPago(app, { chave, data: '2026-07-10', hoje: '2026-09-15' })
 
-    await desfazer(app, { tipo: 'pagamento', id: chave, agora: logoDepois(), hoje: '2026-09-15' })
+    await desfazer(app, { tipo: 'pagamento', id: chave, hoje: '2026-09-15' })
 
     const [o] = await app.repos.ocorrencias.listar()
     expect(o?.dataPagamento).toBeNull()

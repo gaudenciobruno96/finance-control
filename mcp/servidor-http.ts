@@ -470,9 +470,12 @@ function criarServidorMcp(app: AppPg): McpServer {
     {
       title: 'Desfazer',
       description:
-        'Reverte uma escrita das ultimas 24 horas, usando o tipo e o id do ' +
-        'recibo. Desfazer um pagamento nao apaga a conta, so o registro de ' +
-        'que foi paga.',
+        'Remove uma escrita de QUALQUER data, usando o tipo e o id -- do ' +
+        'recibo, de `exportar` ou da chave devolvida numa consulta. Serve ' +
+        'tanto para desfazer um engano recente quanto para apagar um ' +
+        'registro antigo. Desfazer um pagamento nao apaga a conta, so o ' +
+        'registro de que foi paga. Nao ha confirmacao previa: confira o id ' +
+        'antes de chamar, e repita ao usuario o que foi removido.',
       inputSchema: {
         tipo: z.enum(['recorrente', 'avulso', 'pagamento', 'saldo', 'parcelamento']),
         id: z.string().min(1).describe('O id do recibo -- para tipo pagamento, a chave'),
@@ -481,7 +484,7 @@ function criarServidorMcp(app: AppPg): McpServer {
     },
     async ({ tipo, id, hoje }) =>
       executarFerramenta(() =>
-        desfazer(app, { tipo, id, agora: new Date(), hoje: hoje ?? hojeDoSistema() }),
+        desfazer(app, { tipo, id, hoje: hoje ?? hojeDoSistema() }),
       ),
   )
 

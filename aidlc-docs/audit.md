@@ -813,3 +813,18 @@
 **Context**: Simetrico a RN-32. Verificado que os testes mordem: revertendo a correcao, 3 falham pelos motivos certos (1000000 vs 820000, vs 800000 com valor pago diferente do previsto, vs 1500000 com entrada confirmada). Suite completa: 644/644 em 63 arquivos.
 
 ---
+## Remocao da janela de 24 horas do desfazer
+**Timestamp**: 2026-09-02T02:00:00Z
+**User Input**: "Na vdd pode remover essa regra de edição de 24 Vtnc , quero editar quando eu quiser,  independente de janela, aí após remover e fazer deploy apague"
+**AI Response**: Janela removida. Sairam `JANELA_DE_DESFAZER_HORAS`, `dentroDaJanela` e `TOLERANCIA_DE_RELOGIO_MS` de mcp/recibo.ts; `exigirDentroDaJanela` virou `exigirQueExista` em mcp/tools/desfazer.ts; o campo `agora` saiu de `ArgsDesfazer` por ter ficado morto. Descricao da ferramenta e README atualizados.
+**Context**: A janela recusava corrigir registro antigo e mandava usar "a ferramenta de edicao correspondente", que nunca existiu — um beco sem saida, descoberto ao tentar remover a regra de Salario USD do usuario. A protecao que resta e o id explicito, que so aparece num recibo ou consulta. Trade-off comunicado ao usuario.
+
+---
+
+## Verificacao dos testes da remocao da janela
+**Timestamp**: 2026-09-02T02:05:00Z
+**User Input**: (nenhum — verificacao propria)
+**AI Response**: A primeira tentativa de provar que os testes mordem foi turva: revertendo os dois arquivos, os 12 testes falharam, inclusive os triviais, porque a assinatura revertida exigia `agora`. Refeita reintroduzindo APENAS a guarda de janela na versao nova: falharam exatamente os 4 testes de registro antigo (avulso, regra, ancora, parcelamento) e os triviais passaram.
+**Context**: Os testes de idade envelhecem o registro no proprio Postgres (`update ... criado_em = now() - interval`), porque `desfazer` nao recebe mais instante algum — sem envelhecer de verdade, um teste de "registro antigo" seria indistinguivel de um recem-criado. Suite completa: 636/636 em 63 arquivos.
+
+---

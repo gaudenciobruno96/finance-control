@@ -31,11 +31,6 @@ beforeEach(async () => {
   }
 })
 
-/** Momento de referencia para a janela de desfazer, sempre logo apos a escrita. */
-function logoDepois(): Date {
-  return new Date(Date.now() + 60_000)
-}
-
 describe('cadastrarParcelamento', () => {
   it('grava e devolve recibo com parcela, quantidade e total', async () => {
     const r = await cadastrarParcelamento(app, {
@@ -129,7 +124,6 @@ describe('desfazer de parcelamento', () => {
     await desfazer(app, {
       tipo: 'parcelamento',
       id: r.id,
-      agora: logoDepois(),
       hoje: '2026-10-01',
     })
 
@@ -155,7 +149,6 @@ describe('desfazer de parcelamento', () => {
     const resultado = await desfazer(app, {
       tipo: 'parcelamento',
       id: r.id,
-      agora: logoDepois(),
       hoje: '2026-10-01',
     })
 
@@ -169,7 +162,9 @@ describe('desfazer de parcelamento', () => {
     expect(materializadas).toHaveLength(1)
   })
 
-  it('recusa fora da janela de 24 horas, sem apagar', async () => {
+  // Nao ha mais janela de tempo em `desfazer`: um parcelamento antigo pode ser
+  // removido como qualquer outro registro.
+  it('remove um parcelamento antigo', async () => {
     const r = await cadastrarParcelamento(app, {
       nome: 'Antigo',
       valorParcela: '100,00',
@@ -177,12 +172,15 @@ describe('desfazer de parcelamento', () => {
       primeiroVencimento: '2026-10-20',
     })
 
-    const muitoDepois = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+    await pool.query(
+      `update parcelamentos set criado_em = now() - interval '90 days',
+                                atualizado_em = now() - interval '90 days'
+       where id = $1`,
+      [r.id],
+    )
 
-    await expect(
-      desfazer(app, { tipo: 'parcelamento', id: r.id, agora: muitoDepois, hoje: '2026-10-01' }),
-    ).rejects.toThrow(/24 horas|janela/i)
+    await desfazer(app, { tipo: 'parcelamento', id: r.id, hoje: '2026-10-01' })
 
-    expect(await app.repos.parcelamentos.obter(r.id)).not.toBeNull()
+    expect(await app.repos.parcelamentos.obter(r.id)).toBeNull()
   })
 })
