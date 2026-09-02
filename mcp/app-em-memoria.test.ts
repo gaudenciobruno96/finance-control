@@ -41,6 +41,38 @@ describe('criarAppDoBackup', () => {
     await b.encerrar()
   })
 
+  /**
+   * O caso real da revisao final: o `orcamento.json` que o app sincroniza foi
+   * exportado ANTES dos instantes, e portanto nao tem os campos. Ausente, o
+   * campo chega como `undefined` -- nao como `null` --, e o validador de
+   * escrita recusava o documento inteiro. Este e o unico caminho de leitura do
+   * servidor MCP: sem a migracao, nenhuma consulta responde.
+   */
+  it('carrega um documento exportado antes dos instantes', async () => {
+    const semInstantes = {
+      ...ORCAMENTO_SIMPLES,
+      versaoSchema: 2,
+      ocorrencias: ORCAMENTO_SIMPLES.ocorrencias.map((o) => {
+        const { pagamentoRegistradoEm, ...resto } = o
+        void pagamentoRegistradoEm
+        return resto
+      }),
+      ancoras: ORCAMENTO_SIMPLES.ancoras.map((a) => {
+        const { declaradaEm, ...resto } = a
+        void declaradaEm
+        return resto
+      }),
+    } as unknown as typeof ORCAMENTO_SIMPLES
+
+    const app = await criarAppDoBackup(semInstantes)
+
+    const [o] = await app.repos.ocorrencias.listar()
+    expect(o?.pagamentoRegistradoEm).toBeNull()
+    expect((await app.repos.ancoras.listar())[0]?.declaradaEm).toBeNull()
+
+    await app.encerrar()
+  })
+
   it('migra documento de schema anterior', async () => {
     // Versao 1 trazia cartaoId no parcelamento. migrarDocumento remove.
     const antigo = {

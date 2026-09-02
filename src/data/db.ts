@@ -20,7 +20,7 @@ export interface Configuracao {
 }
 
 /** Versao corrente do schema. Vai gravada em todo arquivo de backup. */
-export const VERSAO_SCHEMA = 2
+export const VERSAO_SCHEMA = 3
 
 export type BancoFinanceiro = Dexie & {
   regras: EntityTable<Regra, 'id'>
@@ -78,6 +78,46 @@ export function declararSchema(db: Dexie): void {
         .toCollection()
         .modify((p: Record<string, unknown>) => {
           delete p['cartaoId']
+        })
+    })
+
+  // Versao 3: a ancora ganhou instante de declaracao, e o pagamento, instante
+  // de registro (RN-32 revisada).
+  //
+  // O tipo declara `string | null`, e o codigo que desempata compara contra
+  // `null`. Mas um registro gravado ANTES desta mudanca nao tem o campo: em
+  // IndexedDB o ausente le como `undefined`, e `undefined === null` e falso.
+  // Sem esta migracao, `undefined <= undefined` tambem e falso, e a RN-32
+  // deixaria de valer para todo dado que ja esta no aparelho -- um mes passado
+  // passaria a descontar de novo pagamentos que o saldo declarado ja continha,
+  // mostrando menos do que o banco.
+  //
+  // Gravar `null` deixa o dado armazenado coerente com o tipo declarado, em
+  // vez de normalizar a cada leitura.
+  db.version(3)
+    .stores({
+      regras: 'id, vigenteDe',
+      parcelamentos: 'id',
+      ocorrencias:
+        'id, competencia, [geradorTipo+geradorId+competencia], [geradorTipo+geradorId]',
+      ancoras: 'id, data',
+      configuracoes: 'chave',
+    })
+    .upgrade(async (tx) => {
+      await tx
+        .table('ocorrencias')
+        .toCollection()
+        .modify((o: Record<string, unknown>) => {
+          if (o['pagamentoRegistradoEm'] === undefined) {
+            o['pagamentoRegistradoEm'] = null
+          }
+        })
+
+      await tx
+        .table('ancoras')
+        .toCollection()
+        .modify((a: Record<string, unknown>) => {
+          if (a['declaradaEm'] === undefined) a['declaradaEm'] = null
         })
     })
 }

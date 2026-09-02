@@ -45,7 +45,7 @@ describe('schema', () => {
   })
 
   it('expoe a versao corrente do schema', () => {
-    expect(VERSAO_SCHEMA).toBe(2)
+    expect(VERSAO_SCHEMA).toBe(3)
     expect(db.verno).toBe(VERSAO_SCHEMA)
   })
 

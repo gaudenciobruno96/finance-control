@@ -111,6 +111,7 @@ export function migrarDocumento(doc: DocumentoBackup): DocumentoBackup {
   let atual = doc
 
   if (atual.versaoSchema < 2) atual = { ...deVersao1Para2(atual), versaoSchema: 2 }
+  if (atual.versaoSchema < 3) atual = { ...deVersao2Para3(atual), versaoSchema: 3 }
 
   if (atual.versaoSchema < VERSAO_SCHEMA) {
     atual = { ...atual, versaoSchema: VERSAO_SCHEMA }
@@ -150,5 +151,28 @@ function deVersao1Para2(doc: DocumentoBackup): DocumentoBackup {
       quantidadeParcelas: p.quantidadeParcelas,
       primeiroVencimento: p.primeiroVencimento,
     })),
+  }
+}
+
+/**
+ * Versao 3: os instantes de declaracao e de pagamento (RN-32 revisada).
+ *
+ * Todo arquivo exportado antes desta mudanca -- inclusive o `orcamento.json`
+ * que o app sincroniza, unico caminho de recuperacao quando nao ha outra
+ * copia -- traz lancamentos e ancoras SEM os campos. Ausente, o campo chega
+ * como `undefined`, e `undefined !== null`: `validarOcorrencia` tentava
+ * validar o formato de um instante inexistente e recusava o arquivo inteiro.
+ *
+ * Preencher com `null` e o que o desenho ja previa para dado antigo: sem
+ * instante, a RN-32 compara so datas, como antes.
+ */
+function deVersao2Para3(doc: DocumentoBackup): DocumentoBackup {
+  return {
+    ...doc,
+    ocorrencias: doc.ocorrencias.map((o) => ({
+      ...o,
+      pagamentoRegistradoEm: o.pagamentoRegistradoEm ?? null,
+    })),
+    ancoras: doc.ancoras.map((a) => ({ ...a, declaradaEm: a.declaradaEm ?? null })),
   }
 }

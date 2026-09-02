@@ -1,5 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import Dexie from 'dexie'
 import { criarHarness, type Harness } from '../test-support/app-harness.js'
+import { criarBanco } from '../data/db.js'
+import { criarRepositorios } from '../data/repositories.js'
+import { criarProjectionService } from './projection-service.js'
 import type { Regra } from '../domain/types.js'
 
 const HOJE = '2026-08-15'
@@ -427,5 +431,129 @@ describe('backup-service', () => {
       expect(await app.backup.precisaAvisarBackup('2026-08-15')).toBe(true)
       expect(await app.backup.diasDesdeUltimaExportacao('2026-08-15')).toBe(14)
     })
+  })
+})
+
+/**
+ * Revisao final: os registros que ja existem nao tem os campos de instante.
+ *
+ * O desenho dizia "nulo significa comportamento anterior", e o codigo checa
+ * `=== null`. Mas a representacao real de um campo ausente -- no IndexedDB de
+ * quem ja usa o app, e em todo backup exportado antes desta mudanca -- e
+ * `undefined`, nao `null`. As revisoes anteriores nao pegaram isso porque toda
+ * fixture foi atualizada para trazer os campos: o caso "registro antigo"
+ * sumiu do conjunto de testes, e ele e todo registro em producao hoje.
+ */
+describe('registros gravados antes dos instantes', () => {
+  const DIA = '2026-08-10'
+
+  /** Lancamento pago no dia da ancora, como um export antigo o traz: SEM o campo. */
+  const PAGO_SEM_INSTANTE = {
+    id: 'o-legado',
+    geradorTipo: 'avulso',
+    geradorId: null,
+    competencia: '2026-08',
+    tipo: 'saida',
+    nome: 'Sushi',
+    valorPrevistoCentavos: 11_100,
+    dataVencimento: DIA,
+    dataPagamento: DIA,
+    valorPagoCentavos: 11_100,
+    ignorado: false,
+    observacao: null,
+  }
+
+  /** Ancora do mesmo dia, tambem sem o campo. */
+  const ANCORA_SEM_INSTANTE = { id: 'a-legado', data: DIA, saldoCentavos: 500_000 }
+
+  /**
+   * C1: um arquivo exportado antes desta mudanca voltava recusado.
+   *
+   * `validarOcorrencia` via `undefined !== null`, testava o formato do instante
+   * sobre `undefined` -- que a regex converte na string "undefined" -- e
+   * lancava INSTANTE_INVALIDO. Todo backup existente e esse arquivo, inclusive
+   * o `orcamento.json` sincronizado: o unico caminho de recuperacao de quem
+   * nao tem outra copia.
+   */
+  it('restaura um backup exportado antes dos instantes', async () => {
+    const conteudo = JSON.stringify({
+      versaoSchema: 2,
+      exportadoEm: HOJE,
+      regras: [],
+      parcelamentos: [],
+      ocorrencias: [PAGO_SEM_INSTANTE],
+      ancoras: [ANCORA_SEM_INSTANTE],
+      configuracoes: [],
+    })
+
+    const resultado = app.backup.validarImportacao(conteudo)
+    expect(resultado.valido).toBe(true)
+    if (!resultado.valido) return
+
+    await app.backup.confirmarImportacao(resultado.documento)
+
+    // Restaurado, e com o campo coerente com o tipo declarado.
+    const [o] = await app.repos.ocorrencias.listar()
+    expect(o?.pagamentoRegistradoEm).toBeNull()
+
+    const [a] = await app.repos.ancoras.listar()
+    expect(a?.declaradaEm).toBeNull()
+  })
+
+  /**
+   * C2: as linhas que ja estao no IndexedDB de quem usa o app.
+   *
+   * Sem a migracao de schema, `undefined === null` e falso dos dois lados e
+   * `undefined <= undefined` tambem: a RN-32 parava de valer, e um mes passado
+   * voltava a descontar pagamentos que o saldo declarado ja continha --
+   * mostrando menos que o extrato, sem nada indicar.
+   */
+  it('migra o banco que ja existe no aparelho e o mes passado nao muda', async () => {
+    const nome = `legado-${crypto.randomUUID()}`
+
+    // O banco como ele esta hoje no aparelho: schema 2, campos ausentes.
+    const antigo = new Dexie(nome)
+    antigo.version(1).stores({
+      regras: 'id, vigenteDe',
+      parcelamentos: 'id, cartaoId',
+      cartoes: 'id',
+      ocorrencias:
+        'id, competencia, [geradorTipo+geradorId+competencia], [geradorTipo+geradorId]',
+      ancoras: 'id, data',
+      configuracoes: 'chave',
+    })
+    antigo.version(2).stores({
+      regras: 'id, vigenteDe',
+      parcelamentos: 'id',
+      cartoes: null,
+      ocorrencias:
+        'id, competencia, [geradorTipo+geradorId+competencia], [geradorTipo+geradorId]',
+      ancoras: 'id, data',
+      configuracoes: 'chave',
+    })
+    await antigo.open()
+    await antigo.table('ocorrencias').put(PAGO_SEM_INSTANTE)
+    await antigo.table('ancoras').put(ANCORA_SEM_INSTANTE)
+    antigo.close()
+
+    // O app abre o MESMO banco com o schema corrente.
+    const atual = criarBanco(nome)
+    await atual.open()
+
+    try {
+      const repos = criarRepositorios(atual)
+
+      const [o] = await repos.ocorrencias.listar()
+      expect(o?.pagamentoRegistradoEm).toBeNull()
+      expect((await repos.ancoras.vigenteEm(DIA))?.declaradaEm).toBeNull()
+
+      // O numero que o usuario ve ao abrir o mes: o pagamento do dia da ancora
+      // continua embutido no saldo declarado, como antes desta mudanca.
+      const mes = await criarProjectionService(repos).projetarMes('2026-08', DIA)
+      expect(mes.saldoNaReferenciaCentavos).toBe(500_000)
+    } finally {
+      atual.close()
+      await atual.delete()
+    }
   })
 })
