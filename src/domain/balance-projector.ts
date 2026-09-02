@@ -64,6 +64,63 @@ function valorEfetivo(o: OcorrenciaResolvida): Centavos {
   return o.valorPagoCentavos ?? o.valorPrevistoCentavos
 }
 
+/**
+ * RN-91: separa o movimento de um dia entre o que JA aconteceu e o que ainda
+ * vai acontecer.
+ *
+ * A referencia da projecao e o saldo no COMECO do dia, para que uma conta que
+ * apenas vence hoje nao apareca descontada de um dinheiro que ainda esta na
+ * conta. Mas uma conta ja PAGA hoje saiu do banco, e ignora-la mostra um saldo
+ * MAIOR que o do extrato -- o erro oposto, e igualmente caro.
+ *
+ * A separacao e exaustiva de proposito: cada item cai em exatamente um lado, e
+ * os totais dos dois somam o dia inteiro. E o que permite descontar o pago do
+ * saldo e retirar o mesmo item de "ainda sai" sem que a identidade
+ * `saldo + entra - sai = sobra` deixe de fechar.
+ *
+ * Vive aqui, e nao na camada de cima, pelo mesmo motivo que `movimentos`
+ * existe: `valorEfetivo` e `movimenta` sao as regras que formaram a curva.
+ * Reimplementa-las ao lado produziria duas versoes que divergem.
+ */
+export function separarPorPagamento(movimento: MovimentoDoDia): {
+  readonly pago: MovimentoDoDia
+  readonly pendente: MovimentoDoDia
+} {
+  const pagos: OcorrenciaResolvida[] = []
+  const pendentes: OcorrenciaResolvida[] = []
+  let entradaPaga = 0
+  let saidaPaga = 0
+
+  for (const o of movimento.itens) {
+    if (!movimenta(o) || o.dataPagamento === null) {
+      pendentes.push(o)
+      continue
+    }
+
+    pagos.push(o)
+    if (o.tipo === 'entrada') entradaPaga += valorEfetivo(o)
+    else saidaPaga += valorEfetivo(o)
+  }
+
+  return {
+    pago: {
+      data: movimento.data,
+      entradaCentavos: entradaPaga,
+      saidaCentavos: saidaPaga,
+      itens: pagos,
+    },
+    pendente: {
+      data: movimento.data,
+      // Por diferenca, nao por soma: garante que os dois lados reconstituam o
+      // total do dia mesmo se um item entrar no movimento por um caminho que
+      // esta funcao nao conhece.
+      entradaCentavos: movimento.entradaCentavos - entradaPaga,
+      saidaCentavos: movimento.saidaCentavos - saidaPaga,
+      itens: pendentes,
+    },
+  }
+}
+
 export function projetarCurva(
   ocorrencias: readonly OcorrenciaResolvida[],
   ancora: AncoraSaldo | null,

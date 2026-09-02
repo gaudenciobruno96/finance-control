@@ -14,7 +14,7 @@ import {
 import { expandirParcelamentos } from '../domain/installment-expander.js'
 import { expandirRegras } from '../domain/rule-expander.js'
 import { resolver } from '../domain/occurrence-resolver.js'
-import { projetarCurva } from '../domain/balance-projector.js'
+import { projetarCurva, separarPorPagamento } from '../domain/balance-projector.js'
 import { resumirMes } from '../domain/month-summarizer.js'
 import { resumirMeses } from '../domain/future-commitments.js'
 import type {
@@ -174,10 +174,28 @@ function posicaoNaCurva(curva: CurvaSaldo, agora: DataISO): Referencia {
   // A referencia e o saldo no comeco do dia; o que se move hoje entra em
   // "ainda entra" e "ainda sai", onde a pessoa consegue ver e conferir.
   const anterior = curva.pontos[indice - 1]
+  const comecoDoDia = anterior?.saldoCentavos ?? curva.saldoInicialCentavos
+
+  // RN-91: o que ja foi PAGO hoje e a excecao -- esse dinheiro saiu do banco.
+  // Deixa-lo de fora mostraria um saldo MAIOR que o do extrato, e faria
+  // "marcar como pago" nao mover numero nenhum, que e como a pessoa descobre
+  // que a acao surtiu efeito.
+  //
+  // A simetria com RN-32 e o ponto: la, um pagamento anterior a ancora nao e
+  // descontado porque o saldo declarado JA o reflete. Aqui, um pagamento
+  // posterior a ancora precisa ser descontado porque ela NAO o reflete.
+  //
+  // O mesmo item sai de "ainda sai" no laco que monta a identidade em
+  // `projetarMes`, que separa o dia de hoje pelo mesmo criterio. Descontar
+  // aqui sem retirar la contaria o pagamento duas vezes.
+  const movimentoDeHoje = curva.movimentos.find((m) => m.data === agora)
+  const pagoHoje =
+    movimentoDeHoje === undefined ? null : separarPorPagamento(movimentoDeHoje).pago
+  const jaPagoHoje = pagoHoje === null ? 0 : pagoHoje.entradaCentavos - pagoHoje.saidaCentavos
 
   return {
     indice,
-    saldoCentavos: anterior?.saldoCentavos ?? curva.saldoInicialCentavos,
+    saldoCentavos: comecoDoDia + jaPagoHoje,
     data: curva.pontos[indice]?.data ?? null,
     ehHoje: true,
   }
@@ -286,8 +304,20 @@ export function criarProjectionService(repos: Repositorios) {
       const detalheSai: OcorrenciaResolvida[] = []
 
       for (let i = referencia.indice; i < curva.movimentos.length; i += 1) {
-        const m = curva.movimentos[i]
-        if (m === undefined) continue
+        const bruto = curva.movimentos[i]
+        if (bruto === undefined) continue
+
+        // RN-91: no dia de hoje, o que ja foi pago saiu do saldo da referencia
+        // e por isso nao pode aparecer de novo como "ainda sai" -- seria contar
+        // o mesmo pagamento duas vezes, e a identidade nao fecharia.
+        //
+        // So o dia de hoje precisa da separacao: nos dias seguintes nada foi
+        // pago ainda, e nos anteriores o laco nem passa.
+        const m =
+          referencia.ehHoje && bruto.data === agora
+            ? separarPorPagamento(bruto).pendente
+            : bruto
+
         entraDepois += m.entradaCentavos
         saiDepois += m.saidaCentavos
         for (const o of m.itens) {
