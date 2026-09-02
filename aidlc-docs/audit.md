@@ -828,3 +828,18 @@
 **Context**: Os testes de idade envelhecem o registro no proprio Postgres (`update ... criado_em = now() - interval`), porque `desfazer` nao recebe mais instante algum — sem envelhecer de verdade, um teste de "registro antigo" seria indistinguivel de um recem-criado. Suite completa: 636/636 em 63 arquivos.
 
 ---
+## Achado — saldo nao descontava pagamento do mesmo dia da ancora
+**Timestamp**: 2026-09-01T20:00:00Z
+**User Input**: "Ue, mas eu acabei de pagar 111 do sushi e não descontou do saldo não entendi pq"
+**AI Response**: Investigado nos dados reais: `Jaguar Sushi` R$ 111,00 pago em 2026-09-01, ancora tambem de 2026-09-01. RN-32 pula qualquer pagamento com data <= data da ancora, porque o saldo declarado e leitura de extrato. A regra compara DATAS e nao distingue "paguei e depois declarei" de "declarei e depois paguei".
+**Context**: Confirmado com o usuario que ele declarou antes e pagou depois. O erro e silencioso e cresce ao longo do dia. Saldo real informado pelo extrato: R$ 6.456,97 (a diferenca era so o sushi; a Racao ja estava descontada — a estimativa inicial de R$ 319 estava errada, por isso o extrato foi pedido em vez de assumido).
+
+---
+
+## Decisoes de desenho — ancora com instante
+**Timestamp**: 2026-09-01T20:10:00Z
+**User Input**: (1) Correcao: "Corrigir de verdade: usar o horário (Recomendado)". (2) Dados antigos: "Manter o comportamento atual para eles (Recomendado)". (3) Desenho: "Fecha sim!"
+**AI Response**: Spec escrita em docs/superpowers/specs/2026-09-01-ancora-com-instante-design.md. A ancora deixa de ser "saldo de um dia" e passa a ser "saldo num instante": `AncoraSaldo.declaradaEm` e `Ocorrencia.pagamentoRegistradoEm`, ambos ISO em UTC e nullable, com fallback ao comportamento atual quando ausentes.
+**Context**: Primeira mudanca a alcancar `src/`, congelado desde o Projeto 1 — a regra defeituosa vive no dominio. Excecao deliberada a RN-04 justificada na spec: instante absoluto precisa de fuso, ao contrario de data de calendario.
+
+---
