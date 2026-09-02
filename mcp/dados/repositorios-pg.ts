@@ -87,6 +87,7 @@ interface LinhaOcorrencia {
   data_vencimento: string
   data_pagamento: string | null
   valor_pago_centavos: number | null
+  pagamento_registrado_em: Date | null
   ignorado: boolean
   observacao: string | null
 }
@@ -103,6 +104,8 @@ function paraOcorrencia(l: LinhaOcorrencia): Ocorrencia {
     dataVencimento: l.data_vencimento,
     dataPagamento: l.data_pagamento,
     valorPagoCentavos: l.valor_pago_centavos,
+    pagamentoRegistradoEm:
+      l.pagamento_registrado_em === null ? null : l.pagamento_registrado_em.toISOString(),
     ignorado: l.ignorado,
     observacao: l.observacao,
   }
@@ -112,10 +115,16 @@ interface LinhaAncora {
   id: string
   data: string
   saldo_centavos: number
+  declarada_em: Date | null
 }
 
 function paraAncora(l: LinhaAncora): AncoraSaldo {
-  return { id: l.id, data: l.data, saldoCentavos: l.saldo_centavos }
+  return {
+    id: l.id,
+    data: l.data,
+    saldoCentavos: l.saldo_centavos,
+    declaradaEm: l.declarada_em === null ? null : l.declarada_em.toISOString(),
+  }
 }
 
 export function criarRepositoriosPg(pool: Pool): Repositorios {
@@ -221,8 +230,8 @@ export function criarRepositoriosPg(pool: Pool): Repositorios {
           `insert into ocorrencias
            (id, gerador_tipo, gerador_id, competencia, tipo, nome,
             valor_previsto_centavos, data_vencimento, data_pagamento,
-            valor_pago_centavos, ignorado, observacao, atualizado_em)
-           values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,now())
+            valor_pago_centavos, ignorado, observacao, pagamento_registrado_em, atualizado_em)
+           values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,now())
            on conflict (id) do update set
              gerador_tipo = excluded.gerador_tipo, gerador_id = excluded.gerador_id,
              competencia = excluded.competencia, tipo = excluded.tipo,
@@ -232,6 +241,7 @@ export function criarRepositoriosPg(pool: Pool): Repositorios {
              data_pagamento = excluded.data_pagamento,
              valor_pago_centavos = excluded.valor_pago_centavos,
              ignorado = excluded.ignorado, observacao = excluded.observacao,
+             pagamento_registrado_em = excluded.pagamento_registrado_em,
              atualizado_em = now()`,
           [
             x.id,
@@ -246,6 +256,7 @@ export function criarRepositoriosPg(pool: Pool): Repositorios {
             x.valorPagoCentavos,
             x.ignorado,
             x.observacao,
+            x.pagamentoRegistradoEm,
           ],
         )
       },
@@ -330,12 +341,12 @@ export function criarRepositoriosPg(pool: Pool): Repositorios {
             a.id,
           ])
           await cliente.query(
-            `insert into ancoras (id, data, saldo_centavos, atualizado_em)
-             values ($1,$2,$3,now())
+            `insert into ancoras (id, data, saldo_centavos, declarada_em, atualizado_em)
+             values ($1,$2,$3,$4,now())
              on conflict (id) do update set
                data = excluded.data, saldo_centavos = excluded.saldo_centavos,
-               atualizado_em = now()`,
-            [a.id, a.data, a.saldoCentavos],
+               declarada_em = excluded.declarada_em, atualizado_em = now()`,
+            [a.id, a.data, a.saldoCentavos, a.declaradaEm],
           )
           await cliente.query('commit')
         } catch (e) {

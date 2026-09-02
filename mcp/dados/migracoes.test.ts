@@ -142,6 +142,19 @@ describe('aplicarMigracoes', () => {
     await expect(inserir('a-2')).rejects.toThrow()
   })
 
+  it('cria as colunas de instante em ancoras e ocorrencias', async () => {
+    await aplicarMigracoes(pool)
+
+    const r = await pool.query<{ table_name: string; column_name: string }>(
+      `select table_name, column_name from information_schema.columns
+       where column_name in ('declarada_em', 'pagamento_registrado_em')`,
+    )
+    const pares = r.rows.map((l) => `${l.table_name}.${l.column_name}`)
+
+    expect(pares).toContain('ancoras.declarada_em')
+    expect(pares).toContain('ocorrencias.pagamento_registrado_em')
+  })
+
   it('dinheiro volta como numero inteiro, nao string', async () => {
     // BIGINT volta como string no driver pg por padrao. A conversao precisa
     // acontecer, senao centavos viram texto e a aritmetica do dominio quebra

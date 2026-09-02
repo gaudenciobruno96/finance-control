@@ -41,11 +41,17 @@ const OCORRENCIA: Ocorrencia = {
   dataVencimento: '2026-03-10',
   dataPagamento: null,
   valorPagoCentavos: null,
+  pagamentoRegistradoEm: null,
   ignorado: false,
   observacao: null,
 }
 
-const ANCORA: AncoraSaldo = { id: 'a-1', data: '2026-03-01', saldoCentavos: 120000 }
+const ANCORA: AncoraSaldo = {
+  id: 'a-1',
+  data: '2026-03-01',
+  saldoCentavos: 120000,
+  declaradaEm: null,
+}
 
 let container: StartedPostgreSqlContainer
 let pool: Pool
@@ -229,7 +235,10 @@ describe.each(IMPLEMENTACOES)('contrato de Repositorios (%s)', (_nome, montar) =
 
   it('vigenteEm devolve a de maior data que nao ultrapassa (RN-49)', async () => {
     await repos.ancoras.salvar(ANCORA, '2026-05-20')
-    await repos.ancoras.salvar({ id: 'a-2', data: '2026-04-01', saldoCentavos: 90000 }, '2026-05-20')
+    await repos.ancoras.salvar(
+      { id: 'a-2', data: '2026-04-01', saldoCentavos: 90000, declaradaEm: null },
+      '2026-05-20',
+    )
 
     const vigente = await repos.ancoras.vigenteEm('2026-04-15')
 
@@ -251,7 +260,10 @@ describe.each(IMPLEMENTACOES)('contrato de Repositorios (%s)', (_nome, montar) =
     // implementacoes: precisa passar nas duas.
     await repos.ancoras.salvar(ANCORA, '2026-05-20') // a-1 em 2026-03-01
 
-    await repos.ancoras.salvar({ id: 'a-1', data: '2026-05-01', saldoCentavos: 999 }, '2026-05-20')
+    await repos.ancoras.salvar(
+      { id: 'a-1', data: '2026-05-01', saldoCentavos: 999, declaradaEm: null },
+      '2026-05-20',
+    )
 
     const todas = await repos.ancoras.listar()
     expect(todas).toHaveLength(1)
@@ -262,7 +274,10 @@ describe.each(IMPLEMENTACOES)('contrato de Repositorios (%s)', (_nome, montar) =
 
   it('declarar saldo na mesma data substitui (RN-50)', async () => {
     await repos.ancoras.salvar(ANCORA, '2026-03-20')
-    await repos.ancoras.salvar({ id: 'a-outra', data: '2026-03-01', saldoCentavos: 555 }, '2026-03-20')
+    await repos.ancoras.salvar(
+      { id: 'a-outra', data: '2026-03-01', saldoCentavos: 555, declaradaEm: null },
+      '2026-03-20',
+    )
 
     const todas = await repos.ancoras.listar()
     expect(todas).toHaveLength(1)
@@ -271,8 +286,40 @@ describe.each(IMPLEMENTACOES)('contrato de Repositorios (%s)', (_nome, montar) =
 
   it('rejeita ancora com data futura', async () => {
     await expect(
-      repos.ancoras.salvar({ id: 'a-f', data: '2027-01-01', saldoCentavos: 1 }, '2026-03-20'),
+      repos.ancoras.salvar(
+        { id: 'a-f', data: '2027-01-01', saldoCentavos: 1, declaradaEm: null },
+        '2026-03-20',
+      ),
     ).rejects.toThrow()
+  })
+
+  it('preserva o instante da declaracao da ancora', async () => {
+    const instante = '2026-03-01T14:30:00.000Z'
+    await repos.ancoras.salvar({ ...ANCORA, declaradaEm: instante }, '2026-03-20')
+
+    expect((await repos.ancoras.vigenteEm('2026-03-20'))?.declaradaEm).toBe(instante)
+  })
+
+  it('preserva o instante do pagamento na ocorrencia', async () => {
+    const instante = '2026-03-10T18:45:00.000Z'
+    await repos.ocorrencias.salvar({
+      ...OCORRENCIA,
+      dataPagamento: '2026-03-10',
+      valorPagoCentavos: 180000,
+      pagamentoRegistradoEm: instante,
+    })
+
+    expect((await repos.ocorrencias.obter(OCORRENCIA.id))?.pagamentoRegistradoEm).toBe(instante)
+  })
+
+  // Nulo tem significado: e o que faz o registro cair no comportamento
+  // anterior. Se o driver devolvesse `undefined`, a comparacao da RN-32
+  // continuaria funcionando por acidente, mas o contrato entre as duas
+  // implementacoes estaria quebrado.
+  it('devolve null, nao undefined, quando nao ha instante', async () => {
+    await repos.ancoras.salvar(ANCORA, '2026-03-20')
+
+    expect((await repos.ancoras.vigenteEm('2026-03-20'))?.declaradaEm).toBeNull()
   })
 
   it('guarda e le configuracao', async () => {

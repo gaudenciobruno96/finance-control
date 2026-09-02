@@ -34,6 +34,7 @@ describe('item', () => {
     dataVencimento: '2026-03-15',
     dataPagamento: '2026-03-14',
     valorPagoCentavos: 24590,
+    pagamentoRegistradoEm: null,
     ignorado: false,
     observacao: null,
   }

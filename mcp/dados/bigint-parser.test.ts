@@ -37,7 +37,12 @@ afterAll(async () => {
 describe('parser de BIGINT ativado independente de criarPool', () => {
   it('saldoCentavos volta como number mesmo com Pool construido sem criarPool', async () => {
     const repos = criarRepositoriosPg(pool)
-    const ancora: AncoraSaldo = { id: 'a-bigint', data: '2026-03-01', saldoCentavos: 120000 }
+    const ancora: AncoraSaldo = {
+      id: 'a-bigint',
+      data: '2026-03-01',
+      saldoCentavos: 120000,
+      declaradaEm: null,
+    }
 
     await repos.ancoras.salvar(ancora, '2026-03-20')
     const lida = await repos.ancoras.vigenteEm('2026-03-20')

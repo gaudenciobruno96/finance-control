@@ -41,6 +41,9 @@ export async function lancarAvulso(app: AppPg, args: ArgsLancarAvulso): Promise<
     dataVencimento: data,
     dataPagamento: null,
     valorPagoCentavos: null,
+    // Nao ha pagamento na criacao de um avulso: null aqui e o valor real, nao
+    // um placeholder. Passa a ter instante quando marcar_pago (Task 3) agir.
+    pagamentoRegistradoEm: null,
     ignorado: false,
     observacao: args.observacao ?? null,
   }

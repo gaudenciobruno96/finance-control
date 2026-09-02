@@ -31,7 +31,10 @@ export async function declararSaldo(app: AppPg, args: ArgsDeclararSaldo): Promis
 
   // `salvar` chama `validarAncora`, que rejeita data futura. O segundo
   // argumento e a data corrente -- diferente das outras entidades.
-  await app.repos.ancoras.salvar({ id, data, saldoCentavos: centavos }, args.hoje)
+  //
+  // declaradaEm: null e um placeholder deliberado. A Task 3 substitui por um
+  // instante real (`new Date().toISOString()`), com seu proprio teste.
+  await app.repos.ancoras.salvar({ id, data, saldoCentavos: centavos, declaradaEm: null }, args.hoje)
 
   return montarRecibo(
     'saldo',

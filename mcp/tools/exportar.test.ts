@@ -65,7 +65,7 @@ describe('exportar', () => {
       vigenteAte: null,
     })
     await app.repos.ancoras.salvar(
-      { id: 'a-1', data: '2026-09-01', saldoCentavos: 120000 },
+      { id: 'a-1', data: '2026-09-01', saldoCentavos: 120000, declaradaEm: null },
       '2026-09-15',
     )
 
@@ -136,7 +136,7 @@ describe('exportar', () => {
       vigenteAte: null,
     })
     await app.repos.ancoras.salvar(
-      { id: 'a-1', data: '2026-09-01', saldoCentavos: 120000 },
+      { id: 'a-1', data: '2026-09-01', saldoCentavos: 120000, declaradaEm: null },
       '2026-09-15',
     )
 

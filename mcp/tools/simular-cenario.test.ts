@@ -87,6 +87,7 @@ describe('simularCenario', () => {
             dataVencimento: '2026-04-12',
             dataPagamento: null,
             valorPagoCentavos: null,
+            pagamentoRegistradoEm: null,
             ignorado: false,
             observacao: null,
           },

@@ -548,11 +548,11 @@ function criarServidorMcp(app: AppPg): McpServer {
               z.object({
                 tipo: z.literal('avulso'),
                 ocorrencia: z.object({
-                  // Cinco campos mecanicos de um lancamento HIPOTETICO: um
+                  // Seis campos mecanicos de um lancamento HIPOTETICO: um
                   // avulso simulado ja nasce nao pago e nao ignorado, e so
                   // pode ter vindo de 'avulso' (nunca de uma regra ou
                   // parcelamento que nao existe de verdade). Default poupa o
-                  // modelo de preencher cinco valores com exatamente uma
+                  // modelo de preencher seis valores com exatamente uma
                   // resposta sensata cada.
                   geradorTipo: z.literal('avulso').default('avulso'),
                   geradorId: z.null().default(null),
@@ -563,6 +563,7 @@ function criarServidorMcp(app: AppPg): McpServer {
                   dataVencimento: DATA,
                   dataPagamento: DATA.nullable().default(null),
                   valorPagoCentavos: z.number().int().nullable().default(null),
+                  pagamentoRegistradoEm: z.null().default(null),
                   ignorado: z.boolean().default(false),
                   observacao: z.string().nullable(),
                 }),

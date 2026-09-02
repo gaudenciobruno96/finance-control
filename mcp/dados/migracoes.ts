@@ -119,6 +119,19 @@ const MIGRACOES: readonly string[] = [
     atualizado_em timestamptz not null default now()
   );
   `,
+  // RN-32 revisada: a ancora e um saldo num INSTANTE, nao num dia.
+  //
+  // `timestamptz`, e nao `text` como as datas (RN-04): estes campos NAO sao
+  // datas de calendario, sao instantes absolutos, e precisam de fuso para
+  // ordenar corretamente entre um container em UTC e um usuario em BRT. E a
+  // unica excecao a RN-04 no schema.
+  //
+  // Nullable e sem back-fill de proposito: nulo significa "comportamento
+  // anterior", e nenhum saldo ja conferido se desloca.
+  `
+  alter table ancoras add column if not exists declarada_em timestamptz;
+  alter table ocorrencias add column if not exists pagamento_registrado_em timestamptz;
+  `,
 ]
 
 export async function aplicarMigracoes(pool: Pool): Promise<number> {

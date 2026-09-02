@@ -57,7 +57,7 @@ describe('situacaoDoMes sobre Postgres', () => {
 
   it('deixa de ser relativo quando ha ancora', async () => {
     await app.repos.ancoras.salvar(
-      { id: 'a-1', data: '2026-03-01', saldoCentavos: 120000 },
+      { id: 'a-1', data: '2026-03-01', saldoCentavos: 120000, declaradaEm: null },
       '2026-03-05',
     )
 
@@ -101,6 +101,7 @@ describe('situacaoDoMes sobre Postgres', () => {
       dataVencimento: '2026-03-12',
       dataPagamento: null,
       valorPagoCentavos: null,
+      pagamentoRegistradoEm: null,
       ignorado: false,
       observacao: null,
     })

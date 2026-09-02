@@ -60,11 +60,12 @@ export const ORCAMENTO_SIMPLES: DocumentoBackup = {
       dataVencimento: '2026-03-15',
       dataPagamento: '2026-03-14',
       valorPagoCentavos: 24590,
+      pagamentoRegistradoEm: null,
       ignorado: false,
       observacao: null,
     },
   ],
-  ancoras: [{ id: 'a-1', data: '2026-03-01', saldoCentavos: 120000 }],
+  ancoras: [{ id: 'a-1', data: '2026-03-01', saldoCentavos: 120000, declaradaEm: null }],
   configuracoes: [],
 }
 
@@ -84,5 +85,5 @@ export const ORCAMENTO_SEM_ANCORA: DocumentoBackup = {
  */
 export const ORCAMENTO_ANCORA_FUTURA: DocumentoBackup = {
   ...ORCAMENTO_SIMPLES,
-  ancoras: [{ id: 'a-futura', data: '2026-06-01', saldoCentavos: 120000 }],
+  ancoras: [{ id: 'a-futura', data: '2026-06-01', saldoCentavos: 120000, declaradaEm: null }],
 }

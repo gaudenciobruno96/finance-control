@@ -187,6 +187,7 @@ describe('desfazer', () => {
       dataVencimento: '2026-09-10',
       dataPagamento: null,
       valorPagoCentavos: null,
+      pagamentoRegistradoEm: null,
       ignorado: false,
       observacao: null,
     })
