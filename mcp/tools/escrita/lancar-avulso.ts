@@ -7,7 +7,7 @@
 
 import { competenciaDe } from '../../../src/domain/calendar.js'
 import { deEntradaUsuario, formatarBRL } from '../../../src/domain/money.js'
-import type { Ocorrencia } from '../../../src/domain/types.js'
+import type { Categoria, Ocorrencia } from '../../../src/domain/types.js'
 import { novoId } from '../../../src/data/ids.js'
 import type { AppPg } from '../../app-pg.js'
 import { montarRecibo, type Recibo } from '../../recibo.js'
@@ -20,6 +20,7 @@ export interface ArgsLancarAvulso {
   readonly data?: string
   readonly hoje: string
   readonly observacao?: string
+  readonly categoria?: Categoria
 }
 
 export async function lancarAvulso(app: AppPg, args: ArgsLancarAvulso): Promise<Recibo> {
@@ -46,8 +47,7 @@ export async function lancarAvulso(app: AppPg, args: ArgsLancarAvulso): Promise<
     pagamentoRegistradoEm: null,
     ignorado: false,
     observacao: args.observacao ?? null,
-    // Categorizar pela ferramenta chega na Task 3.
-    categoria: null,
+    categoria: args.categoria ?? null,
   }
 
   await app.repos.ocorrencias.salvar(ocorrencia)
@@ -57,6 +57,7 @@ export async function lancarAvulso(app: AppPg, args: ArgsLancarAvulso): Promise<
   return montarRecibo(
     'avulso',
     ocorrencia.id,
-    `${sentido} avulso: ${ocorrencia.nome}, ${formatarBRL(centavos)}, em ${data}`,
+    `${sentido} avulso: ${ocorrencia.nome}, ${formatarBRL(centavos)}, em ${data}.` +
+      (args.categoria !== undefined ? ` Categoria: ${args.categoria}.` : ''),
   )
 }

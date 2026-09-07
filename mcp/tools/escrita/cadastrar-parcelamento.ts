@@ -12,7 +12,7 @@
  */
 
 import { deEntradaUsuario, formatarBRL, multiplicarPorInteiro } from '../../../src/domain/money.js'
-import type { Parcelamento } from '../../../src/domain/types.js'
+import type { Categoria, Parcelamento } from '../../../src/domain/types.js'
 import { novoId } from '../../../src/data/ids.js'
 import type { AppPg } from '../../app-pg.js'
 import { montarRecibo, type Recibo } from '../../recibo.js'
@@ -23,6 +23,7 @@ export interface ArgsCadastrarParcelamento {
   readonly valorParcela: string
   readonly quantidadeParcelas: number
   readonly primeiroVencimento: string
+  readonly categoria?: Categoria
 }
 
 export async function cadastrarParcelamento(
@@ -43,8 +44,7 @@ export async function cadastrarParcelamento(
     valorParcelaCentavos: centavos,
     quantidadeParcelas: args.quantidadeParcelas,
     primeiroVencimento: args.primeiroVencimento,
-    // Categorizar pela ferramenta chega na Task 3.
-    categoria: null,
+    categoria: args.categoria ?? null,
   }
 
   // `salvar` chama `validarParcelamento`, que rejeita parcela nao positiva,
@@ -57,6 +57,7 @@ export async function cadastrarParcelamento(
     'parcelamento',
     parcelamento.id,
     `${parcelamento.nome}: ${String(args.quantidadeParcelas)}x de ${formatarBRL(centavos)}, ` +
-      `total ${formatarBRL(total)}, primeira em ${args.primeiroVencimento}`,
+      `total ${formatarBRL(total)}, primeira em ${args.primeiroVencimento}.` +
+      (args.categoria !== undefined ? ` Categoria: ${args.categoria}.` : ''),
   )
 }

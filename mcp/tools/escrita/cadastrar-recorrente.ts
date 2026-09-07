@@ -7,7 +7,7 @@
 
 import { ajustePadrao } from '../../../src/domain/calendar.js'
 import { deEntradaUsuario, formatarBRL } from '../../../src/domain/money.js'
-import type { Regra } from '../../../src/domain/types.js'
+import type { Categoria, Regra } from '../../../src/domain/types.js'
 import { novoId } from '../../../src/data/ids.js'
 import type { AppPg } from '../../app-pg.js'
 import { montarRecibo, type Recibo } from '../../recibo.js'
@@ -21,6 +21,7 @@ export interface ArgsCadastrarRecorrente {
   readonly vigenteDe: string
   readonly ajusteFimDeSemana?: 'nenhum' | 'antecipa' | 'posterga'
   readonly valorEhEstimativa?: boolean
+  readonly categoria?: Categoria
 }
 
 export async function cadastrarRecorrente(
@@ -47,8 +48,7 @@ export async function cadastrarRecorrente(
     ajusteFimDeSemana: args.ajusteFimDeSemana ?? ajustePadrao(args.tipo),
     vigenteDe: args.vigenteDe,
     vigenteAte: null,
-    // Categorizar pela ferramenta chega na Task 3.
-    categoria: null,
+    categoria: args.categoria ?? null,
   }
 
   // `salvar` chama `validarRegra`, que rejeita dia 40 e centavo fracionado.
@@ -60,6 +60,7 @@ export async function cadastrarRecorrente(
     'recorrente',
     regra.id,
     `${regra.nome}, ${formatarBRL(centavos)}, ${sentido} todo dia ${String(regra.diaDoMes)}, ` +
-      `a partir de ${regra.vigenteDe}`,
+      `a partir de ${regra.vigenteDe}.` +
+      (args.categoria !== undefined ? ` Categoria: ${args.categoria}.` : ''),
   )
 }
