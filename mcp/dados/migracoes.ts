@@ -132,6 +132,17 @@ const MIGRACOES: readonly string[] = [
   alter table ancoras add column if not exists declarada_em timestamptz;
   alter table ocorrencias add column if not exists pagamento_registrado_em timestamptz;
   `,
+  // Categoria de gasto. `text` e nullable: nulo significa "nao categorizado",
+  // e os lancamentos que ja existem comecam assim.
+  //
+  // Sem restricao de dominio no banco de proposito -- a lista fixa vive no
+  // TypeScript (`CATEGORIAS`) e e validada em `validarRegra` e irmas.
+  // Duplica-la aqui criaria duas fontes que divergem no primeiro valor novo.
+  `
+  alter table regras add column if not exists categoria text;
+  alter table parcelamentos add column if not exists categoria text;
+  alter table ocorrencias add column if not exists categoria text;
+  `,
 ]
 
 export async function aplicarMigracoes(pool: Pool): Promise<number> {

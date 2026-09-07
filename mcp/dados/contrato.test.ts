@@ -331,4 +331,32 @@ describe.each(IMPLEMENTACOES)('contrato de Repositorios (%s)', (_nome, montar) =
     expect(await repos.configuracoes.obter('cor')).toBe('azul')
     expect(await repos.configuracoes.obter('inexistente')).toBeNull()
   })
+
+  it('preserva a categoria da regra', async () => {
+    await repos.regras.salvar({ ...REGRA, categoria: 'moradia' })
+
+    expect((await repos.regras.obter(REGRA.id))?.categoria).toBe('moradia')
+  })
+
+  it('preserva a categoria do parcelamento', async () => {
+    await repos.parcelamentos.salvar({ ...PARCELAMENTO, categoria: 'compras' })
+
+    expect((await repos.parcelamentos.obter(PARCELAMENTO.id))?.categoria).toBe('compras')
+  })
+
+  it('preserva a categoria da ocorrencia', async () => {
+    await repos.ocorrencias.salvar({ ...OCORRENCIA, categoria: 'mercado' })
+
+    expect((await repos.ocorrencias.obter(OCORRENCIA.id))?.categoria).toBe('mercado')
+  })
+
+  // Nulo tem significado: e o que faz o lancamento aparecer como "sem
+  // categoria" no relatorio. Se o driver devolvesse `undefined`, a agregacao
+  // continuaria funcionando por acidente enquanto o contrato entre as duas
+  // implementacoes estaria quebrado.
+  it('devolve null, nao undefined, quando nao ha categoria', async () => {
+    await repos.regras.salvar(REGRA)
+
+    expect((await repos.regras.obter(REGRA.id))?.categoria).toBeNull()
+  })
 })

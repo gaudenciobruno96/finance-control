@@ -24,6 +24,7 @@ import {
 } from '../../src/data/invariants.js'
 import type {
   AncoraSaldo,
+  Categoria,
   Competencia,
   DataISO,
   Ocorrencia,
@@ -42,6 +43,7 @@ interface LinhaRegra {
   ajuste_fim_de_semana: string
   vigente_de: string
   vigente_ate: string | null
+  categoria: string | null
 }
 
 function paraRegra(l: LinhaRegra): Regra {
@@ -55,9 +57,7 @@ function paraRegra(l: LinhaRegra): Regra {
     ajusteFimDeSemana: l.ajuste_fim_de_semana as Regra['ajusteFimDeSemana'],
     vigenteDe: l.vigente_de,
     vigenteAte: l.vigente_ate,
-    // A coluna ainda nao existe no schema Postgres (chega na tarefa que
-    // persiste o campo); ate la, toda linha volta sem categoria.
-    categoria: null,
+    categoria: l.categoria as Categoria | null,
   }
 }
 
@@ -67,6 +67,7 @@ interface LinhaParcelamento {
   valor_parcela_centavos: number
   quantidade_parcelas: number
   primeiro_vencimento: string
+  categoria: string | null
 }
 
 function paraParcelamento(l: LinhaParcelamento): Parcelamento {
@@ -76,9 +77,7 @@ function paraParcelamento(l: LinhaParcelamento): Parcelamento {
     valorParcelaCentavos: l.valor_parcela_centavos,
     quantidadeParcelas: l.quantidade_parcelas,
     primeiroVencimento: l.primeiro_vencimento,
-    // A coluna ainda nao existe no schema Postgres (chega na tarefa que
-    // persiste o campo); ate la, toda linha volta sem categoria.
-    categoria: null,
+    categoria: l.categoria as Categoria | null,
   }
 }
 
@@ -96,6 +95,7 @@ interface LinhaOcorrencia {
   pagamento_registrado_em: Date | null
   ignorado: boolean
   observacao: string | null
+  categoria: string | null
 }
 
 function paraOcorrencia(l: LinhaOcorrencia): Ocorrencia {
@@ -114,9 +114,7 @@ function paraOcorrencia(l: LinhaOcorrencia): Ocorrencia {
       l.pagamento_registrado_em === null ? null : l.pagamento_registrado_em.toISOString(),
     ignorado: l.ignorado,
     observacao: l.observacao,
-    // A coluna ainda nao existe no schema Postgres (chega na tarefa que
-    // persiste o campo); ate la, toda linha volta sem categoria.
-    categoria: null,
+    categoria: l.categoria as Categoria | null,
   }
 }
 
@@ -155,8 +153,8 @@ export function criarRepositoriosPg(pool: Pool): Repositorios {
         await pool.query(
           `insert into regras
            (id, tipo, nome, valor_centavos, valor_eh_estimativa, dia_do_mes,
-            ajuste_fim_de_semana, vigente_de, vigente_ate, atualizado_em)
-           values ($1,$2,$3,$4,$5,$6,$7,$8,$9,now())
+            ajuste_fim_de_semana, vigente_de, vigente_ate, categoria, atualizado_em)
+           values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,now())
            on conflict (id) do update set
              tipo = excluded.tipo, nome = excluded.nome,
              valor_centavos = excluded.valor_centavos,
@@ -164,6 +162,7 @@ export function criarRepositoriosPg(pool: Pool): Repositorios {
              dia_do_mes = excluded.dia_do_mes,
              ajuste_fim_de_semana = excluded.ajuste_fim_de_semana,
              vigente_de = excluded.vigente_de, vigente_ate = excluded.vigente_ate,
+             categoria = excluded.categoria,
              atualizado_em = now()`,
           [
             x.id,
@@ -175,6 +174,7 @@ export function criarRepositoriosPg(pool: Pool): Repositorios {
             x.ajusteFimDeSemana,
             x.vigenteDe,
             x.vigenteAte,
+            x.categoria,
           ],
         )
       },
@@ -204,15 +204,23 @@ export function criarRepositoriosPg(pool: Pool): Repositorios {
         validarParcelamento(x)
         await pool.query(
           `insert into parcelamentos
-           (id, nome, valor_parcela_centavos, quantidade_parcelas, primeiro_vencimento, atualizado_em)
-           values ($1,$2,$3,$4,$5,now())
+           (id, nome, valor_parcela_centavos, quantidade_parcelas, primeiro_vencimento, categoria, atualizado_em)
+           values ($1,$2,$3,$4,$5,$6,now())
            on conflict (id) do update set
              nome = excluded.nome,
              valor_parcela_centavos = excluded.valor_parcela_centavos,
              quantidade_parcelas = excluded.quantidade_parcelas,
              primeiro_vencimento = excluded.primeiro_vencimento,
+             categoria = excluded.categoria,
              atualizado_em = now()`,
-          [x.id, x.nome, x.valorParcelaCentavos, x.quantidadeParcelas, x.primeiroVencimento],
+          [
+            x.id,
+            x.nome,
+            x.valorParcelaCentavos,
+            x.quantidadeParcelas,
+            x.primeiroVencimento,
+            x.categoria,
+          ],
         )
       },
 
@@ -239,8 +247,9 @@ export function criarRepositoriosPg(pool: Pool): Repositorios {
           `insert into ocorrencias
            (id, gerador_tipo, gerador_id, competencia, tipo, nome,
             valor_previsto_centavos, data_vencimento, data_pagamento,
-            valor_pago_centavos, ignorado, observacao, pagamento_registrado_em, atualizado_em)
-           values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,now())
+            valor_pago_centavos, ignorado, observacao, pagamento_registrado_em,
+            categoria, atualizado_em)
+           values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,now())
            on conflict (id) do update set
              gerador_tipo = excluded.gerador_tipo, gerador_id = excluded.gerador_id,
              competencia = excluded.competencia, tipo = excluded.tipo,
@@ -251,6 +260,7 @@ export function criarRepositoriosPg(pool: Pool): Repositorios {
              valor_pago_centavos = excluded.valor_pago_centavos,
              ignorado = excluded.ignorado, observacao = excluded.observacao,
              pagamento_registrado_em = excluded.pagamento_registrado_em,
+             categoria = excluded.categoria,
              atualizado_em = now()`,
           [
             x.id,
@@ -266,6 +276,7 @@ export function criarRepositoriosPg(pool: Pool): Repositorios {
             x.ignorado,
             x.observacao,
             x.pagamentoRegistradoEm,
+            x.categoria,
           ],
         )
       },
