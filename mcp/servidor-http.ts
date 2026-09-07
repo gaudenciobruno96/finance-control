@@ -6,7 +6,7 @@
  * usuario pergunta algo pelo celular. E por isso que funciona com o computador
  * do usuario desligado, e e por isso que a autenticacao aqui nao e opcional.
  *
- * As dezesseis ferramentas financeiras (mais `ping`) vivem sobre Postgres (`mcp/dados/`,
+ * As dezessete ferramentas financeiras (mais `ping`) vivem sobre Postgres (`mcp/dados/`,
  * `mcp/app-pg.ts`), montado uma unica vez em `iniciar()` -- nao dentro de
  * `criarServidorMcp()`, que roda por requisicao.
  */
@@ -40,6 +40,8 @@ import { desfazer } from './tools/desfazer.js'
 import { exportar } from './tools/exportar.js'
 import { ErroDeUsuario } from './tools/erro-do-usuario.js'
 import { ehErroDeDominio } from '../src/domain/errors.js'
+import { CATEGORIAS } from '../src/domain/types.js'
+import { definirCategoria } from './tools/escrita/definir-categoria.js'
 
 const COMPETENCIA = z
   .string()
@@ -234,20 +236,26 @@ function criarServidorMcp(app: AppPg): McpServer {
     {
       title: 'Historico de gastos',
       description:
-        'Responde "quanto eu gastei com isso?". Olha o PASSADO ja pago, ' +
-        'agregado por nome, nos ultimos meses. Nao mostra previsao nem conta ' +
-        'em aberto -- para isso use situacao_do_mes ou o_que_vence.',
+        'Responde "quanto eu gastei com isso?". Olha o PASSADO ja pago, nos ' +
+        'ultimos meses, agregado por nome ou por categoria (agruparPor). Nao ' +
+        'mostra previsao nem conta em aberto -- para isso use situacao_do_mes ' +
+        'ou o_que_vence.',
       inputSchema: {
         meses: z.number().int().min(1).max(60).optional().describe('Janela em meses. Padrao: 6'),
         nome: z.string().optional().describe('Filtra por nome, sem diferenciar maiuscula'),
+        agruparPor: z
+          .enum(['nome', 'categoria'])
+          .optional()
+          .describe('Eixo do agrupamento. Padrao: nome'),
         hoje: DATA.optional().describe('Data de referencia. Padrao: hoje'),
       },
     },
-    async ({ meses, nome, hoje }) =>
+    async ({ meses, nome, agruparPor, hoje }) =>
       executarFerramenta(() =>
         historicoDeGastos(app, {
           ...(meses === undefined ? {} : { meses }),
           ...(nome === undefined ? {} : { nome }),
+          ...(agruparPor === undefined ? {} : { agruparPor }),
           hoje: hoje ?? hojeDoSistema(),
         }),
       ),
@@ -271,9 +279,13 @@ function criarServidorMcp(app: AppPg): McpServer {
         vigenteDe: COMPETENCIA.describe('Mes a partir do qual a regra vale, AAAA-MM'),
         ajusteFimDeSemana: z.enum(['nenhum', 'antecipa', 'posterga']).optional(),
         valorEhEstimativa: z.boolean().optional(),
+        categoria: z
+          .enum(CATEGORIAS)
+          .optional()
+          .describe('Categoria do gasto. Sugira a partir do nome e confirme com o usuario'),
       },
     },
-    async ({ tipo, nome, valor, diaDoMes, vigenteDe, ajusteFimDeSemana, valorEhEstimativa }) =>
+    async ({ tipo, nome, valor, diaDoMes, vigenteDe, ajusteFimDeSemana, valorEhEstimativa, categoria }) =>
       executarFerramenta(() =>
         cadastrarRecorrente(app, {
           tipo,
@@ -283,6 +295,7 @@ function criarServidorMcp(app: AppPg): McpServer {
           vigenteDe,
           ...(ajusteFimDeSemana === undefined ? {} : { ajusteFimDeSemana }),
           ...(valorEhEstimativa === undefined ? {} : { valorEhEstimativa }),
+          ...(categoria === undefined ? {} : { categoria }),
         }),
       ),
   )
@@ -301,9 +314,13 @@ function criarServidorMcp(app: AppPg): McpServer {
         data: DATA.optional().describe('Data do lancamento. Padrao: hoje'),
         hoje: DATA.optional().describe('Data de referencia. Padrao: hoje'),
         observacao: z.string().optional(),
+        categoria: z
+          .enum(CATEGORIAS)
+          .optional()
+          .describe('Categoria do gasto. Sugira a partir do nome e confirme com o usuario'),
       },
     },
-    async ({ tipo, nome, valor, data, hoje, observacao }) =>
+    async ({ tipo, nome, valor, data, hoje, observacao, categoria }) =>
       executarFerramenta(() =>
         lancarAvulso(app, {
           tipo,
@@ -312,6 +329,7 @@ function criarServidorMcp(app: AppPg): McpServer {
           ...(data === undefined ? {} : { data }),
           hoje: hoje ?? hojeDoSistema(),
           ...(observacao === undefined ? {} : { observacao }),
+          ...(categoria === undefined ? {} : { categoria }),
         }),
       ),
   )
@@ -538,16 +556,44 @@ function criarServidorMcp(app: AppPg): McpServer {
         // pelo protocolo, a unica saida era acesso direto ao banco.
         quantidadeParcelas: z.number().int().min(1).max(360),
         primeiroVencimento: DATA.describe('Data de vencimento da primeira parcela'),
+        categoria: z
+          .enum(CATEGORIAS)
+          .optional()
+          .describe('Categoria do gasto. Sugira a partir do nome e confirme com o usuario'),
       },
     },
-    async ({ nome, valorParcela, quantidadeParcelas, primeiroVencimento }) =>
+    async ({ nome, valorParcela, quantidadeParcelas, primeiroVencimento, categoria }) =>
       executarFerramenta(() =>
         cadastrarParcelamento(app, {
           nome,
           valorParcela,
           quantidadeParcelas,
           primeiroVencimento,
+          ...(categoria === undefined ? {} : { categoria }),
         }),
+      ),
+  )
+
+  server.registerTool(
+    'definir_categoria',
+    {
+      title: 'Definir categoria',
+      description:
+        'Define ou corrige a categoria de algo que ja existe, usando o id do ' +
+        'recibo ou de exportar. E como se categoriza o que foi cadastrado ' +
+        'antes de as categorias existirem. Vale para os proximos meses: as ' +
+        'contas ja materializadas guardam a categoria que tinham quando ' +
+        'aconteceram.',
+      inputSchema: {
+        tipo: z.enum(['recorrente', 'parcelamento', 'avulso']),
+        id: z.string().min(1).describe('O id do recibo ou de exportar'),
+        categoria: z.enum(CATEGORIAS),
+        hoje: DATA.optional().describe('Data de referencia. Padrao: hoje'),
+      },
+    },
+    async ({ tipo, id, categoria, hoje }) =>
+      executarFerramenta(() =>
+        definirCategoria(app, { tipo, id, categoria, hoje: hoje ?? hojeDoSistema() }),
       ),
   )
 

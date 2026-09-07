@@ -3,7 +3,7 @@
 Servidor MCP hospedado, alcançado pela infraestrutura da Anthropic quando você
 pergunta algo ao Claude — inclusive do celular, com seu computador desligado.
 
-Estado atual: **Projetos 1 e 2 implementados**. As dezesseis ferramentas
+Estado atual: **Projetos 1 e 2 implementados**. As dezessete ferramentas
 financeiras rodam sobre Postgres.
 
 Desenho: `docs/superpowers/specs/2026-08-28-mcp-remoto-spike-design.md`
@@ -39,7 +39,7 @@ o healthcheck do serviço.
 | `ping` | Verifica se o servidor está no ar |
 | `situacao_do_mes` | Quanto sobra no mês, o que falta pagar e entrar, e o dia de saldo mínimo |
 | `o_que_vence` | "O que preciso pagar nos próximos dias?" — janela curta a partir de hoje, mais o que já está atrasado |
-| `historico_de_gastos` | "Quanto eu gastei com isso?" — o passado já pago, agregado por nome, nos últimos meses |
+| `historico_de_gastos` | "Quanto eu gastei com isso?" — o passado já pago, agregado por nome ou por categoria, nos últimos meses |
 | `cadastrar_recorrente` | Cadastra um lançamento que se repete todo mês (salário, aluguel, conta de luz) |
 | `lancar_avulso` | Registra um gasto ou entrada pontual, que não se repete |
 | `marcar_pago` | Registra que uma conta foi paga ou um valor foi recebido |
@@ -53,6 +53,7 @@ o healthcheck do serviço.
 | `simular_cenario` | "Se eu assumir esse gasto, atravesso os próximos meses?" — projeta lançamentos hipotéticos sem gravar nada |
 | `desfazer` | Remove uma escrita de qualquer data (recorrente, avulso, pagamento, saldo, parcelamento) |
 | `exportar` | Devolve todos os dados em JSON, no formato de backup |
+| `definir_categoria` | Define ou corrige a categoria de uma recorrência, parcelamento ou avulso |
 
 ## Endpoints
 

@@ -47,6 +47,7 @@ export interface ItemFormatado {
   readonly dataPagamento: string | null
   readonly competencia: string
   readonly numeroParcela: number | null
+  readonly categoria: string | null
   readonly valorCentavos: number
   readonly valor: string
 }
@@ -69,6 +70,7 @@ export function item(o: OcorrenciaResolvida): ItemFormatado {
     dataPagamento: o.dataPagamento,
     competencia: o.competencia,
     numeroParcela: o.numeroParcela,
+    categoria: o.categoria,
     ...dinheiro(valorEfetivo(o)),
   }
 }

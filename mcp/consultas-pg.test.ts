@@ -108,7 +108,7 @@ describe('historicoDeGastos sobre Postgres', () => {
     await marcarPago(app, { chave: luz!.chave, valor: '245,90', data: '2026-08-14', hoje: '2026-09-20' })
 
     const r = await historicoDeGastos(app, { meses: 6, hoje: '2026-09-20' })
-    const serie = r.itens.find((i) => i.nome === 'Luz')
+    const serie = r.itens.find((i) => i.grupo === 'Luz')
 
     // O valor PAGO prevalece sobre o previsto.
     expect(serie?.total.valorCentavos).toBe(24590)
@@ -125,7 +125,7 @@ describe('historicoDeGastos sobre Postgres', () => {
 
     const r = await historicoDeGastos(app, { meses: 6, hoje: '2026-09-20' })
 
-    expect(r.itens.map((i) => i.nome)).not.toContain('Aluguel')
+    expect(r.itens.map((i) => i.grupo)).not.toContain('Aluguel')
   })
 
   it('ignora entradas: salario nao e gasto', async () => {
@@ -143,7 +143,7 @@ describe('historicoDeGastos sobre Postgres', () => {
 
     const r = await historicoDeGastos(app, { meses: 6, hoje: '2026-09-20' })
 
-    expect(r.itens.map((i) => i.nome)).not.toContain('Freela')
+    expect(r.itens.map((i) => i.grupo)).not.toContain('Freela')
   })
 
   it('filtra por nome sem diferenciar maiuscula', async () => {
@@ -177,6 +177,6 @@ describe('historicoDeGastos sobre Postgres', () => {
     const r = await historicoDeGastos(app, { meses: 6, nome: 'mercado', hoje: '2026-09-20' })
 
     expect(r.itens).toHaveLength(1)
-    expect(r.itens[0]?.nome).toBe('Mercado')
+    expect(r.itens[0]?.grupo).toBe('Mercado')
   })
 })

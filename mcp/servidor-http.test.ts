@@ -455,7 +455,7 @@ describe('criarApp', () => {
   })
 
   /**
-   * As dezesseis ferramentas financeiras (mais `ping`): so `ping` era coberto sobre o
+   * As dezessete ferramentas financeiras (mais `ping`): so `ping` era coberto sobre o
    * protocolo real. O que fica sem cobertura sem isto e exatamente a
    * FIACAO -- os schemas zod, os espalhamentos de propriedade opcional
    * (`...(x === undefined ? {} : {x})`), e o default `hoje ?? hojeDoSistema()`
@@ -506,7 +506,7 @@ describe('criarApp', () => {
     return corpo.result as { content: { type: string; text: string }[]; isError?: boolean }
   }
 
-  describe('tools/call sobre as dezesseis ferramentas financeiras', () => {
+  describe('tools/call sobre as dezessete ferramentas financeiras', () => {
     beforeEach(async () => {
       for (const t of [
         'regras',
@@ -713,10 +713,48 @@ describe('criarApp', () => {
 
       expect(r.isError).not.toBe(true)
       const dadosHistorico = JSON.parse(r.content[0]?.text ?? '{}') as {
-        itens: { nome: string; total: { valorCentavos: number } }[]
+        itens: { grupo: string; total: { valorCentavos: number } }[]
       }
-      const item = dadosHistorico.itens.find((i) => i.nome === 'Luz para historico')
+      const item = dadosHistorico.itens.find((i) => i.grupo === 'Luz para historico')
       expect(item?.total.valorCentavos).toBe(24590)
+    })
+
+    it('historico_de_gastos agrupa por categoria pelo protocolo', async () => {
+      await chamarFerramenta('lancar_avulso', {
+        tipo: 'saida',
+        nome: 'Mercado protocolo',
+        valor: '200,00',
+        hoje: '2026-09-15',
+        categoria: 'mercado',
+      })
+      const s = await chamarFerramenta('situacao_do_mes', { hoje: '2026-09-15' })
+      const chave = (JSON.parse(s.content[0]?.text ?? '{}') as {
+        faltaPagar: { nome: string; chave: string }[]
+      }).faltaPagar.find((i) => i.nome === 'Mercado protocolo')?.chave
+      await chamarFerramenta('marcar_pago', { chave, hoje: '2026-09-15' })
+
+      const r = await chamarFerramenta('historico_de_gastos', {
+        agruparPor: 'categoria',
+        hoje: '2026-09-15',
+      })
+
+      expect(r.isError).not.toBe(true)
+      const h = JSON.parse(r.content[0]?.text ?? '{}') as {
+        itens: { grupo: string; total: { valorCentavos: number } }[]
+      }
+      expect(h.itens.find((i) => i.grupo === 'mercado')?.total.valorCentavos).toBe(20_000)
+    })
+
+    it('definir_categoria recusa id inexistente pelo protocolo', async () => {
+      const r = await chamarFerramenta('definir_categoria', {
+        tipo: 'recorrente',
+        id: 'nao-existe',
+        categoria: 'moradia',
+        hoje: '2026-09-15',
+      })
+
+      expect(r.isError).toBe(true)
+      expect(r.content[0]?.text).toMatch(/recorrencia|id/iu)
     })
 
     it('cadastrar_parcelamento responde pelo protocolo e grava', async () => {

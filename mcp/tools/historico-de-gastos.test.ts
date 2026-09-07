@@ -48,7 +48,7 @@ describe('historicoDeGastos', () => {
     const app = await criarAppDoBackup(COM_HISTORICO)
 
     const r = await historicoDeGastos(app, { meses: 6, hoje: '2026-03-20' })
-    const luz = r.itens.find((i) => i.nome === 'Luz')
+    const luz = r.itens.find((i) => i.grupo === 'Luz')
 
     // 200,00 + 300,00 + 400,00
     expect(luz?.total.valorCentavos).toBe(90000)
@@ -60,7 +60,7 @@ describe('historicoDeGastos', () => {
     const app = await criarAppDoBackup(COM_HISTORICO)
 
     const r = await historicoDeGastos(app, { meses: 6, hoje: '2026-03-20' })
-    const luz = r.itens.find((i) => i.nome === 'Luz')
+    const luz = r.itens.find((i) => i.grupo === 'Luz')
 
     expect(luz?.meses.map((m) => m.competencia)).toEqual([
       '2026-01',
@@ -76,7 +76,7 @@ describe('historicoDeGastos', () => {
 
     const r = await historicoDeGastos(app, { meses: 6, hoje: '2026-03-20' })
 
-    expect(r.itens.map((i) => i.nome)).not.toContain('Salario')
+    expect(r.itens.map((i) => i.grupo)).not.toContain('Salario')
     await app.encerrar()
   })
 
@@ -86,7 +86,7 @@ describe('historicoDeGastos', () => {
     const r = await historicoDeGastos(app, { meses: 6, hoje: '2026-03-20' })
 
     // O aluguel e recorrente mas nunca teve pagamento registrado.
-    expect(r.itens.map((i) => i.nome)).not.toContain('Aluguel')
+    expect(r.itens.map((i) => i.grupo)).not.toContain('Aluguel')
     await app.encerrar()
   })
 
@@ -96,7 +96,7 @@ describe('historicoDeGastos', () => {
     const r = await historicoDeGastos(app, { meses: 6, nome: 'luz', hoje: '2026-03-20' })
 
     expect(r.itens).toHaveLength(1)
-    expect(r.itens[0]?.nome).toBe('Luz')
+    expect(r.itens[0]?.grupo).toBe('Luz')
     await app.encerrar()
   })
 
@@ -105,7 +105,7 @@ describe('historicoDeGastos', () => {
 
     // Janela de 1 mes a partir de marco: so a luz de marco.
     const r = await historicoDeGastos(app, { meses: 1, hoje: '2026-03-20' })
-    const luz = r.itens.find((i) => i.nome === 'Luz')
+    const luz = r.itens.find((i) => i.grupo === 'Luz')
 
     expect(luz?.total.valorCentavos).toBe(40000)
     expect(r.de).toBe('2026-03')
@@ -139,7 +139,7 @@ describe('historicoDeGastos', () => {
 
     const r = await historicoDeGastos(app, { meses: 6, hoje: '2026-03-20' })
 
-    expect(r.itens[0]?.nome).toBe('Aluguel')
+    expect(r.itens[0]?.grupo).toBe('Aluguel')
     await app.encerrar()
   })
 
