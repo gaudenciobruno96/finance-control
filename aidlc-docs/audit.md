@@ -880,3 +880,18 @@
 **Context**: Escrito tambem o teste que a spec pedia e ninguem tinha escrito: nenhum teste do branch declarava ancora, entao nenhum provava que o saldo volta — so que a lista muda. Suite: 696/696 em 68 arquivos.
 
 ---
+## Brainstorming — categorias de gasto
+**Timestamp**: 2026-09-07T23:00:00Z
+**User Input**: "Nos precisamos ter uma categoria, tipo vestuário, mercado gasolina, onde o próprio Claude pode sugerir uma categoria ou eu definir uma, assim consigo ter visão de quanto gastei com cada setor"
+**AI Response**: Invocado superpowers:brainstorming. Achado que orientou a conversa: `historico_de_gastos` ja agrupa por nome e ja filtra so saidas pagas — a maquina de agregacao existe, categoria e outro eixo sobre ela.
+**Context**: Categoria foi uma das opcoes oferecidas numa conversa anterior e preterida; o usuario voltou a ela.
+
+---
+
+## Decisoes de desenho — categorias
+**Timestamp**: 2026-09-07T23:10:00Z
+**User Input**: (1) Lista: "Lista fixa que a gente define agora". (2) Retroativo: "Eu categorizo os existentes junto". (3) Faturas: "Categoria própria "Cartão", e aceito a limitação". (4) "Fecha"
+**AI Response**: Spec em docs/superpowers/specs/2026-09-07-categorias-de-gasto-design.md. Quinze categorias derivadas dos lancamentos reais do usuario. Campo em Regra, Parcelamento e Ocorrencia, nullable. A ocorrencia HERDA do gerador — categorizar o aluguel e uma operacao, nao doze por ano. Nova ferramenta `definir_categoria` para o retroativo; `historico_de_gastos` ganha `agruparPor` em vez de uma consulta nova (17 -> 18 ferramentas).
+**Context**: Texto livre foi recusado por fragmentar em silencio (Mercado/mercado/Supermercado viram tres setores). A limitacao aceita: fatura de cartao e um agregado e recebe `cartao` — significativa no caso dele, porque Nubank e Sicredi somam a maior parte do gasto variavel.
+
+---
