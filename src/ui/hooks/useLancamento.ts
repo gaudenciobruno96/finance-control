@@ -43,6 +43,7 @@ export function useSalvarLancamento(): (dados: NovoLancamento) => Promise<void> 
             ajusteFimDeSemana: dados.tipo === 'entrada' ? 'antecipa' : 'nenhum',
             vigenteDe: dados.vigenteDe,
             vigenteAte: null,
+            categoria: null,
           })
           return
 
@@ -52,6 +53,7 @@ export function useSalvarLancamento(): (dados: NovoLancamento) => Promise<void> 
             valorParcelaCentavos: dados.valorParcelaCentavos,
             quantidadeParcelas: dados.quantidadeParcelas,
             primeiroVencimento: dados.primeiroVencimento,
+            categoria: null,
           })
           return
       }

@@ -27,11 +27,13 @@ async function cenario() {
     tipo: 'entrada', nome: 'Salário', valorCentavos: 300_000,
     valorEhEstimativa: false, diaDoMes: 5, ajusteFimDeSemana: 'nenhum',
     vigenteDe: '2026-08', vigenteAte: null,
+    categoria: null,
   })
   await app.regras.criarRegra({
     tipo: 'saida', nome: 'Aluguel', valorCentavos: 80_000,
     valorEhEstimativa: false, diaDoMes: 20, ajusteFimDeSemana: 'nenhum',
     vigenteDe: '2026-08', vigenteAte: null,
+    categoria: null,
   })
 }
 
@@ -99,6 +101,7 @@ describe('atrasados de meses anteriores (regressão da 2ª revisão)', () => {
       tipo: 'saida', nome: 'Aluguel', valorCentavos: 180_000,
       valorEhEstimativa: false, diaDoMes: 10, ajusteFimDeSemana: 'nenhum',
       vigenteDe: '2026-07', vigenteAte: null,
+      categoria: null,
     })
 
     const julho = await app.projecao.projetarMes('2026-07', HOJE)
@@ -113,6 +116,7 @@ describe('atrasados de meses anteriores (regressão da 2ª revisão)', () => {
       tipo: 'saida', nome: 'Aluguel', valorCentavos: 180_000,
       valorEhEstimativa: false, diaDoMes: 10, ajusteFimDeSemana: 'nenhum',
       vigenteDe: '2026-06', vigenteAte: null,
+      categoria: null,
     })
 
     const agosto = await app.projecao.projetarMes('2026-08', HOJE)
@@ -142,6 +146,7 @@ describe('o saldo de hoje é o que foi declarado', () => {
       tipo: 'saida', nome: 'Boleto', valorCentavos: 200_000,
       valorEhEstimativa: false, diaDoMes: 10, ajusteFimDeSemana: 'nenhum',
       vigenteDe: '2026-08', vigenteAte: null,
+      categoria: null,
     })
     await app.regras.definirAncora(HOJE, 394_000, HOJE)
 
@@ -161,6 +166,7 @@ describe('o saldo de hoje é o que foi declarado', () => {
       tipo: 'saida', nome: 'Boleto', valorCentavos: 200_000,
       valorEhEstimativa: false, diaDoMes: 15, ajusteFimDeSemana: 'nenhum',
       vigenteDe: '2026-08', vigenteAte: null,
+      categoria: null,
     })
 
     const antes = await app.projecao.projetarMes('2026-08', HOJE)
@@ -184,6 +190,7 @@ describe('o saldo de hoje é o que foi declarado', () => {
       tipo: 'saida', nome: 'Aluguel', valorCentavos: 80_000,
       valorEhEstimativa: false, diaDoMes: 1, ajusteFimDeSemana: 'nenhum',
       vigenteDe: '2026-08', vigenteAte: null,
+      categoria: null,
     })
     await app.regras.definirAncora(HOJE, 394_000, HOJE)
 

@@ -23,6 +23,7 @@ export const ORCAMENTO_SIMPLES: DocumentoBackup = {
       ajusteFimDeSemana: 'antecipa',
       vigenteDe: '2026-01',
       vigenteAte: null,
+      categoria: null,
     },
     {
       id: 'r-aluguel',
@@ -34,6 +35,7 @@ export const ORCAMENTO_SIMPLES: DocumentoBackup = {
       ajusteFimDeSemana: 'nenhum',
       vigenteDe: '2026-01',
       vigenteAte: null,
+      categoria: null,
     },
     {
       id: 'r-luz',
@@ -45,6 +47,7 @@ export const ORCAMENTO_SIMPLES: DocumentoBackup = {
       ajusteFimDeSemana: 'nenhum',
       vigenteDe: '2026-01',
       vigenteAte: null,
+      categoria: null,
     },
   ],
   parcelamentos: [],
@@ -63,6 +66,7 @@ export const ORCAMENTO_SIMPLES: DocumentoBackup = {
       pagamentoRegistradoEm: null,
       ignorado: false,
       observacao: null,
+      categoria: null,
     },
   ],
   ancoras: [{ id: 'a-1', data: '2026-03-01', saldoCentavos: 120000, declaradaEm: null }],

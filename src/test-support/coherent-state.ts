@@ -84,6 +84,7 @@ function ocorrenciaNaCompetencia(
         pagamentoRegistradoEm: null,
         ignorado: r.ignorado,
         observacao: null,
+        categoria: null,
       }
     })
 }

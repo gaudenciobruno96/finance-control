@@ -21,6 +21,7 @@ function item(over: Partial<OcorrenciaResolvida> = {}): OcorrenciaResolvida {
     pagamentoRegistradoEm: null,
     ignorado: false,
     observacao: null,
+    categoria: null,
     ...over,
   }
 }

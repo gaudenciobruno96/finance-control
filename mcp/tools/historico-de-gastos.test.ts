@@ -22,6 +22,7 @@ const COM_HISTORICO: DocumentoBackup = {
       pagamentoRegistradoEm: null,
       ignorado: false,
       observacao: null,
+      categoria: null,
     })),
     {
       id: 'o-salario-2026-02',
@@ -37,6 +38,7 @@ const COM_HISTORICO: DocumentoBackup = {
       pagamentoRegistradoEm: null,
       ignorado: false,
       observacao: null,
+      categoria: null,
     },
   ],
 }
@@ -130,6 +132,7 @@ describe('historicoDeGastos', () => {
           pagamentoRegistradoEm: null,
           ignorado: false,
           observacao: null,
+          categoria: null,
         },
       ],
     })

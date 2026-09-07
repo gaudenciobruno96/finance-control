@@ -15,6 +15,7 @@ function regra(over: Partial<Regra> = {}): Regra {
     ajusteFimDeSemana: 'nenhum',
     vigenteDe: '2026-01',
     vigenteAte: null,
+    categoria: null,
     ...over,
   }
 }

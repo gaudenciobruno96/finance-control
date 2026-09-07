@@ -43,6 +43,8 @@ export async function cadastrarParcelamento(
     valorParcelaCentavos: centavos,
     quantidadeParcelas: args.quantidadeParcelas,
     primeiroVencimento: args.primeiroVencimento,
+    // Categorizar pela ferramenta chega na Task 3.
+    categoria: null,
   }
 
   // `salvar` chama `validarParcelamento`, que rejeita parcela nao positiva,

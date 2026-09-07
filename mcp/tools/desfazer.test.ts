@@ -95,6 +95,7 @@ describe('desfazer', () => {
       ajusteFimDeSemana: 'nenhum',
       vigenteDe: '2026-09',
       vigenteAte: null,
+      categoria: null,
     })
     const s = await situacaoDoMes(app, { competencia: '2026-09', hoje: '2026-09-15' })
     const chave = s.faltaPagar.find((i) => i.nome === 'Aluguel')!.chave
@@ -190,6 +191,7 @@ describe('desfazer', () => {
       pagamentoRegistradoEm: null,
       ignorado: false,
       observacao: null,
+      categoria: null,
     })
     await pool.query(
       `update ocorrencias set criado_em = now() - interval '2 days' where id = $1`,
@@ -223,6 +225,7 @@ describe('desfazer', () => {
       ajusteFimDeSemana: 'nenhum',
       vigenteDe: '2026-07',
       vigenteAte: null,
+      categoria: null,
     })
 
     const antiga = await situacaoDoMes(app, { competencia: '2026-07', hoje: '2026-09-15' })

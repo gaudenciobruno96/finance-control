@@ -122,6 +122,8 @@ export const regra = (): fc.Arbitrary<Regra> =>
       ajusteFimDeSemana: ajusteFimDeSemana(),
       vigenteDe: competencia(),
       duracaoMeses: fc.option(fc.integer({ min: 0, max: 36 }), { nil: null }),
+      // A categoria nao e o foco destes testes por propriedade.
+      categoria: fc.constant(null),
     })
     .map(({ duracaoMeses, ...resto }) => ({
       ...resto,
@@ -144,6 +146,7 @@ export const parcelamentoAvulso = (): fc.Arbitrary<Parcelamento> =>
     valorParcelaCentavos: centavosPositivo(),
     quantidadeParcelas: fc.integer({ min: 1, max: 24 }),
     primeiroVencimento: dataISO(),
+    categoria: fc.constant(null),
   })
 
 /**
@@ -167,6 +170,7 @@ export const ocorrencia = (): fc.Arbitrary<Ocorrencia> =>
       ),
       ignorado: fc.boolean(),
       observacao: fc.constant(null),
+      categoria: fc.constant(null),
     })
     .map(({ pagamento, ignorado, geradorTipo, geradorId, ...resto }) => ({
       ...resto,

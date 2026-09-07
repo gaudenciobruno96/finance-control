@@ -30,6 +30,7 @@ const LUZ: OcorrenciaResolvida = {
   pagamentoRegistradoEm: null,
   ignorado: false,
   observacao: null,
+  categoria: null,
 }
 
 function montar(over: Partial<Parameters<typeof PaymentSheet>[0]> = {}) {

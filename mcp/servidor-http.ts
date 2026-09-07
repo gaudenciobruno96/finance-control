@@ -617,6 +617,8 @@ function criarServidorMcp(app: AppPg): McpServer {
                   ajusteFimDeSemana: z.enum(['nenhum', 'antecipa', 'posterga']),
                   vigenteDe: COMPETENCIA,
                   vigenteAte: COMPETENCIA.nullable(),
+                  // Categorizar o hipotetico chega na Task 3.
+                  categoria: z.null().default(null),
                 }),
               }),
               z.object({
@@ -632,6 +634,8 @@ function criarServidorMcp(app: AppPg): McpServer {
                   // por chamada).
                   quantidadeParcelas: z.number().int().min(1).max(360),
                   primeiroVencimento: DATA,
+                  // Categorizar o hipotetico chega na Task 3.
+                  categoria: z.null().default(null),
                 }),
               }),
               z.object({
@@ -655,6 +659,8 @@ function criarServidorMcp(app: AppPg): McpServer {
                   pagamentoRegistradoEm: z.null().default(null),
                   ignorado: z.boolean().default(false),
                   observacao: z.string().nullable(),
+                  // Categorizar o hipotetico chega na Task 3.
+                  categoria: z.null().default(null),
                 }),
               }),
             ]),

@@ -41,6 +41,7 @@ async function cadastrarAluguel(): Promise<void> {
     ajusteFimDeSemana: 'nenhum',
     vigenteDe: '2026-09',
     vigenteAte: null,
+    categoria: null,
   })
 }
 
@@ -196,6 +197,7 @@ describe('marcarPago', () => {
       ajusteFimDeSemana: 'nenhum',
       vigenteDe: '2026-07',
       vigenteAte: null,
+      categoria: null,
     })
 
     const antiga = await situacaoDoMes(app, { competencia: '2026-07', hoje: '2026-09-15' })

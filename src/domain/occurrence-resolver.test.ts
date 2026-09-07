@@ -16,6 +16,7 @@ function regra(over: Partial<Regra> = {}): Regra {
     ajusteFimDeSemana: 'nenhum',
     vigenteDe: '2026-01',
     vigenteAte: null,
+    categoria: null,
     ...over,
   }
 }
@@ -35,6 +36,7 @@ function real(over: Partial<Ocorrencia> = {}): Ocorrencia {
     pagamentoRegistradoEm: null,
     ignorado: false,
     observacao: null,
+    categoria: null,
     ...over,
   }
 }
@@ -160,6 +162,7 @@ describe('occurrence-resolver', () => {
         pagamentoRegistradoEm: null,
         ignorado: false,
         observacao: null,
+        categoria: null,
       }
       const ajustada = real({
         geradorTipo: 'parcelamento',

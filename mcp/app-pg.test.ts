@@ -40,6 +40,7 @@ describe('situacaoDoMes sobre Postgres', () => {
       ajusteFimDeSemana: 'nenhum',
       vigenteDe: '2026-03',
       vigenteAte: null,
+      categoria: null,
     })
 
     const r = await situacaoDoMes(app, { competencia: '2026-03', hoje: '2026-03-05' })
@@ -78,6 +79,7 @@ describe('situacaoDoMes sobre Postgres', () => {
       ajusteFimDeSemana: 'nenhum',
       vigenteDe: '2026-03',
       vigenteAte: null,
+      categoria: null,
     })
 
     const r = await situacaoDoMes(app, { competencia: '2026-03', hoje: '2026-03-05' })
@@ -104,6 +106,7 @@ describe('situacaoDoMes sobre Postgres', () => {
       pagamentoRegistradoEm: null,
       ignorado: false,
       observacao: null,
+      categoria: null,
     })
 
     const r = await situacaoDoMes(app, { competencia: '2026-03', hoje: '2026-03-05' })

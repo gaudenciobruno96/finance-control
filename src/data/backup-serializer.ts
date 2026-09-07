@@ -112,6 +112,7 @@ export function migrarDocumento(doc: DocumentoBackup): DocumentoBackup {
 
   if (atual.versaoSchema < 2) atual = { ...deVersao1Para2(atual), versaoSchema: 2 }
   if (atual.versaoSchema < 3) atual = { ...deVersao2Para3(atual), versaoSchema: 3 }
+  if (atual.versaoSchema < 4) atual = { ...deVersao3Para4(atual), versaoSchema: 4 }
 
   if (atual.versaoSchema < VERSAO_SCHEMA) {
     atual = { ...atual, versaoSchema: VERSAO_SCHEMA }
@@ -150,6 +151,7 @@ function deVersao1Para2(doc: DocumentoBackup): DocumentoBackup {
       valorParcelaCentavos: p.valorParcelaCentavos,
       quantidadeParcelas: p.quantidadeParcelas,
       primeiroVencimento: p.primeiroVencimento,
+      categoria: p.categoria,
     })),
   }
 }
@@ -174,5 +176,26 @@ function deVersao2Para3(doc: DocumentoBackup): DocumentoBackup {
       pagamentoRegistradoEm: o.pagamentoRegistradoEm ?? null,
     })),
     ancoras: doc.ancoras.map((a) => ({ ...a, declaradaEm: a.declaradaEm ?? null })),
+  }
+}
+
+/**
+ * Versao 4: categoria de gasto.
+ *
+ * Todo arquivo exportado antes desta mudanca -- inclusive o `orcamento.json`
+ * que o app sincroniza -- traz regras, parcelamentos e ocorrencias SEM o
+ * campo. Ausente, ele chega como `undefined`, e `undefined !== null`:
+ * `validarRegra` e irmas tentariam validar o formato de uma categoria
+ * inexistente e recusariam o arquivo inteiro.
+ *
+ * Preencher com `null` e o que o desenho ja previa para dado antigo: sem
+ * categoria, o lancamento aparece como "nao categorizado".
+ */
+function deVersao3Para4(doc: DocumentoBackup): DocumentoBackup {
+  return {
+    ...doc,
+    regras: doc.regras.map((r) => ({ ...r, categoria: r.categoria ?? null })),
+    parcelamentos: doc.parcelamentos.map((p) => ({ ...p, categoria: p.categoria ?? null })),
+    ocorrencias: doc.ocorrencias.map((o) => ({ ...o, categoria: o.categoria ?? null })),
   }
 }

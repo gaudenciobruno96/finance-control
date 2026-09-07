@@ -40,6 +40,7 @@ async function cenario() {
     ajusteFimDeSemana: 'nenhum',
     vigenteDe: COMPETENCIA,
     vigenteAte: null,
+    categoria: null,
   })
 }
 
@@ -107,6 +108,7 @@ describe('saldo de hoje depois de marcar como pago', () => {
       ajusteFimDeSemana: 'nenhum',
       vigenteDe: COMPETENCIA,
       vigenteAte: null,
+      categoria: null,
     })
 
     const antes = await app.projecao.projetarMes(COMPETENCIA, HOJE)

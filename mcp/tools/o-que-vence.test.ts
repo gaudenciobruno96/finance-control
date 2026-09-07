@@ -93,6 +93,7 @@ describe('oQueVence', () => {
           pagamentoRegistradoEm: null,
           ignorado: true,
           observacao: null,
+          categoria: null,
         },
       ],
     })
@@ -143,6 +144,7 @@ describe('oQueVence', () => {
           pagamentoRegistradoEm: null,
           ignorado: false,
           observacao: null,
+          categoria: null,
         },
       ],
     })

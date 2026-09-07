@@ -27,6 +27,7 @@ export type CodigoInvariante =
   | 'PAGAMENTO_INCOMPLETO'
   | 'TIPO_INVALIDO'
   | 'INSTANTE_INVALIDO'
+  | 'CATEGORIA_INVALIDA'
 
 /**
  * Mensagens fixas por codigo. Sao constantes deliberadamente: uma mensagem
@@ -48,6 +49,7 @@ const MENSAGENS: Record<CodigoInvariante, string> = {
   PAGAMENTO_INCOMPLETO: 'pagamento precisa ter data e valor juntos, ou nenhum dos dois',
   TIPO_INVALIDO: 'tipo de movimento deve ser entrada ou saida',
   INSTANTE_INVALIDO: 'instante deve estar no formato ISO 8601 em UTC',
+  CATEGORIA_INVALIDA: 'categoria fora da lista conhecida',
 }
 
 export class ErroDeDominio extends Error {

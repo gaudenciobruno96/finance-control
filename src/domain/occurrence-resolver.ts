@@ -64,6 +64,9 @@ function realParaResolvida(
     pagamentoRegistradoEm: real.pagamentoRegistradoEm,
     ignorado: real.ignorado,
     observacao: real.observacao,
+    // Da REAL, nao da virtual: a materializada congela a categoria que tinha
+    // quando foi criada (RN-52), do mesmo jeito que congela nome e valor.
+    categoria: real.categoria,
   }
 }
 

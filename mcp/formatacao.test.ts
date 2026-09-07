@@ -37,6 +37,7 @@ describe('item', () => {
     pagamentoRegistradoEm: null,
     ignorado: false,
     observacao: null,
+    categoria: null,
   }
 
   it('usa o valor pago quando existe', () => {

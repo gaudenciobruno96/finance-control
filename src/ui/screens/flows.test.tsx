@@ -75,6 +75,7 @@ async function semear(nome: string, valorCentavos: number, diaDoMes: number) {
     ajusteFimDeSemana: 'nenhum',
     vigenteDe: competenciaDe(hojeLocal()),
     vigenteAte: null,
+    categoria: null,
   })
 }
 
@@ -251,6 +252,7 @@ describe('cadastro de recorrência', () => {
       ajusteFimDeSemana: 'nenhum',
       vigenteDe: somarMeses(competenciaDe(hojeLocal()), -6),
       vigenteAte: null,
+      categoria: null,
     })
 
     montar(<RegistrationsScreen />, '/cadastros')
@@ -348,6 +350,7 @@ describe('adiantamento de salário', () => {
       ajusteFimDeSemana: 'antecipa',
       vigenteDe: competenciaDe(hojeLocal()),
       vigenteAte: null,
+      categoria: null,
     })
 
     montar(<MonthScreen />)
@@ -427,6 +430,7 @@ describe('recebimento parcial', () => {
       ajusteFimDeSemana: 'antecipa',
       vigenteDe: competenciaDe(hojeLocal()),
       vigenteAte: null,
+      categoria: null,
     })
 
     montar(<MonthScreen />)
@@ -555,6 +559,7 @@ describe('edição de receita', () => {
       ajusteFimDeSemana: 'antecipa',
       vigenteDe: competenciaDe(hojeLocal()),
       vigenteAte: null,
+      categoria: null,
     })
 
     montar(<RegistrationsScreen />, '/cadastros')

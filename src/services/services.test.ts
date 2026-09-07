@@ -35,6 +35,7 @@ async function criarAluguel(over: Partial<Omit<Regra, 'id'>> = {}) {
     ajusteFimDeSemana: 'nenhum',
     vigenteDe: '2026-08',
     vigenteAte: null,
+    categoria: null,
     ...over,
   })
 }
@@ -291,6 +292,7 @@ describe('rule-service', () => {
       valorParcelaCentavos: 30_000,
       quantidadeParcelas: 10,
       primeiroVencimento: '2026-08-28',
+      categoria: null,
     })
 
     const mes = await app.projecao.projetarMes('2026-08', HOJE)

@@ -57,6 +57,7 @@ export function expandirParcelamentos(
         pagamentoRegistradoEm: null,
         ignorado: false,
         observacao: null,
+        categoria: p.categoria,
       })
     }
   }

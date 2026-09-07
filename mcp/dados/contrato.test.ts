@@ -20,6 +20,7 @@ const REGRA: Regra = {
   ajusteFimDeSemana: 'nenhum',
   vigenteDe: '2026-01',
   vigenteAte: null,
+  categoria: null,
 }
 
 const PARCELAMENTO: Parcelamento = {
@@ -28,6 +29,7 @@ const PARCELAMENTO: Parcelamento = {
   valorParcelaCentavos: 30000,
   quantidadeParcelas: 10,
   primeiroVencimento: '2026-04-20',
+  categoria: null,
 }
 
 const OCORRENCIA: Ocorrencia = {
@@ -44,6 +46,7 @@ const OCORRENCIA: Ocorrencia = {
   pagamentoRegistradoEm: null,
   ignorado: false,
   observacao: null,
+  categoria: null,
 }
 
 const ANCORA: AncoraSaldo = {

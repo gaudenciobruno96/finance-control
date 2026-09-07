@@ -111,6 +111,7 @@ async function executar(app: Harness, cmd: Comando, ordem: number): Promise<void
         ajusteFimDeSemana: 'nenhum',
         vigenteDe: '2026-06',
         vigenteAte: null,
+        categoria: null,
       })
       return
 
@@ -141,6 +142,7 @@ async function executar(app: Harness, cmd: Comando, ordem: number): Promise<void
         valorParcelaCentavos: cmd.valor,
         quantidadeParcelas: cmd.parcelas,
         primeiroVencimento: '2026-08-15',
+        categoria: null,
       })
       return
     }

@@ -182,6 +182,8 @@ server.registerTool(
                 ajusteFimDeSemana: z.enum(['nenhum', 'antecipa', 'posterga']),
                 vigenteDe: COMPETENCIA,
                 vigenteAte: COMPETENCIA.nullable(),
+                // Categorizar o hipotetico chega na Task 3.
+                categoria: z.null().default(null),
               }),
             }),
             z.object({
@@ -191,6 +193,8 @@ server.registerTool(
                 valorParcelaCentavos: z.number().int(),
                 quantidadeParcelas: z.number().int().min(1),
                 primeiroVencimento: DATA,
+                // Categorizar o hipotetico chega na Task 3.
+                categoria: z.null().default(null),
               }),
             }),
             z.object({
@@ -214,6 +218,8 @@ server.registerTool(
                 pagamentoRegistradoEm: z.null().default(null),
                 ignorado: z.boolean().default(false),
                 observacao: z.string().nullable(),
+                // Categorizar o hipotetico chega na Task 3.
+                categoria: z.null().default(null),
               }),
             }),
           ]),

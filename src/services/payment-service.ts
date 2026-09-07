@@ -37,6 +37,7 @@ function materializar(o: OcorrenciaResolvida, id: string): Ocorrencia {
     pagamentoRegistradoEm: o.pagamentoRegistradoEm,
     ignorado: o.ignorado,
     observacao: o.observacao,
+    categoria: o.categoria,
   }
 }
 
@@ -156,6 +157,7 @@ export function criarPaymentService(repos: Repositorios) {
         pagamentoRegistradoEm: null,
         ignorado: false,
         observacao: dados.observacao ?? null,
+        categoria: null,
       })
       return id
     },

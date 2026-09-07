@@ -22,6 +22,7 @@ function paga(
     pagamentoRegistradoEm: null,
     ignorado: false,
     observacao: null,
+    categoria: null,
     ...over,
   }
 }

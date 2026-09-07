@@ -20,7 +20,7 @@ export interface Configuracao {
 }
 
 /** Versao corrente do schema. Vai gravada em todo arquivo de backup. */
-export const VERSAO_SCHEMA = 3
+export const VERSAO_SCHEMA = 4
 
 export type BancoFinanceiro = Dexie & {
   regras: EntityTable<Regra, 'id'>
@@ -118,6 +118,49 @@ export function declararSchema(db: Dexie): void {
         .toCollection()
         .modify((a: Record<string, unknown>) => {
           if (a['declaradaEm'] === undefined) a['declaradaEm'] = null
+        })
+    })
+
+  // Versao 4: categoria de gasto.
+  //
+  // O tipo declara `Categoria | null`, e `validarRegra`/`validarParcelamento`/
+  // `validarOcorrencia` exigem que o campo seja nulo ou uma categoria
+  // conhecida. Um registro gravado ANTES desta mudanca nao tem o campo: em
+  // IndexedDB o ausente le como `undefined`, e `undefined !== null` -- a
+  // proxima escrita sobre esse registro (ex.: registrar um pagamento) levaria
+  // `undefined` para o validador e seria recusada com CATEGORIA_INVALIDA.
+  //
+  // Gravar `null` deixa o dado armazenado coerente com o tipo declarado, em
+  // vez de normalizar a cada leitura.
+  db.version(4)
+    .stores({
+      regras: 'id, vigenteDe',
+      parcelamentos: 'id',
+      ocorrencias:
+        'id, competencia, [geradorTipo+geradorId+competencia], [geradorTipo+geradorId]',
+      ancoras: 'id, data',
+      configuracoes: 'chave',
+    })
+    .upgrade(async (tx) => {
+      await tx
+        .table('regras')
+        .toCollection()
+        .modify((r: Record<string, unknown>) => {
+          if (r['categoria'] === undefined) r['categoria'] = null
+        })
+
+      await tx
+        .table('parcelamentos')
+        .toCollection()
+        .modify((p: Record<string, unknown>) => {
+          if (p['categoria'] === undefined) p['categoria'] = null
+        })
+
+      await tx
+        .table('ocorrencias')
+        .toCollection()
+        .modify((o: Record<string, unknown>) => {
+          if (o['categoria'] === undefined) o['categoria'] = null
         })
     })
 }

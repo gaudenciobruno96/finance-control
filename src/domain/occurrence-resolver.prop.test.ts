@@ -47,6 +47,7 @@ describe('occurrence-resolver — propriedades', () => {
           pagamentoRegistradoEm: null,
           ignorado: false,
           observacao: null,
+          categoria: null,
         }
 
         const resolvidas = resolver(virtuais, [realCorrespondente], hoje)

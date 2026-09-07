@@ -58,6 +58,37 @@ export type SituacaoOcorrencia =
 
 export type OrigemOcorrencia = 'virtual' | 'real'
 
+/**
+ * Categoria de gasto.
+ *
+ * Lista FIXA de proposito. Categoria de texto livre fragmenta em silencio --
+ * "Mercado", "mercado" e "Supermercado" viram tres setores, cada um com parte
+ * do dinheiro, e a soma por setor deixa de fechar sem que nada indique o
+ * problema.
+ *
+ * Os valores sao sem acentuacao, como o resto do codigo; o rotulo exibido ao
+ * usuario pode ter.
+ */
+export const CATEGORIAS = [
+  'moradia',
+  'mercado',
+  'alimentacao_fora',
+  'transporte',
+  'vestuario',
+  'saude',
+  'pet',
+  'servicos',
+  'dividas',
+  'familia',
+  'investimento',
+  'compras',
+  'cartao',
+  'lazer',
+  'outros',
+] as const
+
+export type Categoria = (typeof CATEGORIAS)[number]
+
 // ---------------------------------------------------------------------------
 // Entidades
 // ---------------------------------------------------------------------------
@@ -76,6 +107,11 @@ export interface Regra {
   readonly vigenteDe: Competencia
   /** Nulo significa vigencia indefinida. */
   readonly vigenteAte: Competencia | null
+  /**
+   * Nulo significa "nao categorizado" -- nao e erro nem valor faltando, e
+   * aparece no relatorio como uma linha propria.
+   */
+  readonly categoria: Categoria | null
 }
 
 /** Compra em N vezes ou carne. */
@@ -85,6 +121,11 @@ export interface Parcelamento {
   readonly valorParcelaCentavos: Centavos
   readonly quantidadeParcelas: number
   readonly primeiroVencimento: DataISO
+  /**
+   * Nulo significa "nao categorizado" -- nao e erro nem valor faltando, e
+   * aparece no relatorio como uma linha propria.
+   */
+  readonly categoria: Categoria | null
 }
 
 /**
@@ -123,6 +164,11 @@ export interface Ocorrencia {
   readonly pagamentoRegistradoEm: string | null
   readonly ignorado: boolean
   readonly observacao: string | null
+  /**
+   * Nulo significa "nao categorizado" -- nao e erro nem valor faltando, e
+   * aparece no relatorio como uma linha propria.
+   */
+  readonly categoria: Categoria | null
 }
 
 export interface AncoraSaldo {
@@ -178,6 +224,11 @@ export interface OcorrenciaResolvida {
   readonly pagamentoRegistradoEm: string | null
   readonly ignorado: boolean
   readonly observacao: string | null
+  /**
+   * Nulo significa "nao categorizado" -- nao e erro nem valor faltando, e
+   * aparece no relatorio como uma linha propria.
+   */
+  readonly categoria: Categoria | null
 }
 
 export interface PontoCurva {

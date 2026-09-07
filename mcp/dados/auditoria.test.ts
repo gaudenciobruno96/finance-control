@@ -17,6 +17,7 @@ const REGRA: Regra = {
   ajusteFimDeSemana: 'nenhum',
   vigenteDe: '2026-01',
   vigenteAte: null,
+  categoria: null,
 }
 
 let container: StartedPostgreSqlContainer

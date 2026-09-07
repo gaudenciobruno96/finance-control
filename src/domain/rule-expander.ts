@@ -71,6 +71,7 @@ export function expandirRegras(
         pagamentoRegistradoEm: null,
         ignorado: false,
         observacao: null,
+        categoria: regra.categoria,
       })
     }
   }

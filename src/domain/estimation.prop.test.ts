@@ -31,6 +31,7 @@ const historico = (quantidade: number): fc.Arbitrary<readonly Ocorrencia[]> =>
         pagamentoRegistradoEm: null,
         ignorado: false,
         observacao: null,
+        categoria: null,
       })),
     )
 

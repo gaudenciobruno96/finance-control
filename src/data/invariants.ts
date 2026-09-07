@@ -14,6 +14,7 @@ import {
   ehDiaDoMesValido,
 } from '../domain/guards.js'
 import { comparar } from '../domain/calendar.js'
+import { CATEGORIAS } from '../domain/types.js'
 import type {
   AncoraSaldo,
   DataISO,
@@ -37,6 +38,10 @@ function ehInstanteValido(v: string): boolean {
   return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u.test(v)
 }
 
+function ehCategoriaValida(v: unknown): boolean {
+  return typeof v === 'string' && (CATEGORIAS as readonly string[]).includes(v)
+}
+
 export function validarRegra(r: Regra): void {
   exigir(ehCentavosValido(r.valorCentavos), 'VALOR_NAO_INTEIRO')
   exigir(r.valorCentavos > 0, 'VALOR_NAO_POSITIVO')
@@ -46,6 +51,10 @@ export function validarRegra(r: Regra): void {
   if (r.vigenteAte !== null) {
     exigir(ehCompetenciaValida(r.vigenteAte), 'COMPETENCIA_INVALIDA')
     exigir(r.vigenteDe <= r.vigenteAte, 'VIGENCIA_INVERTIDA')
+  }
+
+  if (r.categoria !== null) {
+    exigir(ehCategoriaValida(r.categoria), 'CATEGORIA_INVALIDA')
   }
 }
 
@@ -57,6 +66,10 @@ export function validarParcelamento(p: Parcelamento): void {
     'QUANTIDADE_PARCELAS_INVALIDA',
   )
   exigir(ehDataValida(p.primeiroVencimento), 'DATA_INVALIDA')
+
+  if (p.categoria !== null) {
+    exigir(ehCategoriaValida(p.categoria), 'CATEGORIA_INVALIDA')
+  }
 }
 
 export function validarOcorrencia(o: Ocorrencia): void {
@@ -90,6 +103,10 @@ export function validarOcorrencia(o: Ocorrencia): void {
 
   if (o.pagamentoRegistradoEm !== null) {
     exigir(ehInstanteValido(o.pagamentoRegistradoEm), 'INSTANTE_INVALIDO')
+  }
+
+  if (o.categoria !== null) {
+    exigir(ehCategoriaValida(o.categoria), 'CATEGORIA_INVALIDA')
   }
 }
 

@@ -10,6 +10,7 @@ function parcelamento(over: Partial<Parcelamento> = {}): Parcelamento {
     valorParcelaCentavos: 25_000,
     quantidadeParcelas: 10,
     primeiroVencimento: '2026-08-15',
+    categoria: null,
     ...over,
   }
 }

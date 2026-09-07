@@ -55,6 +55,9 @@ function paraRegra(l: LinhaRegra): Regra {
     ajusteFimDeSemana: l.ajuste_fim_de_semana as Regra['ajusteFimDeSemana'],
     vigenteDe: l.vigente_de,
     vigenteAte: l.vigente_ate,
+    // A coluna ainda nao existe no schema Postgres (chega na tarefa que
+    // persiste o campo); ate la, toda linha volta sem categoria.
+    categoria: null,
   }
 }
 
@@ -73,6 +76,9 @@ function paraParcelamento(l: LinhaParcelamento): Parcelamento {
     valorParcelaCentavos: l.valor_parcela_centavos,
     quantidadeParcelas: l.quantidade_parcelas,
     primeiroVencimento: l.primeiro_vencimento,
+    // A coluna ainda nao existe no schema Postgres (chega na tarefa que
+    // persiste o campo); ate la, toda linha volta sem categoria.
+    categoria: null,
   }
 }
 
@@ -108,6 +114,9 @@ function paraOcorrencia(l: LinhaOcorrencia): Ocorrencia {
       l.pagamento_registrado_em === null ? null : l.pagamento_registrado_em.toISOString(),
     ignorado: l.ignorado,
     observacao: l.observacao,
+    // A coluna ainda nao existe no schema Postgres (chega na tarefa que
+    // persiste o campo); ate la, toda linha volta sem categoria.
+    categoria: null,
   }
 }
 

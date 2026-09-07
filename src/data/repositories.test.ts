@@ -33,6 +33,7 @@ function regra(over: Partial<Regra> = {}): Regra {
     ajusteFimDeSemana: 'nenhum',
     vigenteDe: '2026-01',
     vigenteAte: null,
+    categoria: null,
     ...over,
   }
 }
@@ -44,6 +45,7 @@ function parcelamento(over: Partial<Parcelamento> = {}): Parcelamento {
     valorParcelaCentavos: 30_000,
     quantidadeParcelas: 10,
     primeiroVencimento: '2026-08-28',
+    categoria: null,
     ...over,
   }
 }
@@ -63,6 +65,7 @@ function ocorrencia(over: Partial<Ocorrencia> = {}): Ocorrencia {
     pagamentoRegistradoEm: null,
     ignorado: false,
     observacao: null,
+    categoria: null,
     ...over,
   }
 }

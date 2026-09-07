@@ -46,6 +46,8 @@ export async function lancarAvulso(app: AppPg, args: ArgsLancarAvulso): Promise<
     pagamentoRegistradoEm: null,
     ignorado: false,
     observacao: args.observacao ?? null,
+    // Categorizar pela ferramenta chega na Task 3.
+    categoria: null,
   }
 
   await app.repos.ocorrencias.salvar(ocorrencia)

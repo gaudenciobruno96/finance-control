@@ -47,6 +47,8 @@ export async function cadastrarRecorrente(
     ajusteFimDeSemana: args.ajusteFimDeSemana ?? ajustePadrao(args.tipo),
     vigenteDe: args.vigenteDe,
     vigenteAte: null,
+    // Categorizar pela ferramenta chega na Task 3.
+    categoria: null,
   }
 
   // `salvar` chama `validarRegra`, que rejeita dia 40 e centavo fracionado.
