@@ -118,3 +118,25 @@ frio do Nixpacks.
 Criar o serviço, definir as variáveis de ambiente, gerar o domínio público e
 conectar o connector no claude.ai são passos manuais, feitos fora deste
 repositório — não fazem parte do que este README automatiza.
+
+## Por que o `buildCommand` é um `echo`
+
+O servidor roda TypeScript direto, via `tsx` — não há passo de build. Mas o
+`package.json` tem um script `build` que gera o PWA com o Vite, e o detector
+da Railway o encontra: ele roda `npm run build`, vê a pasta `dist/`
+resultante, conclui "site estático" e passa a servir arquivos com o Caddy,
+ignorando o `startCommand`.
+
+O sintoma é característico e não parece um erro: o domínio responde, mas todo
+`POST /mcp` devolve **405 Method Not Allowed**, e o log de deploy fica cheio
+de `handled request` — que é o Caddy, não o Express.
+
+O `echo` no `buildCommand` existe para impedir isso. O `.railwayignore` **não**
+cobre este caso: ali o `dist/` é gerado durante o build, não enviado no
+pacote.
+
+O mesmo `buildCommand` e `startCommand` estão gravados na configuração do
+serviço na Railway, que tem precedência sobre este arquivo. Manter os dois em
+acordo é o que evita que uma troca de builder pela plataforma — como a de
+Nixpacks para Railpack, que já aconteceu uma vez — volte a derrubar o
+servidor sem aviso.
