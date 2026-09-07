@@ -5,6 +5,18 @@ import {
   ORCAMENTO_SIMPLES,
 } from '../fixtures/orcamento-simples.js'
 import { situacaoDoMes } from './situacao-do-mes.js'
+import type { DocumentoBackup } from '../../src/data/backup-serializer.js'
+
+/**
+ * Mesmo orcamento simples, mas com o aluguel classificado -- serve so para
+ * provar que a categoria atravessa ate a lista de faltaPagar.
+ */
+const ORCAMENTO_COM_CATEGORIA: DocumentoBackup = {
+  ...ORCAMENTO_SIMPLES,
+  regras: ORCAMENTO_SIMPLES.regras.map((r) =>
+    r.id === 'r-aluguel' ? { ...r, categoria: 'moradia' as const } : r,
+  ),
+}
 
 describe('situacaoDoMes', () => {
   it('usa o mes de hoje quando a competencia nao vem', async () => {
@@ -34,6 +46,19 @@ describe('situacaoDoMes', () => {
 
     expect(r.faltaPagar.map((i) => i.nome)).toContain('Aluguel')
     expect(r.faltaPagar.every((i) => i.tipo === 'saida')).toBe(true)
+    await app.encerrar()
+  })
+
+  it('mostra a categoria de uma conta classificada em faltaPagar', async () => {
+    // Categoria existe para o usuario conferir o que foi classificado (ou a
+    // sugestao do modelo) direto na lista -- sem chegar em faltaPagar, ela
+    // fica invisivel mesmo estando correta no banco.
+    const app = await criarAppDoBackup(ORCAMENTO_COM_CATEGORIA)
+
+    const r = await situacaoDoMes(app, { competencia: '2026-03', hoje: '2026-03-20' })
+
+    const aluguel = r.faltaPagar.find((i) => i.nome === 'Aluguel')
+    expect(aluguel?.categoria).toBe('moradia')
     await app.encerrar()
   })
 

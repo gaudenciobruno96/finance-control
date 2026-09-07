@@ -58,6 +58,15 @@ describe('item', () => {
     expect(item(base).chave).toBe('regra|r-luz|2026-03')
     expect(item(base)).not.toHaveProperty('idReal')
   })
+
+  it('propaga a categoria da ocorrencia', () => {
+    // O fixture `base` usa categoria: null so para satisfazer o tipo -- aqui
+    // se prova que um valor NAO nulo atravessa o formatador. Sem isso, um
+    // `item()` que sempre devolvesse null passaria despercebido.
+    const comCategoria = { ...base, categoria: 'mercado' as const }
+
+    expect(item(comCategoria).categoria).toBe('mercado')
+  })
 })
 
 describe('ponto', () => {
