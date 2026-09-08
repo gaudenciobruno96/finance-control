@@ -219,4 +219,69 @@ describe('definirCategoria', () => {
     const [materializada] = await app.repos.ocorrencias.listar()
     expect(materializada?.categoria).toBe('moradia')
   })
+
+  /**
+   * A contrapartida de RN-52: como a regra nao alcanca o mes ja pago, precisa
+   * existir um caminho que alcance -- e existe, `tipo: 'avulso'` sobre o id da
+   * ocorrencia. O nome do tipo vem do vocabulario de `desfazer` e sugere menos
+   * do que ele faz: aqui a ocorrencia veio de uma REGRA.
+   *
+   * A ferramenta agora promete isso na descricao, no recibo e na mensagem de
+   * erro. Este teste e o que impede a promessa de virar mentira.
+   */
+  it("tipo 'avulso' recategoriza um mes ja pago que veio de uma regra", async () => {
+    await cadastrarRecorrente(app, {
+      tipo: 'saida',
+      nome: 'Aluguel',
+      valor: '1800,00',
+      diaDoMes: 10,
+      vigenteDe: '2026-09',
+      categoria: 'outros',
+    })
+
+    const m = await situacaoDoMes(app, { competencia: '2026-09', hoje: HOJE })
+    const chave = m.faltaPagar.find((i) => i.nome === 'Aluguel')!.chave
+    await marcarPago(app, { chave, hoje: HOJE })
+
+    const [congelada] = await app.repos.ocorrencias.listar()
+    expect(congelada?.geradorTipo).toBe('regra')
+
+    const recibo = await definirCategoria(app, {
+      tipo: 'avulso',
+      id: congelada!.id,
+      categoria: 'moradia',
+      hoje: HOJE,
+    })
+
+    expect(recibo.antes).toBe('outros')
+    expect((await app.repos.ocorrencias.obter(congelada!.id))?.categoria).toBe('moradia')
+  })
+
+  /** O recibo precisa dizer as duas coisas: o que NAO muda, e como mudar. */
+  it('o aviso da recorrencia aponta o caminho para os meses ja pagos', async () => {
+    const r = await regraSemCategoria()
+
+    const recibo = await definirCategoria(app, {
+      tipo: 'recorrente',
+      id: r.id,
+      categoria: 'moradia',
+      hoje: HOJE,
+    })
+
+    const avisos = recibo.avisos.join(' ')
+    expect(avisos).toContain('já pagos')
+    expect(avisos).toContain('avulso')
+  })
+
+  /** A mensagem nao pode dizer "lancamento avulso": esconderia o uso acima. */
+  it('a recusa por id inexistente nao restringe o tipo avulso a lancamentos avulsos', async () => {
+    await expect(
+      definirCategoria(app, {
+        tipo: 'avulso',
+        id: 'nao-existe',
+        categoria: 'moradia',
+        hoje: HOJE,
+      }),
+    ).rejects.toThrow(/qualquer conta/iu)
+  })
 })

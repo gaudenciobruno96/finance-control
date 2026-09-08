@@ -92,13 +92,31 @@ cada lançamento numa pergunta a mais.
 `tipo` é `'recorrente' | 'parcelamento' | 'avulso'`, o mesmo vocabulário que
 `desfazer` já usa. `id` vem do recibo ou do `exportar`.
 
-Esta é a ferramenta que resolve o retroativo: as sete recorrências e sete
-parcelamentos existentes ganham categoria sem serem apagados e recriados. Sem
-ela o relatório nasce vazio e só ficaria útil depois de meses de lançamentos
-novos.
+É como as sete recorrências e sete parcelamentos existentes ganham categoria
+sem serem apagados e recriados. Sem ela o relatório só ficaria útil depois de
+meses de lançamentos novos.
 
 Também é como se corrige uma classificação errada — passar a categoria nova
 sobrescreve.
+
+**O alcance de cada tipo não é o mesmo.** Categorizar uma recorrência ou um
+parcelamento muda o *molde*: vale do próximo pagamento em diante. Os meses já
+pagos continuam exatamente onde estavam, porque uma ocorrência materializada
+congelou a categoria que tinha — RN-52, a mesma regra que congela nome e valor.
+Um mês já pago de uma regra recém-categorizada continua somando em
+`sem_categoria`.
+
+O que alcança o passado é `tipo: 'avulso'`, que resolve **qualquer** ocorrência
+pelo id — tenha ela vindo de avulso, de regra ou de parcelamento. Uma conta já
+paga se recategoriza assim, uma por chamada, com o id que `exportar` mostra. O
+nome do tipo vem do vocabulário de `desfazer`; o alcance é maior do que ele
+sugere, e por isso a descrição da ferramenta e a mensagem de erro dizem isso em
+voz alta.
+
+O retroativo, portanto, é resolvido em dois movimentos: categorizar o molde
+para que o futuro nasça certo, e corrigir mês a mês o passado que importar.
+Recategorizar meses em lote não existe, e foi aceito assim: o histórico é curto
+e cada correção é uma chamada.
 
 ### `historico_de_gastos` ganha `agruparPor: 'nome' | 'categoria'`
 
