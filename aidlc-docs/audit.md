@@ -895,3 +895,18 @@
 **Context**: Texto livre foi recusado por fragmentar em silencio (Mercado/mercado/Supermercado viram tres setores). A limitacao aceita: fatura de cartao e um agregado e recebe `cartao` — significativa no caso dele, porque Nubank e Sicredi somam a maior parte do gasto variavel.
 
 ---
+## Execucao — categorias de gasto
+**Timestamp**: 2026-09-08T00:00:00Z
+**User Input**: "1" (subagent-driven)
+**AI Response**: Quatro tarefas no branch `categorias-de-gasto`: o tipo Categoria e a heranca no dominio, a persistencia, as escritas com definir_categoria, e o relatorio por categoria (17 -> 18 ferramentas).
+**Context**: Na Task 1 o implementador achou sozinho a mesma classe de regressao que a revisao final do projeto anterior pegou — campo obrigatorio novo quebra backup antigo porque ausente e `undefined`, nao `null` — e corrigiu com VERSAO_SCHEMA 4. O plano ja trazia essa licao escrita nas constraints.
+
+---
+
+## Revisao final — quatro Important
+**Timestamp**: 2026-09-08T00:30:00Z
+**User Input**: (1) Retroativo: "Deixar claro e seguir em frente". (2) Demais: "Corrigir os três antes do merge". (3) Residual: "Corrigir as três strings".
+**AI Response**: I1: `nome` + agruparPor:'categoria' devolvia quebra por setor de um SUBCONJUNTO com totalGeral incluso, sem ecoar o filtro — a resposta passa a ecoar nome e eixo. I2 (ERRO MEU NA SPEC): eu escrevi que definir_categoria "resolve o retroativo", e nao resolve o historico — ocorrencia paga congela a categoria (RN-52). Corrigido em texto: a ferramenta agora diz que vale das ocorrencias ainda nao materializadas, e que uma conta ja paga se corrige com tipo 'avulso', que alcanca qualquer ocorrencia. I3: backup-validator aceitava qualquer texto como categoria. I4: mcp/server.ts (stdio) sem agruparPor.
+**Context**: A re-revisao achou um defeito introduzido pela propria onda: os avisos novos diziam "a partir do proximo pagamento", mas a fronteira e materializacao — ajustar_conta, registrar_parte e ignorar_conta tambem materializam. Corrigido a pedido do usuario. Suite final: 740/740 em 68 arquivos.
+
+---
