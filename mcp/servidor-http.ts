@@ -239,14 +239,24 @@ function criarServidorMcp(app: AppPg): McpServer {
         'Responde "quanto eu gastei com isso?". Olha o PASSADO ja pago, nos ' +
         'ultimos meses, agregado por nome ou por categoria (agruparPor). Nao ' +
         'mostra previsao nem conta em aberto -- para isso use situacao_do_mes ' +
-        'ou o_que_vence.',
+        'ou o_que_vence. `nome` e `agruparPor` COMPOEM: `nome` recorta o ' +
+        'conjunto somado, `agruparPor` escolhe o eixo da soma. Com os dois, o ' +
+        'resultado e a quebra por setor APENAS do que casou com o nome -- nao ' +
+        'o gasto total do mes. A resposta ecoa `nome` e `agruparPor`: so e ' +
+        'seguro chamar o total de "tudo" quando `nome` volta nulo.',
       inputSchema: {
         meses: z.number().int().min(1).max(60).optional().describe('Janela em meses. Padrao: 6'),
-        nome: z.string().optional().describe('Filtra por nome, sem diferenciar maiuscula'),
+        nome: z
+          .string()
+          .optional()
+          .describe(
+            'Recorta o conjunto por nome, sem diferenciar maiuscula. Omita ' +
+              'para somar todas as saidas pagas da janela',
+          ),
         agruparPor: z
           .enum(['nome', 'categoria'])
           .optional()
-          .describe('Eixo do agrupamento. Padrao: nome'),
+          .describe('Eixo do agrupamento, independente do filtro. Padrao: nome'),
         hoje: DATA.optional().describe('Data de referencia. Padrao: hoje'),
       },
     },
@@ -581,11 +591,21 @@ function criarServidorMcp(app: AppPg): McpServer {
       description:
         'Define ou corrige a categoria de algo que ja existe, usando o id do ' +
         'recibo ou de exportar. E como se categoriza o que foi cadastrado ' +
-        'antes de as categorias existirem. Vale para os proximos meses: as ' +
-        'contas ja materializadas guardam a categoria que tinham quando ' +
-        'aconteceram.',
+        'antes de as categorias existirem. ATENCAO ao alcance de cada tipo: ' +
+        "com 'recorrente' ou 'parcelamento' a mudanca vale do PROXIMO " +
+        'pagamento em diante -- os meses ja pagos mantem a categoria que ' +
+        'tinham e continuam onde estao no relatorio, entao categorizar uma ' +
+        'regra NAO conserta o historico. Para corrigir um mes ja pago, chame ' +
+        "com tipo 'avulso' e o id daquela conta: esse tipo alcanca QUALQUER " +
+        'conta de um mes (avulsa, de recorrencia ou de parcelamento), um mes ' +
+        'por chamada. Os ids das contas ja pagas estao em exportar.',
       inputSchema: {
-        tipo: z.enum(['recorrente', 'parcelamento', 'avulso']),
+        tipo: z
+          .enum(['recorrente', 'parcelamento', 'avulso'])
+          .describe(
+            "'recorrente'/'parcelamento' valem do proximo pagamento em " +
+              "diante; 'avulso' muda UMA conta ja existente, de qualquer origem",
+          ),
         id: z.string().min(1).describe('O id do recibo ou de exportar'),
         categoria: z.enum(CATEGORIAS),
         hoje: DATA.optional().describe('Data de referencia. Padrao: hoje'),
@@ -663,7 +683,10 @@ function criarServidorMcp(app: AppPg): McpServer {
                   ajusteFimDeSemana: z.enum(['nenhum', 'antecipa', 'posterga']),
                   vigenteDe: COMPETENCIA,
                   vigenteAte: COMPETENCIA.nullable(),
-                  // Categorizar o hipotetico chega na Task 3.
+                  // O hipotetico nao tem categoria: ele nao existe em lugar
+                  // nenhum e nao entra em relatorio -- simular_cenario compara
+                  // curvas de saldo, nao soma por setor. z.null() e como isso
+                  // se diz ao modelo.
                   categoria: z.null().default(null),
                 }),
               }),
@@ -680,7 +703,10 @@ function criarServidorMcp(app: AppPg): McpServer {
                   // por chamada).
                   quantidadeParcelas: z.number().int().min(1).max(360),
                   primeiroVencimento: DATA,
-                  // Categorizar o hipotetico chega na Task 3.
+                  // O hipotetico nao tem categoria: ele nao existe em lugar
+                  // nenhum e nao entra em relatorio -- simular_cenario compara
+                  // curvas de saldo, nao soma por setor. z.null() e como isso
+                  // se diz ao modelo.
                   categoria: z.null().default(null),
                 }),
               }),
@@ -705,7 +731,10 @@ function criarServidorMcp(app: AppPg): McpServer {
                   pagamentoRegistradoEm: z.null().default(null),
                   ignorado: z.boolean().default(false),
                   observacao: z.string().nullable(),
-                  // Categorizar o hipotetico chega na Task 3.
+                  // O hipotetico nao tem categoria: ele nao existe em lugar
+                  // nenhum e nao entra em relatorio -- simular_cenario compara
+                  // curvas de saldo, nao soma por setor. z.null() e como isso
+                  // se diz ao modelo.
                   categoria: z.null().default(null),
                 }),
               }),

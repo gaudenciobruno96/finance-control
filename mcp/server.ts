@@ -136,21 +136,37 @@ server.registerTool(
   {
     title: 'Historico de gastos',
     description:
-      'Quanto foi efetivamente pago, agregado por nome, nos ultimos meses. ' +
-      'Considera apenas saidas ja pagas -- entradas e previsoes ficam de fora. ' +
-      'Use para comparar meses e identificar tendencia.',
+      'Quanto foi efetivamente pago, agregado por nome ou por categoria ' +
+      '(agruparPor), nos ultimos meses. Considera apenas saidas ja pagas -- ' +
+      'entradas e previsoes ficam de fora. Use para comparar meses e ' +
+      'identificar tendencia. `nome` e `agruparPor` COMPOEM: `nome` recorta o ' +
+      'conjunto somado, `agruparPor` escolhe o eixo da soma. Com os dois, o ' +
+      'resultado e a quebra por setor APENAS do que casou com o nome -- nao o ' +
+      'gasto total do mes. A resposta ecoa `nome` e `agruparPor`: so e seguro ' +
+      'chamar o total de "tudo" quando `nome` volta nulo.',
     inputSchema: {
       meses: z.number().int().min(1).max(60).optional().describe('Janela em meses. Padrao: 6'),
-      nome: z.string().optional().describe('Filtra por nome, sem diferenciar maiuscula'),
+      nome: z
+        .string()
+        .optional()
+        .describe(
+          'Recorta o conjunto por nome, sem diferenciar maiuscula. Omita ' +
+            'para somar todas as saidas pagas da janela',
+        ),
+      agruparPor: z
+        .enum(['nome', 'categoria'])
+        .optional()
+        .describe('Eixo do agrupamento, independente do filtro. Padrao: nome'),
       hoje: DATA.optional().describe('Data de referencia. Padrao: hoje'),
     },
   },
-  async ({ meses, nome, hoje }) => {
+  async ({ meses, nome, agruparPor, hoje }) => {
     const app = await obterApp()
     return json(
       await historicoDeGastos(app, {
         ...(meses === undefined ? {} : { meses }),
         ...(nome === undefined ? {} : { nome }),
+        ...(agruparPor === undefined ? {} : { agruparPor }),
         hoje: hoje ?? hojeDoSistema(),
       }),
     )
@@ -182,7 +198,10 @@ server.registerTool(
                 ajusteFimDeSemana: z.enum(['nenhum', 'antecipa', 'posterga']),
                 vigenteDe: COMPETENCIA,
                 vigenteAte: COMPETENCIA.nullable(),
-                // Categorizar o hipotetico chega na Task 3.
+                // O hipotetico nao tem categoria: ele nao existe em lugar
+                // nenhum e nao entra em relatorio -- simular_cenario compara
+                // curvas de saldo, nao soma por setor. z.null() e como isso
+                // se diz ao modelo.
                 categoria: z.null().default(null),
               }),
             }),
@@ -193,7 +212,10 @@ server.registerTool(
                 valorParcelaCentavos: z.number().int(),
                 quantidadeParcelas: z.number().int().min(1),
                 primeiroVencimento: DATA,
-                // Categorizar o hipotetico chega na Task 3.
+                // O hipotetico nao tem categoria: ele nao existe em lugar
+                // nenhum e nao entra em relatorio -- simular_cenario compara
+                // curvas de saldo, nao soma por setor. z.null() e como isso
+                // se diz ao modelo.
                 categoria: z.null().default(null),
               }),
             }),
@@ -218,7 +240,10 @@ server.registerTool(
                 pagamentoRegistradoEm: z.null().default(null),
                 ignorado: z.boolean().default(false),
                 observacao: z.string().nullable(),
-                // Categorizar o hipotetico chega na Task 3.
+                // O hipotetico nao tem categoria: ele nao existe em lugar
+                // nenhum e nao entra em relatorio -- simular_cenario compara
+                // curvas de saldo, nao soma por setor. z.null() e como isso
+                // se diz ao modelo.
                 categoria: z.null().default(null),
               }),
             }),
