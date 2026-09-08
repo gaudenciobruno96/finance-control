@@ -59,7 +59,7 @@ export async function definirCategoria(
       depois: args.categoria,
       resumo: `"${regra.nome}" agora é ${args.categoria}.`,
       avisos: [
-        'Vale a partir do próximo pagamento. Os meses já pagos continuam com a categoria que tinham, e não mudam de lugar no relatório.',
+        'Os meses já pagos, ajustados, adiados ou ignorados continuam com a categoria que tinham, e não mudam de lugar no relatório; o efeito começa no próximo mês que ainda não for pago, ajustado, adiado ou ignorado.',
         'Para corrigir um mês já pago, chame definir_categoria de novo com tipo "avulso" e o id daquela conta (veja em exportar) — um mês por chamada.',
       ],
     }
@@ -82,7 +82,7 @@ export async function definirCategoria(
       depois: args.categoria,
       resumo: `"${p.nome}" agora é ${args.categoria}.`,
       avisos: [
-        'Vale a partir da próxima parcela. As parcelas já pagas continuam com a categoria que tinham, e não mudam de lugar no relatório.',
+        'As parcelas já pagas, ajustadas, adiadas ou ignoradas continuam com a categoria que tinham, e não mudam de lugar no relatório; o efeito começa na próxima parcela que ainda não for paga, ajustada, adiada ou ignorada.',
         'Para corrigir uma parcela já paga, chame definir_categoria de novo com tipo "avulso" e o id daquela parcela (veja em exportar) — uma parcela por chamada.',
       ],
     }

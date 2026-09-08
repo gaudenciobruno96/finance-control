@@ -273,6 +273,27 @@ describe('definirCategoria', () => {
     expect(avisos).toContain('avulso')
   })
 
+  /** A mesma promessa de RN-52, agora para parcelamento. */
+  it('o aviso do parcelamento aponta o caminho para as parcelas ja pagas', async () => {
+    const p = await cadastrarParcelamento(app, {
+      nome: 'Geladeira',
+      valorParcela: '300,00',
+      quantidadeParcelas: 3,
+      primeiroVencimento: '2026-10-20',
+    })
+
+    const recibo = await definirCategoria(app, {
+      tipo: 'parcelamento',
+      id: p.id,
+      categoria: 'compras',
+      hoje: HOJE,
+    })
+
+    const avisos = recibo.avisos.join(' ')
+    expect(avisos).toContain('já pagas')
+    expect(avisos).toContain('avulso')
+  })
+
   /** A mensagem nao pode dizer "lancamento avulso": esconderia o uso acima. */
   it('a recusa por id inexistente nao restringe o tipo avulso a lancamentos avulsos', async () => {
     await expect(

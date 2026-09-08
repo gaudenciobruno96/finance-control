@@ -592,13 +592,16 @@ function criarServidorMcp(app: AppPg): McpServer {
         'Define ou corrige a categoria de algo que ja existe, usando o id do ' +
         'recibo ou de exportar. E como se categoriza o que foi cadastrado ' +
         'antes de as categorias existirem. ATENCAO ao alcance de cada tipo: ' +
-        "com 'recorrente' ou 'parcelamento' a mudanca vale do PROXIMO " +
-        'pagamento em diante -- os meses ja pagos mantem a categoria que ' +
-        'tinham e continuam onde estao no relatorio, entao categorizar uma ' +
-        'regra NAO conserta o historico. Para corrigir um mes ja pago, chame ' +
-        "com tipo 'avulso' e o id daquela conta: esse tipo alcanca QUALQUER " +
-        'conta de um mes (avulsa, de recorrencia ou de parcelamento), um mes ' +
-        'por chamada. Os ids das contas ja pagas estao em exportar.',
+        "com 'recorrente' ou 'parcelamento' a mudanca NAO alcanca os meses " +
+        'que ja tiverem conta paga, ajustada, adiada ou ignorada -- esses ' +
+        'mantem a categoria que tinham e continuam onde estao no relatorio, ' +
+        'entao categorizar uma regra NAO conserta o historico; o efeito ' +
+        'comeca no proximo mes que ainda nao passar por nenhuma dessas ' +
+        'acoes. Para corrigir um mes ja lancado (pago, ajustado, adiado ou ' +
+        "ignorado), chame com tipo 'avulso' e o id daquela conta: esse tipo " +
+        'alcanca QUALQUER conta de um mes (avulsa, de recorrencia ou de ' +
+        'parcelamento), um mes por chamada. Os ids dessas contas estao em ' +
+        'exportar.',
       inputSchema: {
         tipo: z
           .enum(['recorrente', 'parcelamento', 'avulso'])
