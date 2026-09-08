@@ -135,3 +135,136 @@ describe('validacao de backup (revisao #5)', () => {
     expect(validar(documento({ ...base, ignorado: 'nao' })).valido).toBe(false)
   })
 })
+
+/**
+ * O defeito: o validador nao olhava `categoria`.
+ *
+ * Um arquivo com `"Mercado"` -- maiuscula, fora da lista fixa -- passava como
+ * valido, o usuario via o resumo, confirmava, e so entao a importacao morria
+ * com um ErroDeDominio cru ("categoria fora da lista conhecida") vindo de
+ * dentro de `escrever`. Nenhum dado se perdia, mas o contrato deste modulo e
+ * recusar entrada nao confiavel com uma razao legivel ANTES do resumo.
+ *
+ * Editar o JSON a mao e o caminho natural de quem quer recategorizar contas ja
+ * pagas em lote, entao a entrada errada e provavel.
+ */
+describe('categoria fora da lista conhecida no arquivo', () => {
+  const REGRA = {
+    id: 'r1',
+    tipo: 'saida',
+    nome: 'Aluguel',
+    valorCentavos: 180_000,
+    valorEhEstimativa: false,
+    diaDoMes: 10,
+    ajusteFimDeSemana: 'nenhum',
+    vigenteDe: '2026-01',
+    vigenteAte: null,
+    categoria: null,
+  }
+
+  const PARCELAMENTO = {
+    id: 'p1',
+    nome: 'Notebook',
+    valorParcelaCentavos: 30_000,
+    quantidadeParcelas: 10,
+    primeiroVencimento: '2026-08-28',
+    categoria: null,
+  }
+
+  const OCORRENCIA = {
+    id: 'o1',
+    geradorTipo: 'avulso',
+    geradorId: null,
+    competencia: '2026-08',
+    tipo: 'saida',
+    nome: 'Feira',
+    valorPrevistoCentavos: 12_000,
+    dataVencimento: '2026-08-20',
+    dataPagamento: null,
+    valorPagoCentavos: null,
+    ignorado: false,
+    observacao: null,
+    categoria: null,
+  }
+
+  function doc(over: Record<string, unknown> = {}) {
+    return {
+      versaoSchema: VERSAO_SCHEMA,
+      exportadoEm: HOJE,
+      regras: [REGRA],
+      parcelamentos: [PARCELAMENTO],
+      ancoras: [],
+      configuracoes: [],
+      ocorrencias: [OCORRENCIA],
+      ...over,
+    }
+  }
+
+  it('aceita as categorias da lista, e nulo', () => {
+    const r = validar(
+      doc({
+        regras: [{ ...REGRA, categoria: 'moradia' }],
+        parcelamentos: [{ ...PARCELAMENTO, categoria: 'compras' }],
+        ocorrencias: [{ ...OCORRENCIA, categoria: 'mercado' }],
+      }),
+    )
+
+    expect(r.valido).toBe(true)
+    expect(validar(doc()).valido).toBe(true)
+  })
+
+  /**
+   * Backup anterior a versao 4 nao tem o campo, e `migrarDocumento` so o
+   * preenche DEPOIS da validacao. Recusar o ausente aqui tornaria todo arquivo
+   * antigo inimportavel.
+   */
+  it('aceita o campo ausente, como nos backups anteriores a versao 4', () => {
+    const { categoria: catRegra, ...regraSemCampo } = REGRA
+    const { categoria: catParcelamento, ...parcelamentoSemCampo } = PARCELAMENTO
+    const { categoria: catOcorrencia, ...ocorrenciaSemCampo } = OCORRENCIA
+    void catRegra
+    void catParcelamento
+    void catOcorrencia
+
+    expect(
+      validar(
+        doc({
+          regras: [regraSemCampo],
+          parcelamentos: [parcelamentoSemCampo],
+          ocorrencias: [ocorrenciaSemCampo],
+        }),
+      ).valido,
+    ).toBe(true)
+  })
+
+  it('recusa a regra com categoria fora da lista, com razao legivel', () => {
+    const r = validar(doc({ regras: [{ ...REGRA, categoria: 'Mercado' }] }))
+
+    expect(r.valido).toBe(false)
+    if (r.valido) return
+    expect(r.erro).toContain('regra')
+    expect(r.erro).toContain('categoria')
+  })
+
+  it('recusa o parcelamento com categoria fora da lista', () => {
+    const r = validar(doc({ parcelamentos: [{ ...PARCELAMENTO, categoria: 'eletronicos' }] }))
+
+    expect(r.valido).toBe(false)
+    if (r.valido) return
+    expect(r.erro).toContain('parcelamento')
+    expect(r.erro).toContain('categoria')
+  })
+
+  it('recusa o lancamento com categoria fora da lista', () => {
+    const r = validar(doc({ ocorrencias: [{ ...OCORRENCIA, categoria: 'mercadinho' }] }))
+
+    expect(r.valido).toBe(false)
+    if (r.valido) return
+    expect(r.erro).toContain('lancamento')
+    expect(r.erro).toContain('categoria')
+  })
+
+  it('recusa categoria que nem texto e', () => {
+    expect(validar(doc({ ocorrencias: [{ ...OCORRENCIA, categoria: 7 }] })).valido).toBe(false)
+  })
+})

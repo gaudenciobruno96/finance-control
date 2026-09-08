@@ -14,7 +14,7 @@ import {
   ehDiaDoMesValido,
 } from '../domain/guards.js'
 import { comparar } from '../domain/calendar.js'
-import type { Competencia } from '../domain/types.js'
+import { CATEGORIAS, type Competencia } from '../domain/types.js'
 import { VERSAO_SCHEMA } from './db.js'
 import type { DocumentoBackup } from './backup-serializer.js'
 
@@ -44,6 +44,28 @@ function ehObjeto(v: unknown): v is Record<string, unknown> {
 
 function ehTexto(v: unknown): v is string {
   return typeof v === 'string'
+}
+
+const CATEGORIAS_CONHECIDAS: ReadonlySet<string> = new Set<string>(CATEGORIAS)
+
+/**
+ * A categoria e uma lista FIXA, e nao ha check constraint no banco: o unico
+ * lugar que recusa `"Mercado"` no lugar de `"mercado"` e `validarRegra` e
+ * irmas, ja dentro de `escrever`.
+ *
+ * Sem esta verificacao o arquivo passava por aqui como valido, o usuario via o
+ * resumo e confirmava, e so entao a importacao morria com um ErroDeDominio cru
+ * ("categoria fora da lista conhecida") -- exatamente o que o contrato deste
+ * modulo promete que nao acontece. Editar o JSON a mao e o caminho natural de
+ * quem quer recategorizar em lote, entao a entrada errada e provavel.
+ *
+ * Ausente (`undefined`) nao e recusado aqui: todo backup anterior a versao 4
+ * vem sem o campo, e `migrarDocumento` o preenche com nulo DEPOIS da
+ * validacao.
+ */
+function ehCategoriaAceitavel(v: unknown): boolean {
+  if (v === null || v === undefined) return true
+  return ehTexto(v) && CATEGORIAS_CONHECIDAS.has(v)
 }
 
 /**
@@ -128,6 +150,9 @@ function validarRegras(lista: readonly unknown[]): string | null {
     if (item['vigenteAte'] !== null && !ehCompetenciaValida(item['vigenteAte'])) {
       return 'Ha uma regra com vigencia final invalida.'
     }
+    if (!ehCategoriaAceitavel(item['categoria'])) {
+      return 'Ha uma regra com categoria fora da lista conhecida.'
+    }
   }
   return null
 }
@@ -148,7 +173,9 @@ function validarParcelamentos(lista: readonly unknown[]): string | null {
     if (!ehDataValida(item['primeiroVencimento'])) {
       return 'Ha um parcelamento com data de vencimento invalida.'
     }
-
+    if (!ehCategoriaAceitavel(item['categoria'])) {
+      return 'Ha um parcelamento com categoria fora da lista conhecida.'
+    }
   }
   return null
 }
@@ -215,6 +242,10 @@ function validarOcorrencias(lista: readonly unknown[]): string | null {
       if (!ehCentavosValido(item['valorPagoCentavos'])) {
         return 'Ha um lancamento com valor pago invalido.'
       }
+    }
+
+    if (!ehCategoriaAceitavel(item['categoria'])) {
+      return 'Ha um lancamento com categoria fora da lista conhecida.'
     }
   }
   return null
