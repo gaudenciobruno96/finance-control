@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { ErroDeDominio } from '../domain/errors.js'
 import { criarBanco, type BancoFinanceiro } from './db.js'
 import { criarRepositorios, type Repositorios } from './repositories.js'
-import type { AncoraSaldo, Ocorrencia, Parcelamento, Regra } from '../domain/types.js'
+import type { AncoraSaldo, Categoria, Ocorrencia, Parcelamento, Regra } from '../domain/types.js'
 
 const HOJE = '2026-08-15'
 
@@ -139,6 +139,40 @@ describe('repositorios', () => {
       await expect(
         repos.ocorrencias.salvar(ocorrencia({ dataPagamento: null, valorPagoCentavos: 100 })),
       ).rejects.toThrow(ErroDeDominio)
+    })
+
+    /**
+     * A lista das quinze categorias NAO tem check constraint no banco, por
+     * decisao de desenho: quem a faz valer e `ehCategoriaValida`, chamada
+     * daqui. Sem este teste, faze-la devolver `true` incondicionalmente
+     * passaria na suite inteira -- a unica barreira do dominio ficaria sem
+     * nenhuma prova.
+     *
+     * 'Mercado' e o erro provavel de verdade: a categoria certa existe, so que
+     * em minuscula.
+     */
+    it('rejeita categoria fora da lista das quinze, nos tres tipos', async () => {
+      const foraDaLista = 'Mercado' as unknown as Categoria
+
+      await expect(
+        repos.regras.salvar(regra({ categoria: foraDaLista })),
+      ).rejects.toThrowError(expect.objectContaining({ codigo: 'CATEGORIA_INVALIDA' }))
+
+      await expect(
+        repos.parcelamentos.salvar(parcelamento({ categoria: foraDaLista })),
+      ).rejects.toThrowError(expect.objectContaining({ codigo: 'CATEGORIA_INVALIDA' }))
+
+      await expect(
+        repos.ocorrencias.salvar(ocorrencia({ categoria: foraDaLista })),
+      ).rejects.toThrowError(expect.objectContaining({ codigo: 'CATEGORIA_INVALIDA' }))
+
+      // Sem tocar o banco.
+      expect(await repos.regras.listar()).toHaveLength(0)
+      expect(await repos.parcelamentos.listar()).toHaveLength(0)
+
+      // E uma da lista continua passando -- a barreira nao rejeita tudo.
+      await repos.regras.salvar(regra({ categoria: 'moradia' }))
+      expect((await repos.regras.obter('r1'))?.categoria).toBe('moradia')
     })
   })
 
