@@ -79,6 +79,35 @@ describe('historicoDeGastos por categoria', () => {
     expect(h.totalGeral.valorCentavos).toBe(25_000)
   })
 
+  /**
+   * `nome` e `agruparPor` COMPOEM, e essa composicao e uma armadilha.
+   *
+   * "Quanto gastei com mercado esse mes?" convida a mandar `nome: 'mercado'` E
+   * `agruparPor: 'categoria'`. O que volta e uma quebra por setor com cara de
+   * completa -- linha propria, `totalGeral` -- de uma fracao do dinheiro. O
+   * eco de `nome` na resposta e a unica coisa que impede ler o total como "o
+   * gasto do mes".
+   */
+  it('compoe filtro por nome com agrupamento por categoria, e diz que filtrou', async () => {
+    await gastoPago('Mercado Dia', '200,00', 'mercado')
+    await gastoPago('Jaguar Sushi', '111,00', 'alimentacao_fora')
+
+    const h = await historicoDeGastos(app, {
+      nome: 'jaguar',
+      agruparPor: 'categoria',
+      hoje: HOJE,
+    })
+
+    // So o dinheiro do nome filtrado entra -- por setor, mas recortado.
+    expect(h.itens.map((i) => i.grupo)).toEqual(['alimentacao_fora'])
+    expect(h.itens[0]?.total.valorCentavos).toBe(11_100)
+    expect(h.totalGeral.valorCentavos).toBe(11_100)
+
+    // E a resposta conta que foi um recorte, em que eixo.
+    expect(h.nome).toBe('jaguar')
+    expect(h.agruparPor).toBe('categoria')
+  })
+
   it('agrupa por nome quando nao se pede categoria', async () => {
     await gastoPago('Supermercado A', '200,00', 'mercado')
     await gastoPago('Supermercado B', '150,00', 'mercado')

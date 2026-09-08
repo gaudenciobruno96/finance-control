@@ -100,6 +100,34 @@ describe('historicoDeGastos', () => {
     await app.encerrar()
   })
 
+  /**
+   * Sem filtro, `nome` volta nulo -- e nulo e a unica leitura de "este total e
+   * tudo que foi pago na janela". Com filtro, o eco impede a leitura errada.
+   */
+  it('ecoa o recorte aplicado e o eixo do agrupamento', async () => {
+    const app = await criarAppDoBackup(COM_HISTORICO)
+
+    const tudo = await historicoDeGastos(app, { meses: 6, hoje: '2026-03-20' })
+    expect(tudo.nome).toBeNull()
+    expect(tudo.agruparPor).toBe('nome')
+
+    const recorte = await historicoDeGastos(app, {
+      meses: 6,
+      nome: '  luz  ',
+      agruparPor: 'categoria',
+      hoje: '2026-03-20',
+    })
+    expect(recorte.nome).toBe('luz')
+    expect(recorte.agruparPor).toBe('categoria')
+
+    // Nome so de espacos nao recorta nada: ecoar como filtro seria mentira.
+    const vazio = await historicoDeGastos(app, { meses: 6, nome: '   ', hoje: '2026-03-20' })
+    expect(vazio.nome).toBeNull()
+    expect(vazio.totalGeral.valorCentavos).toBe(tudo.totalGeral.valorCentavos)
+
+    await app.encerrar()
+  })
+
   it('respeita a janela de meses', async () => {
     const app = await criarAppDoBackup(COM_HISTORICO)
 

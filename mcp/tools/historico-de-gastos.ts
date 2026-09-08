@@ -11,6 +11,12 @@
  * alimentacao?"). O filtro `nome` continua filtrando por nome nos dois casos
  * -- e um recorte do conjunto, o agrupamento e o eixo da soma, e sao coisas
  * independentes.
+ *
+ * Por isso a resposta ecoa os dois. Agrupando por nome o filtro era evidente
+ * -- os rotulos ERAM os nomes. Agrupando por categoria os rotulos sao setores,
+ * e um recorte por nome produziria uma quebra por setor completa na aparencia
+ * (com linha `sem_categoria` e `totalGeral`) de uma fracao do dinheiro. Com o
+ * eco, a resposta nunca pode ser lida como "tudo" quando e um subconjunto.
  */
 
 import { competenciaDe, somarMeses } from '../../src/domain/calendar.js'
@@ -34,6 +40,14 @@ export interface GastoPorGrupo {
 export interface HistoricoDeGastos {
   readonly de: string
   readonly ate: string
+  /**
+   * Filtro de nome efetivamente aplicado, ou nulo quando o relatorio cobre
+   * TODAS as saidas pagas da janela. Nulo e a unica leitura possivel de "isto
+   * e o total".
+   */
+  readonly nome: string | null
+  /** Eixo em que `itens[].grupo` esta expresso. */
+  readonly agruparPor: 'nome' | 'categoria'
   readonly itens: readonly GastoPorGrupo[]
   readonly totalGeral: Dinheiro
 }
@@ -51,13 +65,18 @@ export async function historicoDeGastos(
 
   const resolvidas = await app.projecao.resolverIntervalo(de, ate, args.hoje)
 
-  const filtro = args.nome?.trim().toLowerCase()
+  // Um filtro que sobra vazio depois do trim nao recorta nada -- ecoa-lo como
+  // filtro aplicado diria uma inverdade sobre o conjunto somado.
+  const aparado = args.nome?.trim() ?? ''
+  const nome = aparado === '' ? null : aparado
+  const filtro = nome?.toLowerCase() ?? null
+  const agruparPor = args.agruparPor ?? 'nome'
 
   const pagas = resolvidas.filter(
     (o) =>
       o.tipo === 'saida' &&
       o.situacao === 'pago' &&
-      (filtro === undefined || o.nome.toLowerCase().includes(filtro)),
+      (filtro === null || o.nome.toLowerCase().includes(filtro)),
   )
 
   // grupo -> competencia -> total
@@ -71,8 +90,7 @@ export async function historicoDeGastos(
     // Nulo vira uma linha propria em vez de sumir: um relatorio que soma
     // parte do dinheiro e o apresenta como o todo e pior que um que admite a
     // lacuna.
-    const chave =
-      args.agruparPor === 'categoria' ? (o.categoria ?? 'sem_categoria') : o.nome
+    const chave = agruparPor === 'categoria' ? (o.categoria ?? 'sem_categoria') : o.nome
 
     const porMes = porGrupo.get(chave) ?? new Map<string, number>()
     porMes.set(o.competencia, (porMes.get(o.competencia) ?? 0) + valor)
@@ -99,6 +117,8 @@ export async function historicoDeGastos(
   return {
     de,
     ate,
+    nome,
+    agruparPor,
     itens,
     totalGeral: dinheiro(itens.reduce((t, i) => t + i.total.valorCentavos, 0)),
   }
